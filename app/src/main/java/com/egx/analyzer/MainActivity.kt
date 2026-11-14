@@ -48,18 +48,23 @@ class MainActivity : ComponentActivity() {
         setContent { MaterialTheme { AnalyzerScreen(::readCsv) } }
     }
 
-    private fun readCsv(uri: Uri): Pair<List<Candle>, String> = try {
-        val input = contentResolver.openInputStream(uri) ?: return Pair(emptyList(), "تعذر فتح الملف")
-        val rows = BufferedReader(InputStreamReader(input)).use { it.readLines() }
-        val parsed = rows.drop(1).mapNotNull { line ->
-            val p = line.split(",").map { it.trim().trim('"') }
-            if (p.size < 6) null else try {
-                Candle(p[0], p[1].toDouble(), p[2].toDouble(), p[3].toDouble(),
-                    p[4].toDouble(), p[5].replace(",", "").toDoubleOrNull() ?: 0.0)
-            } catch (_: Exception) { null }
-        }.sortedBy { it.date }
-        Pair(parsed, if (parsed.size >= 20) "تم استيراد ${parsed.size} جلسة." else "تمت قراءة ${parsed.size} جلسة. يلزم 20 جلسة على الأقل.")
-    } catch (e: Exception) { Pair(emptyList(), "تعذرت قراءة الملف: ${e.message ?: "صيغة غير صحيحة"}") }
+    private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
+        return try {
+            val input = contentResolver.openInputStream(uri)
+                ?: return Pair(emptyList(), "تعذر فتح الملف")
+            val rows = BufferedReader(InputStreamReader(input)).use { it.readLines() }
+            val parsed = rows.drop(1).mapNotNull { line ->
+                val p = line.split(",").map { it.trim().trim('"') }
+                if (p.size < 6) null else try {
+                    Candle(p[0], p[1].toDouble(), p[2].toDouble(), p[3].toDouble(),
+                        p[4].toDouble(), p[5].replace(",", "").toDoubleOrNull() ?: 0.0)
+                } catch (_: Exception) { null }
+            }.sortedBy { it.date }
+            Pair(parsed, if (parsed.size >= 20) "تم استيراد ${parsed.size} جلسة." else "تمت قراءة ${parsed.size} جلسة. يلزم 20 جلسة على الأقل.")
+        } catch (e: Exception) {
+            Pair(emptyList(), "تعذرت قراءة الملف: ${e.message ?: "صيغة غير صحيحة"}")
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
