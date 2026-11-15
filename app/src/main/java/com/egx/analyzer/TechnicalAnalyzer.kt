@@ -26,7 +26,9 @@ data class Analysis(
     val scoreLabel: String,
     val volumeRatio: Double,
     val riskReward: Double?,
-    val scoreParts: List<ScorePart>
+    val scoreParts: List<ScorePart>,
+    val sessions: Int,
+    val volumeAvailable: Boolean
 )
 
 object TechnicalAnalyzer {
@@ -149,7 +151,7 @@ object TechnicalAnalyzer {
             volumeRatio >= 1.3 -> 12
             volumeRatio >= 0.8 -> 8
             volumeRatio > 0.0 -> 4
-            else -> 7
+            else -> 8
         }
         val structurePoints = when {
             nearestSupport != null && (last.close - nearestSupport) / last.close <= 0.025 && trend != "ضغط هابط" -> 15
@@ -163,7 +165,7 @@ object TechnicalAnalyzer {
             else -> 8
         }
         val riskPoints = when {
-            rr == null -> 5
+            rr == null -> 8
             rr >= 3.0 -> 20
             rr >= 2.0 -> 16
             rr >= 1.5 -> 12
@@ -179,17 +181,20 @@ object TechnicalAnalyzer {
             ScorePart("العائد إلى المخاطرة", riskPoints, 20)
         )
         val score = parts.sumOf { it.points }.coerceIn(0, 100)
+        // A low score alone is not enough to call a stock bearish. Require several
+        // independent bearish signals; otherwise classify mixed/uncertain readings as neutral.
+        val clearlyBearish = trend == "هابط" && rsi < 45.0 && macdHistogram < 0.0
         val label = when {
-            score >= 80 -> "إيجابي فنيًا"
-            score >= 65 -> "يميل للإيجابية"
-            score >= 45 -> "محايد / مراقبة"
-            else -> "ضعيف فنيًا"
+            score >= 75 && trend != "ضغط هابط" && trend != "هابط" -> "إيجابي فنيًا"
+            score >= 62 -> "يميل للإيجابية"
+            score <= 35 && clearlyBearish -> "ضعيف فنيًا"
+            else -> "محايد / مراقبة"
         }
         return Analysis(
             last, supports, resistances, rsi, s20, s50, macd, macdSignal,
             atr, bbLower, bbUpper, trend, patterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
-            volumeRatio, rr, parts
+            volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0
         )
     }
 
