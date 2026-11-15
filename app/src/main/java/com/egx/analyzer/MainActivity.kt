@@ -244,17 +244,22 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text("التقييم الفني التجميعي", color = Muted, fontSize = 12.sp)
-                                Text("${a.score} / 100", color = scoreColor(a.score), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                                Text("${a.score} / 100", color = scoreColor(a.scoreLabel), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                             }
-                            Text(a.scoreLabel, color = scoreColor(a.score), fontWeight = FontWeight.Bold)
+                            Text(a.scoreLabel, color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold)
                         }
                         LinearProgressIndicator(
                             progress = { a.score / 100f },
                             modifier = Modifier.fillMaxWidth().height(8.dp),
-                            color = scoreColor(a.score),
+                            color = scoreColor(a.scoreLabel),
                             trackColor = Page
                         )
                         Spacer(Modifier.height(9.dp))
+                        Text(
+                            if (a.sessions < 50) "تنبيه: أقل من 50 جلسة؛ اتجاه SMA50 غير متاح والتقييم مبدئي." else "عدد الجلسات: ${a.sessions} جلسة${if (a.volumeAvailable) " • بيانات الحجم متاحة" else " • بيانات الحجم غير مكتملة"}",
+                            color = Amber, fontSize = 11.sp, lineHeight = 16.sp
+                        )
+                        Spacer(Modifier.height(7.dp))
                         a.scoreParts.forEach { part ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(part.name, Modifier.weight(1f), color = Navy, fontSize = 11.sp)
@@ -351,10 +356,10 @@ fun Feature(title: String, desc: String) {
     }
 }
 
-private fun scoreColor(score: Int): Color = when {
-    score >= 70 -> Green
-    score >= 45 -> Amber
-    else -> Red
+private fun scoreColor(label: String): Color = when (label) {
+    "إيجابي فنيًا", "يميل للإيجابية" -> Green
+    "ضعيف فنيًا" -> Red
+    else -> Amber
 }
 private fun money(v: Double) = String.format(Locale.US, "%.2f", v)
 private fun one(v: Double) = String.format(Locale.US, "%.1f", v)
