@@ -39,7 +39,8 @@ data class Candle(val date: String, val open: Double, val high: Double, val low:
 data class Analysis(
     val last: Candle, val supports: List<Double>, val resistances: List<Double>,
     val rsi: Double, val sma20: Double?, val sma50: Double?, val macd: Double?,
-    val trend: String, val patterns: List<String>, val targets: List<Double>, val invalidation: Double?
+    val trend: String, val patterns: List<String>, val targets: List<Double>, val invalidation: Double?,
+    val score: Int, val scoreLabel: String, val volumeRatio: Double, val riskReward: Double?
 )
 
 class MainActivity : ComponentActivity() {
@@ -139,10 +140,17 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                     Metric("الاتجاه", a.trend, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
+                Metric("التقييم الفني", "${a.score}/100\n${a.scoreLabel}", Modifier.fillMaxWidth())
+                Spacer(Modifier.height(10.dp))
                 Text("الدعوم والمقاومات", color = Navy, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Metric("الدعم", a.supports.joinToString("\n") { money(it) }.ifBlank { "غير محدد" }, Modifier.weight(1f))
                     Metric("المقاومة", a.resistances.joinToString("\n") { money(it) }.ifBlank { "غير محدد" }, Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(12.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Metric("قوة السيولة", "${String.format(Locale.US, "%.2f", a.volumeRatio)} × متوسط 20 جلسة", Modifier.weight(1f))
+                    Metric("العائد / المخاطرة", a.riskReward?.let { String.format(Locale.US, "%.2f", it) } ?: "غير متاح", Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
                 Text("المؤشرات الفنية", color = Navy, fontWeight = FontWeight.Bold)
@@ -233,6 +241,49 @@ object TechnicalAnalyzer {
         val t2 = last.close + atr * 2.0
         val t3 = last.close + atr * 3.0
         val stop = supports.lastOrNull() ?: (last.close - atr)
-        return Analysis(last, supports, resistances, rsi, s20, s50, macd, trend, patterns, listOf(t1, t2, t3), stop)
+        val avgVolume20 = rows.takeLast(20).map { it.volume }.average().coerceAtLeast(1.0)
+        val volumeRatio = last.volume / avgVolume20
+        val trendPoints = when (trend) { "صاعد" -> 20; "هابط" -> 0; else -> 10 }
+        val patternPoints = when {
+            patterns.any { it.contains("ابتلاع شرائي") } -> 20
+            patterns.any { it.contains("ابتلاع بيعي") } -> 0
+            else -> 10
+        }
+        val volumePoints = when {
+            volumeRatio >= 1.5 -> 15
+            volumeRatio >= 1.2 -> 12
+            volumeRatio >= 0.8 -> 8
+            else -> 4
+        }
+        val momentumPoints = when {
+            rsi in 52.0..68.0 && (macd ?: 0.0) > 0.0 -> 15
+            rsi in 45.0..70.0 -> 10
+            rsi < 35.0 -> 7
+            else -> 4
+        }
+        val nearSupport = supports.any { last.close > it && (last.close - it) / last.close < 0.04 }
+        val structurePoints = when {
+            nearSupport && trend != "هابط" -> 15
+            resistances.firstOrNull()?.let { (it - last.close) / last.close < 0.02 } == true -> 4
+            else -> 9
+        }
+        val reward = (t1 - last.close).coerceAtLeast(0.0)
+        val risk = (last.close - stop).coerceAtLeast(0.000001)
+        val rr = if (reward > 0.0) reward / risk else null
+        val riskPoints = when {
+            rr == null -> 3
+            rr >= 2.5 -> 15
+            rr >= 2.0 -> 12
+            rr >= 1.5 -> 9
+            else -> 4
+        }
+        val score = (trendPoints + patternPoints + volumePoints + momentumPoints + structurePoints + riskPoints).coerceIn(0, 100)
+        val scoreLabel = when {
+            score >= 80 -> "إيجابي فنيًا"
+            score >= 65 -> "يميل للإيجابية"
+            score >= 45 -> "محايد / مراقبة"
+            else -> "ضعيف فنيًا"
+        }
+        return Analysis(last, supports, resistances, rsi, s20, s50, macd, trend, patterns, listOf(t1, t2, t3), stop, score, scoreLabel, volumeRatio, rr)
     }
 }
