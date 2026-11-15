@@ -241,7 +241,8 @@ object TechnicalAnalyzer {
         val t2 = last.close + atr * 2.0
         val t3 = last.close + atr * 3.0
         val stop = supports.lastOrNull() ?: (last.close - atr)
-        val avgVolume20 = rows.takeLast(20).map { it.volume }.average().coerceAtLeast(1.0)
+        val priorVolumes = rows.dropLast(1).takeLast(20).map { it.volume }
+        val avgVolume20 = (if (priorVolumes.isNotEmpty()) priorVolumes.average() else last.volume).coerceAtLeast(1.0)
         val volumeRatio = last.volume / avgVolume20
         val trendPoints = when (trend) { "صاعد" -> 20; "هابط" -> 0; else -> 10 }
         val patternPoints = when {
