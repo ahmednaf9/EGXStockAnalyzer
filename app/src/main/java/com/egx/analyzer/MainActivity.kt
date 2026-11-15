@@ -3,8 +3,8 @@ package com.egx.analyzer
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
-import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -27,20 +27,21 @@ import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
 import kotlin.math.abs
-import kotlin.math.max
-import kotlin.math.min
 
 private val Navy = Color(0xFF10243A)
 private val Green = Color(0xFF14966C)
 private val Page = Color(0xFFF3F6F9)
 private val Muted = Color(0xFF718096)
+private val Red = Color(0xFFC64D55)
+private val Amber = Color(0xFFB7791F)
 
-data class Candle(val date: String, val open: Double, val high: Double, val low: Double, val close: Double, val volume: Double)
-data class Analysis(
-    val last: Candle, val supports: List<Double>, val resistances: List<Double>,
-    val rsi: Double, val sma20: Double?, val sma50: Double?, val macd: Double?,
-    val trend: String, val patterns: List<String>, val targets: List<Double>, val invalidation: Double?,
-    val score: Int, val scoreLabel: String, val volumeRatio: Double, val riskReward: Double?
+data class Candle(
+    val date: String,
+    val open: Double,
+    val high: Double,
+    val low: Double,
+    val close: Double,
+    val volume: Double
 )
 
 class MainActivity : ComponentActivity() {
@@ -52,19 +53,90 @@ class MainActivity : ComponentActivity() {
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
         return try {
             val input = contentResolver.openInputStream(uri)
-                ?: return Pair(emptyList(), "تعذر فتح الملف")
-            val rows = BufferedReader(InputStreamReader(input)).use { it.readLines() }
-            val parsed = rows.drop(1).mapNotNull { line ->
-                val p = line.split(",").map { it.trim().trim('"') }
-                if (p.size < 6) null else try {
-                    Candle(p[0], p[1].toDouble(), p[2].toDouble(), p[3].toDouble(),
-                        p[4].toDouble(), p[5].replace(",", "").toDoubleOrNull() ?: 0.0)
+                ?: return emptyList<Candle>() to "تعذر فتح الملف."
+            val lines = BufferedReader(InputStreamReader(input)).use { it.readLines() }
+            if (lines.size < 2) return emptyList<Candle>() to "الملف فارغ أو لا يحتوي على بيانات."
+
+            val delimiter = when {
+                lines.first().count { it == ';' } > lines.first().count { it == ',' } -> ';'
+                lines.first().contains('\t') -> '\t'
+                else -> ','
+            }
+            val header = splitCsvLine(lines.first(), delimiter).map { it.trim().lowercase(Locale.ROOT) }
+            fun indexOf(vararg names: String, fallback: Int): Int {
+                val found = header.indexOfFirst { h -> names.any { h == it || h.contains(it) } }
+                return if (found >= 0) found else fallback
+            }
+            val dateI = indexOf("date", "التاريخ", fallback = 0)
+            val openI = indexOf("open", "الفتح", fallback = 1)
+            val highI = indexOf("high", "الأعلى", "اعلى", fallback = 2)
+            val lowI = indexOf("low", "الأدنى", "ادنى", fallback = 3)
+            val closeI = indexOf("close", "الإغلاق", "الاغلاق", fallback = 4)
+            val volumeI = indexOf("volume", "الحجم", fallback = 5)
+            val parsed = lines.drop(1).mapNotNull { line ->
+                val cells = splitCsvLine(line, delimiter)
+                val needed = listOf(dateI, openI, highI, lowI, closeI, volumeI)
+                if (cells.size <= (needed.maxOrNull() ?: 5)) null else try {
+                    val candle = Candle(
+                        cells[dateI].trim(),
+                        parseNumber(cells[openI]),
+                        parseNumber(cells[highI]),
+                        parseNumber(cells[lowI]),
+                        parseNumber(cells[closeI]),
+                        parseNumber(cells[volumeI])
+                    )
+                    if (candle.date.isBlank() || candle.open <= 0.0 || candle.close <= 0.0 ||
+                        candle.high < maxOf(candle.open, candle.close, candle.low) ||
+                        candle.low > minOf(candle.open, candle.close)) null else candle
                 } catch (_: Exception) { null }
-            }.sortedBy { it.date }
-            Pair(parsed, if (parsed.size >= 20) "تم استيراد ${parsed.size} جلسة." else "تمت قراءة ${parsed.size} جلسة. يلزم 20 جلسة على الأقل.")
+            }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
+
+            val note = when {
+                parsed.size < 26 -> "تمت قراءة ${parsed.size} جلسة فقط. يلزم 26 جلسة على الأقل."
+                parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
+                else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
+            }
+            parsed to note
         } catch (e: Exception) {
-            Pair(emptyList(), "تعذرت قراءة الملف: ${e.message ?: "صيغة غير صحيحة"}")
+            emptyList<Candle>() to "تعذرت قراءة الملف: ${e.message ?: "صيغة غير صحيحة"}"
         }
+    }
+
+    private fun parseNumber(raw: String): Double {
+        val cleaned = raw.trim().replace("\"", "").replace(",", "").replace(" ", "")
+        return cleaned.toDouble()
+    }
+
+    private fun splitCsvLine(line: String, delimiter: Char): List<String> {
+        val out = mutableListOf<String>()
+        val cell = StringBuilder()
+        var quoted = false
+        var i = 0
+        while (i < line.length) {
+            val ch = line[i]
+            when {
+                ch == '"' && quoted && i + 1 < line.length && line[i + 1] == '"' -> {
+                    cell.append('"'); i++
+                }
+                ch == '"' -> quoted = !quoted
+                ch == delimiter && !quoted -> {
+                    out.add(cell.toString()); cell.clear()
+                }
+                else -> cell.append(ch)
+            }
+            i++
+        }
+        out.add(cell.toString())
+        return out
+    }
+
+    private fun dateSortKey(value: String): String {
+        val s = value.trim()
+        val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
+        if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
+        val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
+        if (dmy != null) return "${dmy.groupValues[3]}-${dmy.groupValues[2].padStart(2, '0')}-${dmy.groupValues[1].padStart(2, '0')}"
+        return s
     }
 }
 
@@ -73,45 +145,69 @@ class MainActivity : ComponentActivity() {
 fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
-    var message by remember { mutableStateOf("استورد ملف CSV لبدء التحليل الفني.") }
+    var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importCsv(uri)
             candles = loaded.first
             message = loaded.second
-            result = if (candles.size >= 20) TechnicalAnalyzer.analyze(candles) else null
+            result = if (candles.size >= 26) TechnicalAnalyzer.analyze(candles) else null
         }
     }
 
-    Scaffold(containerColor = Page, topBar = {
-        TopAppBar(
-            title = { Column {
-                Text("EGX ANALYZER", color = Green, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                Text("محلل الأسهم المصرية", color = Navy, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-            } },
-            actions = { Icon(Icons.Default.ShowChart, null, tint = Green, modifier = Modifier.padding(end = 18.dp).size(30.dp)) },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = Page)
-        )
-    }) { pad ->
-        Column(Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Scaffold(
+        containerColor = Page,
+        topBar = {
+            TopAppBar(
+                title = {
+                    Column {
+                        Text("EGX ANALYZER", color = Green, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text("محلل الأسهم المصرية", color = Navy, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                    }
+                },
+                actions = {
+                    Icon(Icons.Default.ShowChart, null, tint = Green, modifier = Modifier.padding(end = 18.dp).size(30.dp))
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Page)
+            )
+        }
+    ) { pad ->
+        Column(
+            Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)
+        ) {
             Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.padding(18.dp)) {
-                    Text("حلّل سهمًا من البورصة المصرية", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                    Text("اكتب كود التداول ثم استورد بياناته التاريخية", color = Color(0xFFB9C9D8), fontSize = 12.sp)
-                    Spacer(Modifier.height(12.dp))
-                    Row(Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text("لوحة تحليل EGX", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                    Text("أدخل رمز التداول وارفع بيانات السهم لتحصل على قراءة فنية منظمة.", color = Color(0xFFB9C9D8), fontSize = 12.sp)
+                    Spacer(Modifier.height(13.dp))
+                    Row(
+                        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         Icon(Icons.Default.Search, null, tint = Muted)
                         Spacer(Modifier.width(8.dp))
-                        BasicTextField(value = symbol, onValueChange = { symbol = it.uppercase(Locale.ROOT) },
-                            modifier = Modifier.weight(1f).padding(vertical = 12.dp), singleLine = true,
-                            decorationBox = { inner -> if (symbol.isBlank()) Text("مثال: COMI", color = Muted); inner() })
+                        BasicTextField(
+                            value = symbol,
+                            onValueChange = { symbol = it.uppercase(Locale.ROOT).take(16) },
+                            modifier = Modifier.weight(1f).padding(vertical = 12.dp),
+                            singleLine = true,
+                            decorationBox = { inner ->
+                                if (symbol.isBlank()) Text("كود السهم مثال: COMI", color = Muted)
+                                inner()
+                            }
+                        )
                     }
                     Spacer(Modifier.height(10.dp))
-                    Button(onClick = { picker.launch(arrayOf("text/*", "text/csv", "application/vnd.ms-excel")) },
+                    Button(
+                        onClick = { picker.launch(arrayOf("text/*", "text/csv", "application/vnd.ms-excel")) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Green), shape = RoundedCornerShape(12.dp)) {
-                        Icon(Icons.Default.UploadFile, null); Spacer(Modifier.width(8.dp)); Text("استيراد ملف الأسعار CSV", fontWeight = FontWeight.Bold)
+                        colors = ButtonDefaults.buttonColors(containerColor = Green),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(Icons.Default.UploadFile, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("استيراد بيانات السهم CSV", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -126,165 +222,139 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
             Spacer(Modifier.height(16.dp))
             val a = result
             if (a == null) {
-                Text("مميزات المحلل", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
-                Feature("الدعوم والمقاومات", "مستويات فنية من بيانات السعر")
-                Feature("المؤشرات", "RSI و SMA 20/50 و MACD")
-                Feature("النماذج", "رصد بعض نماذج الشموع والقمم والقيعان")
-                Feature("المستهدفات", "سيناريوهات سعرية ومستوى إبطال")
-                Text("تنسيق CSV المطلوب: Date,Open,High,Low,Close,Volume", color = Muted, fontSize = 11.sp)
-            } else {
-                Text("نتيجة التحليل: ${symbol.ifBlank { "السهم المستورد" }}", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Text("ماذا يقدم المحلل؟", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
+                Feature("الاتجاه والزخم", "اتجاه المتوسطات وRSI وMACD.")
+                Feature("الدعوم والمقاومات", "مستويات مستخرجة من القمم والقيعان المحورية.")
+                Feature("النماذج الفنية", "نماذج شموع أساسية مع وصف مختصر.")
+                Feature("إدارة المخاطر", "سيناريوهات سعرية ووقف افتراضي ونسبة عائد إلى مخاطرة.")
+                Feature("السيولة", "مقارنة حجم آخر جلسة بمتوسط العشرين جلسة السابقة.")
                 Spacer(Modifier.height(8.dp))
+                Text("صيغة الملف: Date,Open,High,Low,Close,Volume", color = Muted, fontSize = 11.sp)
+            } else {
+                Text("تحليل ${symbol.ifBlank { "السهم المستورد" }}", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("آخر جلسة: ${a.last.date}", color = Muted, fontSize = 11.sp)
+                Spacer(Modifier.height(9.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Metric("آخر إغلاق", money(a.last.close), Modifier.weight(1f))
                     Metric("الاتجاه", a.trend, Modifier.weight(1f))
                 }
-                Spacer(Modifier.height(12.dp))
-                Metric("التقييم الفني", "${a.score}/100\n${a.scoreLabel}", Modifier.fillMaxWidth())
-                Spacer(Modifier.height(10.dp))
-                Text("الدعوم والمقاومات", color = Navy, fontWeight = FontWeight.Bold)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Metric("الدعم", a.supports.joinToString("\n") { money(it) }.ifBlank { "غير محدد" }, Modifier.weight(1f))
-                    Metric("المقاومة", a.resistances.joinToString("\n") { money(it) }.ifBlank { "غير محدد" }, Modifier.weight(1f))
+                Spacer(Modifier.height(9.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("التقييم الفني التجميعي", color = Muted, fontSize = 12.sp)
+                                Text("${a.score} / 100", color = scoreColor(a.score), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                            Text(a.scoreLabel, color = scoreColor(a.score), fontWeight = FontWeight.Bold)
+                        }
+                        LinearProgressIndicator(
+                            progress = { a.score / 100f },
+                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                            color = scoreColor(a.score),
+                            trackColor = Page
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        a.scoreParts.forEach { part ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(part.name, Modifier.weight(1f), color = Navy, fontSize = 11.sp)
+                                Text("${part.points}/${part.maxPoints}", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
+                SectionTitle("الدعوم والمقاومات")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Metric("قوة السيولة", "${String.format(Locale.US, "%.2f", a.volumeRatio)} × متوسط 20 جلسة", Modifier.weight(1f))
-                    Metric("العائد / المخاطرة", a.riskReward?.let { String.format(Locale.US, "%.2f", it) } ?: "غير متاح", Modifier.weight(1f))
+                    Metric("الدعوم الأقرب", a.supports.joinToString("\n") { money(it) }.ifBlank { "غير متاح" }, Modifier.weight(1f))
+                    Metric("المقاومات الأقرب", a.resistances.joinToString("\n") { money(it) }.ifBlank { "غير متاح" }, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
-                Text("المؤشرات الفنية", color = Navy, fontWeight = FontWeight.Bold)
+                SectionTitle("المؤشرات الفنية")
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Metric("RSI 14", String.format(Locale.US, "%.1f", a.rsi), Modifier.weight(1f))
+                    Metric("RSI 14", one(a.rsi), Modifier.weight(1f))
                     Metric("SMA 20", a.sma20?.let(::money) ?: "—", Modifier.weight(1f))
                     Metric("SMA 50", a.sma50?.let(::money) ?: "—", Modifier.weight(1f))
                 }
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                    Metric("MACD", a.macd?.let(::money) ?: "—", Modifier.weight(1f))
+                    Metric("إشارة MACD", a.macdSignal?.let(::money) ?: "—", Modifier.weight(1f))
+                    Metric("ATR 14", money(a.atr), Modifier.weight(1f))
+                }
                 Spacer(Modifier.height(12.dp))
-                Text("النماذج المرصودة", color = Navy, fontWeight = FontWeight.Bold)
+                SectionTitle("السيولة والبنية السعرية")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Metric("حجم التداول", "${one(a.volumeRatio)} × متوسط 20 جلسة", Modifier.weight(1f))
+                    Metric("نطاق بولينجر", "${money(a.bbLower)} - ${money(a.bbUpper)}", Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(12.dp))
+                SectionTitle("النماذج المرصودة")
                 ResultCard(a.patterns.joinToString("\n"))
                 Spacer(Modifier.height(12.dp))
-                Text("مستهدفات السيناريو الفني", color = Navy, fontWeight = FontWeight.Bold)
-                ResultCard("قصير المدى: ${a.targets.getOrNull(0)?.let(::money) ?: "غير محدد"}\nمتوسط المدى: ${a.targets.getOrNull(1)?.let(::money) ?: "غير محدد"}\nطويل المدى: ${a.targets.getOrNull(2)?.let(::money) ?: "غير محدد"}\nإبطال السيناريو: ${a.invalidation?.let(::money) ?: "غير محدد"}")
-                Text("هذه مستويات حسابية افتراضية مبنية على التاريخ المستورد، وليست توصية أو ضمانًا للربح.", color = Muted, fontSize = 11.sp)
+                SectionTitle("سيناريوهات سعرية افتراضية")
+                ResultCard(
+                    "قصير المدى: ${money(a.targets[0])}\n" +
+                    "متوسط المدى: ${money(a.targets[1])}\n" +
+                    "طويل المدى: ${money(a.targets[2])}\n" +
+                    "مستوى إبطال السيناريو: ${money(a.invalidation)}\n" +
+                    "العائد المحتمل / المخاطرة: ${a.riskReward?.let(::one) ?: "غير متاح"}"
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
             }
-            Spacer(Modifier.height(20.dp))
-            Text("لا يوجد اتصال مباشر بمصدر أسعار EGX في هذه النسخة. تحقق من مصدر ملفك وتاريخه قبل الاعتماد على النتائج.", color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center)
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(18.dp))
+            Text(
+                "مصدر البيانات: الملف الذي استورده المستخدم. لا يوجد اتصال مباشر أو أسعار لحظية من EGX في هذه النسخة. تحقق من تاريخ البيانات وتعديل الأسعار قبل استخدام التحليل.",
+                color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center, lineHeight = 16.sp
+            )
+            Spacer(Modifier.height(22.dp))
         }
     }
 }
 
-@Composable fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
+@Composable
+private fun SectionTitle(title: String) {
+    Text(title, color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+    Spacer(Modifier.height(7.dp))
+}
+
+@Composable
+fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
     Card(modifier, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
         Column(Modifier.padding(11.dp)) {
-            Text(label, color = Muted, fontSize = 11.sp)
+            Text(label, color = Muted, fontSize = 10.sp)
             Spacer(Modifier.height(5.dp))
-            Text(value, color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(value, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
         }
     }
 }
-@Composable fun ResultCard(text: String) {
+
+@Composable
+fun ResultCard(text: String) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
         Text(text, Modifier.fillMaxWidth().padding(14.dp), color = Navy, fontSize = 13.sp, lineHeight = 22.sp)
     }
 }
-@Composable fun Feature(title: String, desc: String) {
+
+@Composable
+fun Feature(title: String, desc: String) {
     Card(Modifier.fillMaxWidth().padding(top = 8.dp), colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
         Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(Icons.Default.Insights, null, tint = Green, modifier = Modifier.size(26.dp))
             Spacer(Modifier.width(10.dp))
-            Column { Text(title, color = Navy, fontWeight = FontWeight.Bold); Text(desc, color = Muted, fontSize = 11.sp) }
+            Column {
+                Text(title, color = Navy, fontWeight = FontWeight.Bold)
+                Text(desc, color = Muted, fontSize = 11.sp)
+            }
         }
     }
+}
+
+private fun scoreColor(score: Int): Color = when {
+    score >= 70 -> Green
+    score >= 45 -> Amber
+    else -> Red
 }
 private fun money(v: Double) = String.format(Locale.US, "%.2f", v)
-
-object TechnicalAnalyzer {
-    fun analyze(input: List<Candle>): Analysis {
-        val rows = input.sortedBy { it.date }
-        val closes = rows.map { it.close }
-        val last = rows.last()
-        fun sma(n: Int): Double? = if (closes.size >= n) closes.takeLast(n).average() else null
-        val changes = closes.zipWithNext { x, y -> y - x }.takeLast(14)
-        val avgGain = changes.map { max(it, 0.0) }.average()
-        val avgLoss = changes.map { max(-it, 0.0) }.average()
-        val rsi = if (avgLoss == 0.0) 100.0 else 100.0 - 100.0 / (1.0 + avgGain / avgLoss)
-        fun ema(values: List<Double>, period: Int): Double {
-            val k = 2.0 / (period + 1.0)
-            return values.drop(1).fold(values.first()) { prev, value -> value * k + prev * (1 - k) }
-        }
-        val macd = if (closes.size >= 26) {
-            val v = closes.takeLast(26); ema(v, 12) - ema(v, 26)
-        } else null
-        val recent = rows.takeLast(60)
-        val supports = recent.map { it.low }.filter { it < last.close }.sortedDescending()
-            .distinctBy { (it * 100).toInt() }.take(3).sorted()
-        val resistances = recent.map { it.high }.filter { it > last.close }.sorted()
-            .distinctBy { (it * 100).toInt() }.take(3)
-        val s20 = sma(20); val s50 = sma(50)
-        val trend = when {
-            s20 != null && s50 != null && last.close > s20 && s20 > s50 -> "صاعد"
-            s20 != null && s50 != null && last.close < s20 && s20 < s50 -> "هابط"
-            else -> "عرضي / غير مؤكد"
-        }
-        val previous = rows[rows.lastIndex - 1]
-        val patterns = mutableListOf<String>()
-        val range = (last.high - last.low).coerceAtLeast(0.000001)
-        if (abs(last.close - last.open) / range < 0.1) patterns.add("شمعة دوجي محتملة")
-        if (last.close > last.open && previous.close < previous.open && last.close >= previous.open && last.open <= previous.close)
-            patterns.add("ابتلاع شرائي محتمل")
-        if (last.close < last.open && previous.close > previous.open && last.open >= previous.close && last.close <= previous.open)
-            patterns.add("ابتلاع بيعي محتمل")
-        if (patterns.isEmpty()) patterns.add("لم يتم رصد نموذج شموع واضح")
-        val atr = recent.takeLast(14).map { it.high - it.low }.average()
-        val t1 = resistances.firstOrNull() ?: (last.close + atr)
-        val t2 = last.close + atr * 2.0
-        val t3 = last.close + atr * 3.0
-        val stop = supports.lastOrNull() ?: (last.close - atr)
-        val priorVolumes = rows.dropLast(1).takeLast(20).map { it.volume }
-        val avgVolume20 = (if (priorVolumes.isNotEmpty()) priorVolumes.average() else last.volume).coerceAtLeast(1.0)
-        val volumeRatio = last.volume / avgVolume20
-        val trendPoints = when (trend) { "صاعد" -> 20; "هابط" -> 0; else -> 10 }
-        val patternPoints = when {
-            patterns.any { it.contains("ابتلاع شرائي") } -> 20
-            patterns.any { it.contains("ابتلاع بيعي") } -> 0
-            else -> 10
-        }
-        val volumePoints = when {
-            volumeRatio >= 1.5 -> 15
-            volumeRatio >= 1.2 -> 12
-            volumeRatio >= 0.8 -> 8
-            else -> 4
-        }
-        val momentumPoints = when {
-            rsi in 52.0..68.0 && (macd ?: 0.0) > 0.0 -> 15
-            rsi in 45.0..70.0 -> 10
-            rsi < 35.0 -> 7
-            else -> 4
-        }
-        val nearSupport = supports.any { last.close > it && (last.close - it) / last.close < 0.04 }
-        val structurePoints = when {
-            nearSupport && trend != "هابط" -> 15
-            resistances.firstOrNull()?.let { (it - last.close) / last.close < 0.02 } == true -> 4
-            else -> 9
-        }
-        val reward = (t1 - last.close).coerceAtLeast(0.0)
-        val risk = (last.close - stop).coerceAtLeast(0.000001)
-        val rr = if (reward > 0.0) reward / risk else null
-        val riskPoints = when {
-            rr == null -> 3
-            rr >= 2.5 -> 15
-            rr >= 2.0 -> 12
-            rr >= 1.5 -> 9
-            else -> 4
-        }
-        val score = (trendPoints + patternPoints + volumePoints + momentumPoints + structurePoints + riskPoints).coerceIn(0, 100)
-        val scoreLabel = when {
-            score >= 80 -> "إيجابي فنيًا"
-            score >= 65 -> "يميل للإيجابية"
-            score >= 45 -> "محايد / مراقبة"
-            else -> "ضعيف فنيًا"
-        }
-        return Analysis(last, supports, resistances, rsi, s20, s50, macd, trend, patterns, listOf(t1, t2, t3), stop, score, scoreLabel, volumeRatio, rr)
-    }
-}
+private fun one(v: Double) = String.format(Locale.US, "%.1f", v)
