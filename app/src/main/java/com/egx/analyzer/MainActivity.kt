@@ -1,6 +1,7 @@
 package com.egx.analyzer
 
 import android.net.Uri
+import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
@@ -64,7 +65,19 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AnalyzerScreen(::readFile) } }
+        setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage) } }
+    }
+
+    private fun readChartImage(uri: Uri): Pair<String, String> {
+        return try {
+            val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
+                ?: return "" to "تعذر فتح صورة الشارت."
+            val report = ChartImageAnalyzer.analyze(bitmap)
+            bitmap.recycle()
+            report
+        } catch (e: Exception) {
+            "" to "تعذر تحليل الصورة: ${e.message ?: "صيغة غير مدعومة"}"
+        }
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -216,14 +229,14 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
+fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart: (Uri) -> Pair<String, String>) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
     var drawTrend by remember { mutableStateOf(false) }
-    var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
+    var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }\n    var imageReport by remember { mutableStateOf("") }\n    var imageMessage by remember { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
@@ -231,6 +244,13 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
             message = loaded.second
             result = if (candles.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
             trendPoints=emptyList()
+        }
+    }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            val report = importChart(uri)
+            imageReport = report.first
+            imageMessage = report.second
         }
     }
 
@@ -286,6 +306,17 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
                         Spacer(Modifier.width(8.dp))
                         Text("استيراد CSV أو Excel", fontWeight = FontWeight.Bold)
                     }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { imagePicker.launch("image/*") },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
+                    ) {
+                        Icon(Icons.Default.ImageSearch, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("تحليل صورة الشارت دون إنترنت", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -294,6 +325,20 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
                     Icon(Icons.Default.Info, null, tint = Green)
                     Spacer(Modifier.width(8.dp))
                     Text(message, color = Muted, fontSize = 12.sp)
+                }
+            }
+            if (imageMessage.isNotBlank()) {
+                Spacer(Modifier.height(10.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text("تحليل صورة الشارت • ${period}", color = Navy, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(6.dp))
+                        Text(imageMessage, color = Muted, fontSize = 12.sp, lineHeight = 19.sp)
+                        if (imageReport.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(imageReport, color = Navy, fontSize = 13.sp, lineHeight = 21.sp)
+                        }
+                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
