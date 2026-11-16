@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
         val sheet=parts["xl/worksheets/sheet1.xml"] ?: error("ورقة البيانات الأولى غير موجودة")
         val shared=Regex("<si[^>]*>(.*?)</si>",RegexOption.DOT_MATCHES_ALL).findAll(parts["xl/sharedStrings.xml"] ?: "")
             .map { m -> Regex("<t[^>]*>(.*?)</t>",RegexOption.DOT_MATCHES_ALL).findAll(m.groupValues[1]).joinToString("") { it.groupValues[1] } }.toList()
-        fun col(ref:String):Int { var v=0; ref.takeWhile{it.isLetter()}.uppercase(Locale.ROOT).forEach{v=v*26+it-'A'+1}; return v-1 }
+        fun col(ref:String):Int { var v=0; ref.takeWhile{it.isLetter()}.uppercase(Locale.ROOT).forEach{v=v*26+(it-'A'+1)}; return v-1 }
         val rows=Regex("<row[^>]*>(.*?)</row>",RegexOption.DOT_MATCHES_ALL).findAll(sheet).map { m ->
             val row=mutableMapOf<Int,String>()
             Regex("<c([^>]*)>(.*?)</c>",RegexOption.DOT_MATCHES_ALL).findAll(m.groupValues[1]).forEach { cell ->
@@ -306,10 +306,14 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                     listOf("يومي","أسبوعي","شهري").forEach { p ->
                         FilterChip(selected=period==p,onClick={
-                            period=p
                             val grouped=aggregateCandles(candles,p)
-                            result=if(grouped.size>=26) TechnicalAnalyzer.analyze(grouped) else null
-                            trendPoints=emptyList()
+                            if(grouped.size>=26) {
+                                period=p
+                                result=TechnicalAnalyzer.analyze(grouped)
+                                trendPoints=emptyList()
+                            } else {
+                                message="الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 26 على الأقل. تم الاحتفاظ بالفترة الحالية."
+                            }
                         },label={Text(p)})
                     }
                 }
