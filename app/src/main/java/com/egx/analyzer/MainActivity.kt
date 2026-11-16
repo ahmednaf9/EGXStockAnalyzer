@@ -277,6 +277,25 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+                SectionTitle("الخلاصة الفنية")
+                ResultCard(
+                    "الحالة: \${a.scoreLabel}\\n" +
+                    "الاتجاه الحالي: \${a.trend}\\n" +
+                    "درجة توافق المؤشرات: \${a.score}/100\\n" +
+                    when {
+                        a.score >= 75 && a.trend == "صاعد" ->
+                            "القراءة: أغلب المؤشرات متوافقة مع اتجاه صاعد، لكن يلزم متابعة تأكيد الحركة."
+                        a.score <= 35 && a.trend == "هابط" ->
+                            "القراءة: توجد ضغوط فنية هابطة؛ راجع مستويات الدعم ومؤشرات الزخم."
+                        a.score >= 62 ->
+                            "القراءة: توجد إشارات إيجابية جزئيًا، لكنها لا تزال بحاجة إلى تأكيد."
+                        else ->
+                            "القراءة: الإشارات مختلطة أو غير كافية لتحديد اتجاه واضح."
+                    }
+                )
+                Spacer(Modifier.height(8.dp))
+                Text("هذه قراءة تعليمية آلية للبيانات التاريخية وليست توصية شراء أو بيع أو ضمانًا للربح.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                Spacer(Modifier.height(12.dp))
                 SectionTitle("الدعوم والمقاومات")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Metric("الدعوم الأقرب", a.supports.joinToString("\n") { money(it) }.ifBlank { "غير متاح" }, Modifier.weight(1f))
