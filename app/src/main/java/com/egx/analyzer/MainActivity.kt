@@ -7,9 +7,9 @@ import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.format.DateTimeFormatter
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Date
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -97,16 +97,16 @@ class MainActivity : ComponentActivity() {
                 if (sid == null && matches.length() > 0) sid = matches.optJSONObject(0)?.optString("sid")
                 if (sid.isNullOrBlank()) throw IllegalStateException("رمز السهم غير موجود في DataCedar ضمن EGX.")
 
-                val from = java.time.LocalDate.now().minusYears(1).toString()
+                val from = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Calendar.getInstance().apply { add(Calendar.YEAR, -1) }.time)
                 val bars = getJson("https://api.datacedar.com/v3/stocks/${URLEncoder.encode(sid, "UTF-8")}/bars?timeframe=1d&from=$from&order=asc&limit=50000&adjustment=raw")
                 val data = bars.optJSONArray("data") ?: throw IllegalStateException("لم تصل بيانات تاريخية لهذا السهم.")
-                val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC)
+                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
                 val rows = mutableListOf<Candle>()
                 for (i in 0 until data.length()) {
                     val item = data.optJSONObject(i) ?: continue
                     val ts = item.optString("ts_ms").toLongOrNull() ?: continue
                     val candle = Candle(
-                        formatter.format(Instant.ofEpochMilli(ts)),
+                        formatter.format(Date(ts)),
                         item.optDouble("open", Double.NaN),
                         item.optDouble("high", Double.NaN),
                         item.optDouble("low", Double.NaN),
