@@ -84,20 +84,32 @@ class MainActivity : ComponentActivity() {
                     return JSONObject(body)
                 }
 
-                val q = URLEncoder.encode(symbol.trim(), "UTF-8")
-                val search = getJson("https://api.datacedar.com/v3/search?q=$q&exchange=egx&limit=10")
-                val matches = search.optJSONArray("data") ?: throw IllegalStateException("لم يتم العثور على بيانات بحث.")
+                val query = URLEncoder.encode(symbol.trim(), "UTF-8")
+                fun searchSymbols(filter: String): org.json.JSONArray {
+                    val response = getJson("https://api.datacedar.com/v3/search?q=$query&$filter&limit=50")
+                    return response.optJSONArray("data") ?: org.json.JSONArray()
+                }
+                var matches = searchSymbols("exchange=egx")
+                if (matches.length() == 0) matches = searchSymbols("country=EG")
                 var sid: String? = null
+                val requested = symbol.trim()
+                val available = mutableListOf<String>()
                 for (i in 0 until matches.length()) {
                     val item = matches.optJSONObject(i) ?: continue
-                    if (item.optString("symbol").equals(symbol.trim(), true)) {
-                        sid = item.optString("sid").takeIf { it.isNotBlank() }
+                    val ticker = item.optString("symbol").trim()
+                    val itemSid = item.optString("sid").trim()
+                    val name = item.optString("name").trim()
+                    if (ticker.isNotBlank()) available.add(ticker + if (name.isNotBlank()) " - $name" else "")
+                    if (ticker.equals(requested, true) || itemSid.substringAfter(":").equals(requested, true)) {
+                        sid = itemSid.takeIf { it.isNotBlank() }
                         break
                     }
                 }
-                if (sid == null && matches.length() > 0) sid = matches.optJSONObject(0)?.optString("sid")
-                if (sid.isNullOrBlank()) throw IllegalStateException("رمز السهم غير موجود في DataCedar ضمن EGX.")
-
+                if (sid.isNullOrBlank()) {
+                    val suggestions = available.take(5).joinToString("، ")
+                    val reason = if (matches.length() == 0) "DataCedar لم يُرجع نتائج لسوق EGX. تحقق من المفتاح واتصال الإنترنت." else "لم يتم العثور على الرمز $requested في نتائج EGX. جرّب كود السهم كما يظهر في DataCedar. أمثلة: $suggestions"
+                    throw IllegalStateException(reason)
+                }
                 val from = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Calendar.getInstance().apply { add(Calendar.YEAR, -1) }.time)
                 val bars = getJson("https://api.datacedar.com/v3/stocks/${URLEncoder.encode(sid, "UTF-8")}/bars?timeframe=1d&from=$from&order=asc&limit=50000&adjustment=raw")
                 val data = bars.optJSONArray("data") ?: throw IllegalStateException("لم تصل بيانات تاريخية لهذا السهم.")
