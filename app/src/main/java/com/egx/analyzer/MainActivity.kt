@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
             }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
 
             val note = when {
-                parsed.size < 26 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 26 جلسة على الأقل. أضف بيانات تاريخية أكثر."
+                parsed.size < 15 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 26 جلسة على الأقل. أضف بيانات تاريخية أكثر."
                 parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
@@ -229,7 +229,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
             val loaded = importFile(uri)
             candles = loaded.first
             message = loaded.second
-            result = if (candles.size >= 26) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
+            result = if (candles.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
             trendPoints=emptyList()
         }
     }
@@ -319,7 +319,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
                                 result=TechnicalAnalyzer.analyze(grouped)
                                 trendPoints=emptyList()
                             } else {
-                                message="الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 26 على الأقل. تم الاحتفاظ بالفترة الحالية."
+                                message="الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 15 على الأقل. تم الاحتفاظ بالفترة الحالية."
                             }
                         },label={Text(p)})
                     }
