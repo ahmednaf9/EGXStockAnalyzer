@@ -15,6 +15,14 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import java.util.zip.ZipInputStream
+import java.io.ByteArrayOutputStream
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -56,7 +64,7 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AnalyzerScreen(::readCsv) } }
+        setContent { MaterialTheme { AnalyzerScreen(::readFile) } }
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -111,6 +119,56 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun readFile(uri: Uri): Pair<List<Candle>, String> {
+        val n = contentResolver.query(uri,null,null,null,null)?.use { c ->
+            val i=c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if(i>=0 && c.moveToFirst()) c.getString(i) else ""
+        }.orEmpty()
+        return if(n.endsWith(".xlsx",true) || contentResolver.getType(uri)?.contains("spreadsheetml")==true) readExcel(uri) else readCsv(uri)
+    }
+
+    private fun readExcel(uri: Uri): Pair<List<Candle>, String> = try {
+        val parts=mutableMapOf<String,String>()
+        ZipInputStream(contentResolver.openInputStream(uri) ?: error("تعذر فتح الملف")).use { z ->
+            var e=z.nextEntry
+            while(e!=null) {
+                if(e.name=="xl/sharedStrings.xml" || e.name=="xl/worksheets/sheet1.xml") {
+                    val b=ByteArrayOutputStream(); z.copyTo(b); parts[e.name]=b.toString("UTF-8")
+                }
+                z.closeEntry(); e=z.nextEntry
+            }
+        }
+        val sheet=parts["xl/worksheets/sheet1.xml"] ?: error("ورقة البيانات الأولى غير موجودة")
+        val shared=Regex("<si[^>]*>(.*?)</si>",RegexOption.DOT_MATCHES_ALL).findAll(parts["xl/sharedStrings.xml"] ?: "")
+            .map { m -> Regex("<t[^>]*>(.*?)</t>",RegexOption.DOT_MATCHES_ALL).findAll(m.groupValues[1]).joinToString("") { it.groupValues[1] } }.toList()
+        fun col(ref:String):Int { var v=0; ref.takeWhile{it.isLetter()}.uppercase(Locale.ROOT).forEach{v=v*26+it-'A'+1}; return v-1 }
+        val rows=Regex("<row[^>]*>(.*?)</row>",RegexOption.DOT_MATCHES_ALL).findAll(sheet).map { m ->
+            val row=mutableMapOf<Int,String>()
+            Regex("<c([^>]*)>(.*?)</c>",RegexOption.DOT_MATCHES_ALL).findAll(m.groupValues[1]).forEach { cell ->
+                val ref=Regex("r=\"([A-Z]+[0-9]+)\"").find(cell.groupValues[1])?.groupValues?.get(1) ?: return@forEach
+                val type=Regex("t=\"([^\"]+)\"").find(cell.groupValues[1])?.groupValues?.get(1) ?: ""
+                val raw=Regex("<v>(.*?)</v>",RegexOption.DOT_MATCHES_ALL).find(cell.groupValues[2])?.groupValues?.get(1) ?: ""
+                row[col(ref)]=if(type=="s") shared.getOrNull(raw.toIntOrNull() ?: -1) ?: "" else raw
+            }; row
+        }.toList()
+        if(rows.size<2) error("لا توجد بيانات في ملف Excel")
+        val h=rows.first().mapValues{it.value.lowercase(Locale.ROOT).trim()}
+        fun ix(vararg names:String,fallback:Int)=h.entries.firstOrNull{(_,v)->names.any{v==it || v.contains(it)}}?.key ?: fallback
+        val d=ix("date","التاريخ",fallback=0); val o=ix("open","الفتح",fallback=1)
+        val hi=ix("high","الأعلى","اعلى",fallback=2); val lo=ix("low","الأدنى","ادنى",fallback=3)
+        val c=ix("close","الإغلاق","الاغلاق",fallback=4); val v=ix("volume","الحجم",fallback=5)
+        val data=rows.drop(1).mapNotNull { r -> try {
+            val rawDate=r[d].orEmpty()
+            val date=rawDate.toDoubleOrNull()?.let { serial ->
+                val cal=Calendar.getInstance(); cal.timeInMillis=(serial-25569.0).toLong()*86400000L
+                SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cal.time)
+            } ?: rawDate
+            val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),parseNumber(r[v]?: "0"))
+            if(date.isNotBlank() && x.open>0 && x.close>0 && x.high>=maxOf(x.open,x.close,x.low) && x.low<=minOf(x.open,x.close)) x else null
+        } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{it.date}
+        data to "تم استيراد ${data.size} جلسة من Excel."
+    } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة Excel: ${e.message ?: "تأكد من الملف."}" }
+
     private fun parseNumber(raw: String): Double {
         val cleaned = raw.trim().replace("\"", "").replace(",", "").replace(" ", "")
         return cleaned.toDouble()
@@ -151,17 +209,21 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
+fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
+    var period by remember { mutableStateOf("يومي") }
+    var drawTrend by remember { mutableStateOf(false) }
+    var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
-            val loaded = importCsv(uri)
+            val loaded = importFile(uri)
             candles = loaded.first
             message = loaded.second
-            result = if (candles.size >= 26) TechnicalAnalyzer.analyze(candles) else null
+            result = if (candles.size >= 26) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
+            trendPoints=emptyList()
         }
     }
 
@@ -209,13 +271,13 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                     }
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
-                        onClick = { picker.launch(arrayOf("text/*", "text/csv", "application/vnd.ms-excel")) },
+                        onClick = { picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Icon(Icons.Default.UploadFile, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("استيراد ملف CSV", fontWeight = FontWeight.Bold)
+                        Text("استيراد CSV أو Excel", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -237,10 +299,31 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                 Feature("إدارة المخاطر", "سيناريوهات سعرية ووقف افتراضي ونسبة عائد إلى مخاطرة.")
                 Feature("السيولة", "مقارنة حجم آخر جلسة بمتوسط العشرين جلسة السابقة.")
                 Spacer(Modifier.height(8.dp))
-                Text("صيغة الملف: Date,Open,High,Low,Close,Volume", color = Muted, fontSize = 11.sp)
+                Text("الأعمدة المطلوبة: Date, Open, High, Low, Close, Volume", color = Muted, fontSize = 11.sp)
             } else {
                 Text("تحليل ${symbol.ifBlank { "السهم المستورد" }}", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text("آخر جلسة: ${a.last.date}", color = Muted, fontSize = 11.sp)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                    listOf("يومي","أسبوعي","شهري").forEach { p ->
+                        FilterChip(selected=period==p,onClick={
+                            period=p
+                            val grouped=aggregateCandles(candles,p)
+                            result=if(grouped.size>=26) TechnicalAnalyzer.analyze(grouped) else null
+                            trendPoints=emptyList()
+                        },label={Text(p)})
+                    }
+                }
+                Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
+                PriceTrendChart(aggregateCandles(candles,period),trendPoints,drawTrend) { i,price ->
+                    trendPoints=if(trendPoints.size>=2) listOf(i to price) else trendPoints+(i to price)
+                    if(trendPoints.size>=2) drawTrend=false
+                }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(onClick={drawTrend=true;trendPoints=emptyList()},modifier=Modifier.weight(1f)){Text("رسم خط اتجاه")}
+                    OutlinedButton(onClick={drawTrend=false;trendPoints=emptyList()},modifier=Modifier.weight(1f)){Text("مسح الخط")}
+                }
+                if(drawTrend) Text("اضغط على نقطتين في الرسم لرسم خط الاتجاه.",color=Green,fontSize=11.sp)
+
                 Spacer(Modifier.height(9.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Metric("آخر إغلاق", money(a.last.close), Modifier.weight(1f))
@@ -337,10 +420,51 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
             }
             Spacer(Modifier.height(18.dp))
             Text(
-                "مصدر البيانات: ملف CSV الذي تستورده يدويًا. البيانات تاريخية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
+                "مصدر البيانات: ملف CSV أو Excel الذي تستورده يدويًا. البيانات تاريخية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
                 color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center, lineHeight = 16.sp
             )
             Spacer(Modifier.height(22.dp))
+        }
+    }
+}
+
+private fun aggregateCandles(input:List<Candle>,period:String):List<Candle>{
+    if(period=="يومي") return input
+    val groups=input.sortedBy{it.date}.groupBy{c->
+        val p=c.date.take(10).replace('/','-').split('-')
+        val y=p.getOrNull(0)?.toIntOrNull()?:0; val m=p.getOrNull(1)?.toIntOrNull()?:1; val d=p.getOrNull(2)?.toIntOrNull()?:1
+        if(period=="شهري") "%04d-%02d".format(Locale.US,y,m) else {
+            val cal=Calendar.getInstance(Locale.US);cal.clear();cal.set(y,(m-1).coerceIn(0,11),d.coerceIn(1,28))
+            "%04d-W%02d".format(Locale.US,y,cal.get(Calendar.WEEK_OF_YEAR))
+        }
+    }
+    return groups.toSortedMap().values.map{r->Candle(r.first().date,r.first().open,r.maxOf{it.high},r.minOf{it.low},r.last().close,r.sumOf{it.volume})}
+}
+
+@Composable
+private fun PriceTrendChart(data:List<Candle>,points:List<Pair<Int,Double>>,drawing:Boolean,onTap:(Int,Double)->Unit){
+    if(data.isEmpty()) return
+    val low=data.minOf{it.low};val high=data.maxOf{it.high};val range=(high-low).coerceAtLeast(0.000001)
+    Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(14.dp)){
+        Column(Modifier.fillMaxWidth().padding(12.dp)){
+            Text("الرسم السعري وخط الاتجاه",color=Navy,fontWeight=FontWeight.Bold,fontSize=13.sp)
+            Canvas(Modifier.fillMaxWidth().height(180.dp).pointerInput(data,drawing,points){
+                detectTapGestures{p->if(drawing&&data.size>1){
+                    val i=((p.x/size.width)*data.lastIndex).toInt().coerceIn(0,data.lastIndex)
+                    onTap(i,high-(p.y/size.height).coerceIn(0f,1f)*range)
+                }}
+            }){
+                val dx=size.width/data.lastIndex.coerceAtLeast(1);val path=Path()
+                data.forEachIndexed{i,c->val y=size.height-((c.close-low)/range).toFloat()*size.height
+                    if(i==0)path.moveTo(i*dx,y) else path.lineTo(i*dx,y)}
+                drawPath(path,Green,style=Stroke(width=3f))
+                if(points.size==2){
+                    fun xy(p:Pair<Int,Double>)=Offset(p.first.coerceIn(0,data.lastIndex)*dx,size.height-((p.second-low)/range).toFloat()*size.height)
+                    drawLine(Red,xy(points[0]),xy(points[1]),strokeWidth=4f)
+                    drawCircle(Red,6f,xy(points[0]));drawCircle(Red,6f,xy(points[1]))
+                }
+            }
+            Text("آخر إغلاق: "+String.format(Locale.US,"%.2f",data.last().close),color=Muted,fontSize=10.sp)
         }
     }
 }
