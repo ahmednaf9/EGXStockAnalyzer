@@ -1,6 +1,15 @@
 package com.egx.analyzer
 
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import org.json.JSONObject
+import java.net.HttpURLConnection
+import java.net.URL
+import java.net.URLEncoder
+import java.time.Instant
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -47,7 +56,78 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AnalyzerScreen(::readCsv) } }
+        setContent { MaterialTheme { AnalyzerScreen(::readCsv, ::fetchFromDataCedar) } }
+    }
+
+    private fun fetchFromDataCedar(symbol: String, apiKey: String, callback: (List<Candle>, String) -> Unit) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            try {
+                fun getJson(url: String): JSONObject {
+                    connection = (URL(url).openConnection() as HttpURLConnection).apply {
+                        requestMethod = "GET"
+                        connectTimeout = 15000
+                        readTimeout = 20000
+                        setRequestProperty("X-API-Key", apiKey)
+                        setRequestProperty("Accept", "application/json")
+                    }
+                    val code = connection!!.responseCode
+                    val stream = if (code in 200..299) connection!!.inputStream else connection!!.errorStream
+                    val body = stream.bufferedReader().use { it.readText() }
+                    connection!!.disconnect()
+                    connection = null
+                    if (code !in 200..299) {
+                        val msg = try { JSONObject(body).getJSONObject("error").optString("message", "HTTP $code") } catch (_: Exception) { "HTTP $code" }
+                        throw IllegalStateException(msg)
+                    }
+                    return JSONObject(body)
+                }
+
+                val q = URLEncoder.encode(symbol.trim(), "UTF-8")
+                val search = getJson("https://api.datacedar.com/v3/search?q=$q&exchange=egx&limit=10")
+                val matches = search.optJSONArray("data") ?: throw IllegalStateException("لم يتم العثور على بيانات بحث.")
+                var sid: String? = null
+                for (i in 0 until matches.length()) {
+                    val item = matches.optJSONObject(i) ?: continue
+                    if (item.optString("symbol").equals(symbol.trim(), true)) {
+                        sid = item.optString("sid").takeIf { it.isNotBlank() }
+                        break
+                    }
+                }
+                if (sid == null && matches.length() > 0) sid = matches.optJSONObject(0)?.optString("sid")
+                if (sid.isNullOrBlank()) throw IllegalStateException("رمز السهم غير موجود في DataCedar ضمن EGX.")
+
+                val from = java.time.LocalDate.now().minusYears(1).toString()
+                val bars = getJson("https://api.datacedar.com/v3/stocks/${URLEncoder.encode(sid, "UTF-8")}/bars?timeframe=1d&from=$from&order=asc&limit=50000&adjustment=raw")
+                val data = bars.optJSONArray("data") ?: throw IllegalStateException("لم تصل بيانات تاريخية لهذا السهم.")
+                val formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(ZoneOffset.UTC)
+                val rows = mutableListOf<Candle>()
+                for (i in 0 until data.length()) {
+                    val item = data.optJSONObject(i) ?: continue
+                    val ts = item.optString("ts_ms").toLongOrNull() ?: continue
+                    val candle = Candle(
+                        formatter.format(Instant.ofEpochMilli(ts)),
+                        item.optDouble("open", Double.NaN),
+                        item.optDouble("high", Double.NaN),
+                        item.optDouble("low", Double.NaN),
+                        item.optDouble("close", Double.NaN),
+                        item.optString("volume").toDoubleOrNull() ?: 0.0
+                    )
+                    if (candle.open.isFinite() && candle.high.isFinite() && candle.low.isFinite() &&
+                        candle.close.isFinite() && candle.open > 0 && candle.close > 0 &&
+                        candle.high >= maxOf(candle.open, candle.close, candle.low) &&
+                        candle.low <= minOf(candle.open, candle.close)) rows.add(candle)
+                }
+                val note = if (rows.size < 26) "وصلت ${rows.size} جلسة فقط؛ يلزم 26 جلسة على الأقل للتحليل." else
+                    "تم جلب ${rows.size} جلسة يومية من DataCedar للسهم ${sid}."
+                Handler(Looper.getMainLooper()).post { callback(rows, note) }
+            } catch (e: Exception) {
+                val message = e.message ?: "تعذر الاتصال بـ DataCedar."
+                Handler(Looper.getMainLooper()).post { callback(emptyList(), "فشل التحميل: $message") }
+            } finally {
+                connection?.disconnect()
+            }
+        }.start()
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -142,8 +222,9 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
+fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>, fetchData: (String, String, (List<Candle>, String) -> Unit) -> Unit) {
     var symbol by remember { mutableStateOf("") }
+    var apiKey by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
@@ -199,15 +280,48 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                         )
                     }
                     Spacer(Modifier.height(10.dp))
+                    Spacer(Modifier.height(10.dp))
+                    BasicTextField(
+                        value = apiKey,
+                        onValueChange = { apiKey = it.trim() },
+                        modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(14.dp),
+                        singleLine = true,
+                        decorationBox = { inner ->
+                            if (apiKey.isBlank()) Text("مفتاح DataCedar API", color = Muted)
+                            inner()
+                        }
+                    )
+                    Spacer(Modifier.height(9.dp))
                     Button(
-                        onClick = { picker.launch(arrayOf("text/*", "text/csv", "application/vnd.ms-excel")) },
+                        onClick = {
+                            if (symbol.isBlank() || apiKey.isBlank()) {
+                                message = "اكتب كود السهم ومفتاح DataCedar أولًا."
+                            } else {
+                                message = "جارٍ جلب البيانات اليومية من DataCedar..."
+                                fetchData(symbol, apiKey) { loaded, note ->
+                                    candles = loaded
+                                    message = note
+                                    result = if (loaded.size >= 26) TechnicalAnalyzer.analyze(loaded) else null
+                                }
+                            }
+                        },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Green),
                         shape = RoundedCornerShape(12.dp)
                     ) {
+                        Icon(Icons.Default.CloudDownload, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("جلب وتحليل مباشر من DataCedar", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = { picker.launch(arrayOf("text/*", "text/csv", "application/vnd.ms-excel")) },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
                         Icon(Icons.Default.UploadFile, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("استيراد بيانات السهم CSV", fontWeight = FontWeight.Bold)
+                        Text("أو استيراد ملف CSV", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -310,7 +424,7 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
             }
             Spacer(Modifier.height(18.dp))
             Text(
-                "مصدر البيانات: الملف الذي استورده المستخدم. لا يوجد اتصال مباشر أو أسعار لحظية من EGX في هذه النسخة. تحقق من تاريخ البيانات وتعديل الأسعار قبل استخدام التحليل.",
+                "مصدر البيانات: DataCedar للتحميل المباشر أو ملف CSV يدوي. البيانات تاريخية وليست أسعارًا لحظية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
                 color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center, lineHeight = 16.sp
             )
             Spacer(Modifier.height(22.dp))
