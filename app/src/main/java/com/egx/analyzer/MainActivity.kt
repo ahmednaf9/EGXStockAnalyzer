@@ -237,7 +237,8 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
     var period by remember { mutableStateOf("يومي") }
     var drawTrend by remember { mutableStateOf(false) }
     var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
-    var imageReport by remember { mutableStateOf("") }\n    var imageMessage by remember { mutableStateOf("") }
+    var imageReport by remember { mutableStateOf("") }
+    var imageMessage by remember { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
