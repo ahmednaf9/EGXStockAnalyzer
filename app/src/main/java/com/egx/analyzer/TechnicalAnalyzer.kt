@@ -33,7 +33,7 @@ data class Analysis(
 
 object TechnicalAnalyzer {
     fun analyze(input: List<Candle>): Analysis {
-        require(input.size >= 26) { "At least 26 valid sessions are required." }
+        require(input.size >= 15) { "At least 15 valid sessions are required for RSI calculation." }
         val rows = input.sortedBy { it.date }
         val closes = rows.map { it.close }
         val last = rows.last()
