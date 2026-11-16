@@ -88,8 +88,8 @@ class MainActivity : ComponentActivity() {
             val openI = indexOf("open", "الفتح", fallback = 1)
             val highI = indexOf("high", "الأعلى", "اعلى", fallback = 2)
             val lowI = indexOf("low", "الأدنى", "ادنى", fallback = 3)
-            val closeI = indexOf("close", "الإغلاق", "الاغلاق", fallback = 4)
-            val volumeI = indexOf("volume", "الحجم", fallback = 5)
+            val closeI = indexOf("close", "price", "last", "الإغلاق", "الاغلاق", "السعر", fallback = 4)
+            val volumeI = indexOf("volume", "vol.", "vol", "الحجم", fallback = 5)
             val parsed = lines.drop(1).mapNotNull { line ->
                 val cells = splitCsvLine(line, delimiter)
                 val needed = listOf(dateI, openI, highI, lowI, closeI, volumeI)
@@ -109,7 +109,7 @@ class MainActivity : ComponentActivity() {
             }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
 
             val note = when {
-                parsed.size < 26 -> "تمت قراءة ${parsed.size} جلسة فقط. يلزم 26 جلسة على الأقل."
+                parsed.size < 26 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 26 جلسة على الأقل. أضف بيانات تاريخية أكثر."
                 parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
@@ -171,7 +171,14 @@ class MainActivity : ComponentActivity() {
 
     private fun parseNumber(raw: String): Double {
         val cleaned = raw.trim().replace("\"", "").replace(",", "").replace(" ", "")
-        return cleaned.toDouble()
+        val suffix = cleaned.lastOrNull()?.uppercaseChar()
+        val number = if (suffix == 'K' || suffix == 'M' || suffix == 'B') cleaned.dropLast(1).toDouble() else cleaned.toDouble()
+        return number * when (suffix) {
+            'K' -> 1_000.0
+            'M' -> 1_000_000.0
+            'B' -> 1_000_000_000.0
+            else -> 1.0
+        }
     }
 
     private fun splitCsvLine(line: String, delimiter: Char): List<String> {
