@@ -29,7 +29,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,90 +56,7 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AnalyzerScreen(::readCsv, ::fetchFromDataCedar) } }
-    }
-
-    private fun fetchFromDataCedar(symbol: String, apiKey: String, callback: (List<Candle>, String) -> Unit) {
-        Thread {
-            var connection: HttpURLConnection? = null
-            try {
-                fun getJson(url: String): JSONObject {
-                    connection = (URL(url).openConnection() as HttpURLConnection).apply {
-                        requestMethod = "GET"
-                        connectTimeout = 15000
-                        readTimeout = 20000
-                        setRequestProperty("X-API-Key", apiKey)
-                        setRequestProperty("Accept", "application/json")
-                    }
-                    val code = connection!!.responseCode
-                    val stream = if (code in 200..299) connection!!.inputStream else connection!!.errorStream
-                    val body = stream.bufferedReader().use { it.readText() }
-                    connection!!.disconnect()
-                    connection = null
-                    if (code !in 200..299) {
-                        val msg = try { JSONObject(body).getJSONObject("error").optString("message", "HTTP $code") } catch (_: Exception) { "HTTP $code" }
-                        throw IllegalStateException(msg)
-                    }
-                    return JSONObject(body)
-                }
-
-                val query = URLEncoder.encode(symbol.trim(), "UTF-8")
-                fun searchSymbols(filter: String): org.json.JSONArray {
-                    val response = getJson("https://api.datacedar.com/v3/search?q=$query&$filter&limit=50")
-                    return response.optJSONArray("data") ?: org.json.JSONArray()
-                }
-                var matches = searchSymbols("exchange=egx")
-                if (matches.length() == 0) matches = searchSymbols("country=EG")
-                var sid: String? = null
-                val requested = symbol.trim()
-                val available = mutableListOf<String>()
-                for (i in 0 until matches.length()) {
-                    val item = matches.optJSONObject(i) ?: continue
-                    val ticker = item.optString("symbol").trim()
-                    val itemSid = item.optString("sid").trim()
-                    val name = item.optString("name").trim()
-                    if (ticker.isNotBlank()) available.add(ticker + if (name.isNotBlank()) " - $name" else "")
-                    if (ticker.equals(requested, true) || itemSid.substringAfter(":").equals(requested, true)) {
-                        sid = itemSid.takeIf { it.isNotBlank() }
-                        break
-                    }
-                }
-                if (sid.isNullOrBlank()) {
-                    val suggestions = available.take(5).joinToString("، ")
-                    val reason = if (matches.length() == 0) "DataCedar لم يُرجع نتائج لسوق EGX. تحقق من المفتاح واتصال الإنترنت." else "لم يتم العثور على الرمز $requested في نتائج EGX. جرّب كود السهم كما يظهر في DataCedar. أمثلة: $suggestions"
-                    throw IllegalStateException(reason)
-                }
-                val from = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Calendar.getInstance().apply { add(Calendar.YEAR, -1) }.time)
-                val bars = getJson("https://api.datacedar.com/v3/stocks/${URLEncoder.encode(sid, "UTF-8")}/bars?timeframe=1d&from=$from&order=asc&limit=50000&adjustment=raw")
-                val data = bars.optJSONArray("data") ?: throw IllegalStateException("لم تصل بيانات تاريخية لهذا السهم.")
-                val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-                val rows = mutableListOf<Candle>()
-                for (i in 0 until data.length()) {
-                    val item = data.optJSONObject(i) ?: continue
-                    val ts = item.optString("ts_ms").toLongOrNull() ?: continue
-                    val candle = Candle(
-                        formatter.format(Date(ts)),
-                        item.optDouble("open", Double.NaN),
-                        item.optDouble("high", Double.NaN),
-                        item.optDouble("low", Double.NaN),
-                        item.optDouble("close", Double.NaN),
-                        item.optString("volume").toDoubleOrNull() ?: 0.0
-                    )
-                    if (candle.open.isFinite() && candle.high.isFinite() && candle.low.isFinite() &&
-                        candle.close.isFinite() && candle.open > 0 && candle.close > 0 &&
-                        candle.high >= maxOf(candle.open, candle.close, candle.low) &&
-                        candle.low <= minOf(candle.open, candle.close)) rows.add(candle)
-                }
-                val note = if (rows.size < 26) "وصلت ${rows.size} جلسة فقط؛ يلزم 26 جلسة على الأقل للتحليل." else
-                    "تم جلب ${rows.size} جلسة يومية من DataCedar للسهم ${sid}."
-                Handler(Looper.getMainLooper()).post { callback(rows, note) }
-            } catch (e: Exception) {
-                val message = e.message ?: "تعذر الاتصال بـ DataCedar."
-                Handler(Looper.getMainLooper()).post { callback(emptyList(), "فشل التحميل: $message") }
-            } finally {
-                connection?.disconnect()
-            }
-        }.start()
+        setContent { MaterialTheme { AnalyzerScreen(::readCsv) } }
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -235,9 +151,8 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>, fetchData: (String, String, (List<Candle>, String) -> Unit) -> Unit) {
+fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
     var symbol by remember { mutableStateOf("") }
-    var apiKey by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
@@ -293,41 +208,6 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>, fetchData: (S
                         )
                     }
                     Spacer(Modifier.height(10.dp))
-                    Spacer(Modifier.height(10.dp))
-                    BasicTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it.trim() },
-                        modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(14.dp),
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        decorationBox = { inner ->
-                            if (apiKey.isBlank()) Text("مفتاح DataCedar API", color = Muted)
-                            inner()
-                        }
-                    )
-                    Spacer(Modifier.height(9.dp))
-                    Button(
-                        onClick = {
-                            if (symbol.isBlank() || apiKey.isBlank()) {
-                                message = "اكتب كود السهم ومفتاح DataCedar أولًا."
-                            } else {
-                                message = "جارٍ جلب البيانات اليومية من DataCedar..."
-                                fetchData(symbol, apiKey) { loaded, note ->
-                                    candles = loaded
-                                    message = note
-                                    result = if (loaded.size >= 26) TechnicalAnalyzer.analyze(loaded) else null
-                                }
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Green),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Icon(Icons.Default.CloudDownload, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("جلب وتحليل مباشر من DataCedar", fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(Modifier.height(8.dp))
                     OutlinedButton(
                         onClick = { picker.launch(arrayOf("text/*", "text/csv", "application/vnd.ms-excel")) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
@@ -335,7 +215,7 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>, fetchData: (S
                     ) {
                         Icon(Icons.Default.UploadFile, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("أو استيراد ملف CSV", fontWeight = FontWeight.Bold)
+                        Text("استيراد ملف CSV", fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -438,7 +318,7 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>, fetchData: (S
             }
             Spacer(Modifier.height(18.dp))
             Text(
-                "مصدر البيانات: DataCedar للتحميل المباشر أو ملف CSV يدوي. البيانات تاريخية وليست أسعارًا لحظية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
+                "مصدر البيانات: ملف CSV الذي تستورده يدويًا. البيانات تاريخية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
                 color = Muted, fontSize = 10.sp, textAlign = TextAlign.Center, lineHeight = 16.sp
             )
             Spacer(Modifier.height(22.dp))
