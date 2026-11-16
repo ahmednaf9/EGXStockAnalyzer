@@ -279,9 +279,9 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>) {
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("الخلاصة الفنية")
                 ResultCard(
-                    "الحالة: \${a.scoreLabel}\\n" +
-                    "الاتجاه الحالي: \${a.trend}\\n" +
-                    "درجة توافق المؤشرات: \${a.score}/100\\n" +
+                    "الحالة: ${a.scoreLabel}\n" +
+                    "الاتجاه الحالي: ${a.trend}\n" +
+                    "درجة توافق المؤشرات: ${a.score}/100\n" +
                     when {
                         a.score >= 75 && a.trend == "صاعد" ->
                             "القراءة: أغلب المؤشرات متوافقة مع اتجاه صاعد، لكن يلزم متابعة تأكيد الحركة."
