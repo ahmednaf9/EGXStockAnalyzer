@@ -122,7 +122,7 @@ class MainActivity : ComponentActivity() {
             }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
 
             val note = when {
-                parsed.size < 15 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 26 جلسة على الأقل. أضف بيانات تاريخية أكثر."
+                parsed.size < 15 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 15 جلسة على الأقل. أضف بيانات تاريخية أكثر."
                 parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
@@ -223,9 +223,9 @@ class MainActivity : ComponentActivity() {
     private fun normalizeDate(value: String): String {
         val s = value.trim()
         val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
-        if (iso != null) return "\${iso.groupValues[1].padStart(4, '0')}-\${iso.groupValues[2].padStart(2, '0')}-\${iso.groupValues[3].padStart(2, '0')}"
+        if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
         val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
-        if (dmy != null) return "\${dmy.groupValues[3]}-\${dmy.groupValues[2].padStart(2, '0')}-\${dmy.groupValues[1].padStart(2, '0')}"
+        if (dmy != null) return "${dmy.groupValues[3]}-${dmy.groupValues[2].padStart(2, '0')}-${dmy.groupValues[1].padStart(2, '0')}"
         return s
     }
 
