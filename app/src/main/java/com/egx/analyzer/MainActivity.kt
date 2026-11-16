@@ -102,18 +102,18 @@ class MainActivity : ComponentActivity() {
             val highI = indexOf("high", "الأعلى", "اعلى", fallback = 2)
             val lowI = indexOf("low", "الأدنى", "ادنى", fallback = 3)
             val closeI = indexOf("close", "price", "last", "الإغلاق", "الاغلاق", "السعر", fallback = 4)
-            val volumeI = indexOf("volume", "vol.", "vol", "الحجم", fallback = 5)
+            val volumeI = header.indexOfFirst { h -> listOf("volume", "vol.", "vol", "الحجم").any { h == it || h.contains(it) } }
             val parsed = lines.drop(1).mapNotNull { line ->
                 val cells = splitCsvLine(line, delimiter)
-                val needed = listOf(dateI, openI, highI, lowI, closeI, volumeI)
+                val needed = listOf(dateI, openI, highI, lowI, closeI)
                 if (cells.size <= (needed.maxOrNull() ?: 5)) null else try {
                     val candle = Candle(
-                        cells[dateI].trim(),
+                        normalizeDate(cells[dateI].trim()),
                         parseNumber(cells[openI]),
                         parseNumber(cells[highI]),
                         parseNumber(cells[lowI]),
                         parseNumber(cells[closeI]),
-                        parseNumber(cells[volumeI])
+                        if (volumeI >= 0 && cells.size > volumeI && cells[volumeI].isNotBlank()) parseNumber(cells[volumeI]) else 0.0
                     )
                     if (candle.date.isBlank() || candle.open <= 0.0 || candle.close <= 0.0 ||
                         candle.high < maxOf(candle.open, candle.close, candle.low) ||
@@ -169,21 +169,24 @@ class MainActivity : ComponentActivity() {
         fun ix(vararg names:String,fallback:Int)=h.entries.firstOrNull{(_,v)->names.any{v==it || v.contains(it)}}?.key ?: fallback
         val d=ix("date","التاريخ",fallback=0); val o=ix("open","الفتح",fallback=1)
         val hi=ix("high","الأعلى","اعلى",fallback=2); val lo=ix("low","الأدنى","ادنى",fallback=3)
-        val c=ix("close","الإغلاق","الاغلاق",fallback=4); val v=ix("volume","الحجم",fallback=5)
+        val c=ix("close","الإغلاق","الاغلاق",fallback=4); val v=h.entries.firstOrNull { (_, value) -> value.contains("volume") || value.contains("الحجم") || value == "vol" }?.key ?: -1
         val data=rows.drop(1).mapNotNull { r -> try {
             val rawDate=r[d].orEmpty()
             val date=rawDate.toDoubleOrNull()?.let { serial ->
                 val cal=Calendar.getInstance(); cal.timeInMillis=(serial-25569.0).toLong()*86400000L
                 SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cal.time)
-            } ?: rawDate
-            val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),parseNumber(r[v]?: "0"))
+            } ?: normalizeDate(rawDate)
+            val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),if(v>=0) parseNumber(r[v]?: "0") else 0.0)
             if(date.isNotBlank() && x.open>0 && x.close>0 && x.high>=maxOf(x.open,x.close,x.low) && x.low<=minOf(x.open,x.close)) x else null
         } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{it.date}
         data to "تم استيراد ${data.size} جلسة من Excel."
     } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة Excel: ${e.message ?: "تأكد من الملف."}" }
 
     private fun parseNumber(raw: String): Double {
-        val cleaned = raw.trim().replace("\"", "").replace(",", "").replace(" ", "")
+        var cleaned = raw.trim().replace("\"", "").replace(" ", "")
+        if (cleaned.contains(',') && cleaned.contains('.')) {
+            cleaned = if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) cleaned.replace(".", "").replace(',', '.') else cleaned.replace(",", "")
+        } else if (cleaned.contains(',')) cleaned = cleaned.replace(',', '.')
         val suffix = cleaned.lastOrNull()?.uppercaseChar()
         val number = if (suffix == 'K' || suffix == 'M' || suffix == 'B') cleaned.dropLast(1).toDouble() else cleaned.toDouble()
         return number * when (suffix) {
@@ -217,8 +220,17 @@ class MainActivity : ComponentActivity() {
         return out
     }
 
-    private fun dateSortKey(value: String): String {
+    private fun normalizeDate(value: String): String {
         val s = value.trim()
+        val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
+        if (iso != null) return "\${iso.groupValues[1].padStart(4, '0')}-\${iso.groupValues[2].padStart(2, '0')}-\${iso.groupValues[3].padStart(2, '0')}"
+        val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
+        if (dmy != null) return "\${dmy.groupValues[3]}-\${dmy.groupValues[2].padStart(2, '0')}-\${dmy.groupValues[1].padStart(2, '0')}"
+        return s
+    }
+
+    private fun dateSortKey(value: String): String {
+        val s = normalizeDate(value)
         val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
         if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
         val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
@@ -244,7 +256,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
             val loaded = importFile(uri)
             candles = loaded.first
             message = loaded.second
-            result = if (candles.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
+            result = if (loaded.first.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(loaded.first,period)) else null
             trendPoints=emptyList()
         }
     }
@@ -361,7 +373,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                     listOf("يومي","أسبوعي","شهري").forEach { p ->
                         FilterChip(selected=period==p,onClick={
                             val grouped=aggregateCandles(candles,p)
-                            if(grouped.size>=26) {
+                            if(grouped.size>=15) {
                                 period=p
                                 result=TechnicalAnalyzer.analyze(grouped)
                                 trendPoints=emptyList()
