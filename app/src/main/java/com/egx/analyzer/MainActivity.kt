@@ -29,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -286,6 +287,7 @@ fun AnalyzerScreen(importCsv: (Uri) -> Pair<List<Candle>, String>, fetchData: (S
                         onValueChange = { apiKey = it.trim() },
                         modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(14.dp),
                         singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
                         decorationBox = { inner ->
                             if (apiKey.isBlank()) Text("مفتاح DataCedar API", color = Muted)
                             inner()
