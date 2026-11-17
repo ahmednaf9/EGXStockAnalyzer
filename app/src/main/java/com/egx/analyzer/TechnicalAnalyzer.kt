@@ -30,6 +30,8 @@ data class Analysis(
     val sessions: Int,
     val volumeAvailable: Boolean,
     val marketState: String,
+    val marketStateScore: Int,
+    val marketStateStrength: String,
     val marketStateReason: String,
     val finalRating: String,
     val finalRatingScore: Int,
@@ -198,29 +200,68 @@ object TechnicalAnalyzer {
             rr >= 1.0 -> 8
             else -> 3
         }
-        // Estimate accumulation/distribution from the last 20 sessions using
-        // volume-weighted close location within each candle's range.
+        // Estimate accumulation/distribution using price and volume together.
         val flowRows = rows.takeLast(20)
         val flowRowsWithVolume = flowRows.filter { it.volume > 0.0 }
-        val signedFlow = flowRowsWithVolume.sumOf { c ->
+        fun moneyFlowMultiplier(c: Candle): Double {
             val range = (c.high - c.low).coerceAtLeast(0.000001)
-            ((2.0 * c.close - c.high - c.low) / range) * c.volume
+            return ((2.0 * c.close - c.high - c.low) / range).coerceIn(-1.0, 1.0)
         }
+        val signedFlow = flowRowsWithVolume.sumOf { moneyFlowMultiplier(it) * it.volume }
         val totalFlowVolume = flowRowsWithVolume.sumOf { it.volume }
         val flowRatio = if (totalFlowVolume > 0.0) signedFlow / totalFlowVolume else 0.0
         val priceChange20 = if (flowRows.size >= 2 && flowRows.first().close > 0.0)
             (last.close - flowRows.first().close) / flowRows.first().close else 0.0
+
+        val directionalRows = flowRowsWithVolume.filter { it.close != it.open }
+        val upVolume = directionalRows.filter { it.close > it.open }.sumOf { it.volume }
+        val downVolume = directionalRows.filter { it.close < it.open }.sumOf { it.volume }
+        val directionalVolume = upVolume + downVolume
+        val volumeBalance = if (directionalVolume > 0.0)
+            (upVolume - downVolume) / directionalVolume else 0.0
+
+        val recentFlowRows = flowRowsWithVolume.takeLast(5)
+        val recentFlowVolume = recentFlowRows.sumOf { it.volume }
+        val recentFlowRatio = if (recentFlowVolume > 0.0)
+            recentFlowRows.sumOf { moneyFlowMultiplier(it) * it.volume } / recentFlowVolume else 0.0
+
+        val marketStateScore = if (flowRowsWithVolume.size >= 10 && totalFlowVolume > 0.0) {
+            val priceComponent = (priceChange20 / 0.08 * 100.0).coerceIn(-100.0, 100.0)
+            (flowRatio * 45.0 + volumeBalance * 25.0 +
+                priceComponent * 0.20 + recentFlowRatio * 10.0)
+                .toInt().coerceIn(-100, 100)
+        } else 0
+
         val marketState = when {
             flowRowsWithVolume.size < 10 -> "غير محسوم"
-            flowRatio >= 0.12 && priceChange20 >= -0.03 -> "تجميع محتمل"
-            flowRatio <= -0.12 && priceChange20 <= 0.03 -> "تصريف محتمل"
+            marketStateScore >= 22 && flowRatio >= 0.05 -> "تجميع محتمل"
+            marketStateScore <= -22 && flowRatio <= -0.05 -> "تصريف محتمل"
             else -> "تذبذب / حياد"
         }
+        val marketStateStrength = when {
+            marketState == "غير محسوم" -> "غير متاحة"
+            abs(marketStateScore) >= 65 -> "قوية نسبيًا"
+            abs(marketStateScore) >= 40 -> "متوسطة"
+            abs(marketStateScore) >= 22 -> "محدودة"
+            else -> "لا توجد إشارة حاسمة"
+        }
         val marketStateReason = when (marketState) {
-            "تجميع محتمل" -> "ضغط السيولة يميل للشراء خلال الجلسات الأخيرة مع عدم وجود هبوط سعري حاد."
-            "تصريف محتمل" -> "ضغط السيولة يميل للبيع خلال الجلسات الأخيرة؛ راقب كسر الدعوم."
-            "غير محسوم" -> "بيانات الحجم غير كافية لتقدير التجميع أو التصريف بثقة."
-            else -> "تدفق السيولة وحركة السعر لا يعطيان إشارة حاسمة للتجميع أو التصريف."
+            "تجميع محتمل" ->
+                "تدفق السيولة يميل للشراء. قوة الإشارة: $marketStateStrength. " +
+                "تدفق الأموال: ${oneDecimal(flowRatio * 100.0)}%، " +
+                "توازن أحجام الشموع الصاعدة والهابطة: ${oneDecimal(volumeBalance * 100.0)}%، " +
+                "تغير السعر خلال 20 جلسة: ${oneDecimal(priceChange20 * 100.0)}%."
+            "تصريف محتمل" ->
+                "تدفق السيولة يميل للبيع. قوة الإشارة: $marketStateStrength. " +
+                "تدفق الأموال: ${oneDecimal(flowRatio * 100.0)}%، " +
+                "توازن أحجام الشموع الصاعدة والهابطة: ${oneDecimal(volumeBalance * 100.0)}%، " +
+                "تغير السعر خلال 20 جلسة: ${oneDecimal(priceChange20 * 100.0)}%."
+            "غير محسوم" ->
+                "بيانات الحجم المتاحة أقل من 10 جلسات؛ لا يمكن الحكم على التجميع أو التصريف."
+            else ->
+                "لا يوجد توافق كافٍ بين تدفق الأموال وحجم الشموع وحركة السعر لتأكيد التجميع أو التصريف. " +
+                "تدفق الأموال: ${oneDecimal(flowRatio * 100.0)}%، " +
+                "تغير السعر خلال 20 جلسة: ${oneDecimal(priceChange20 * 100.0)}%."
         }
 
         // Independent multi-factor rating: each available indicator contributes
@@ -400,7 +441,8 @@ object TechnicalAnalyzer {
             atr, bbLower, bbUpper, trend, patterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
             volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0,
-            marketState, marketStateReason, finalRating, finalRatingScore,
+            marketState, marketStateScore, marketStateStrength, marketStateReason,
+            finalRating, finalRatingScore,
             finalRatingReason, ratingFactors
         )
     }
@@ -438,4 +480,7 @@ object TechnicalAnalyzer {
         if (result.isEmpty()) result.add("لم يتم رصد نموذج شموع أساسي واضح في آخر جلسة")
         return result
     }
+
+    private fun oneDecimal(value: Double): String =
+        String.format(java.util.Locale.US, "%.1f", value)
 }
