@@ -22,6 +22,11 @@
 3. انتظر نجاح Build debug APK وVerify APK.
 4. حمّل Artifact باسم EGXStockAnalyzer-debug-apk.
 
+## رابط Investing.com والبيانات التاريخية
+- الصق رابط صفحة السهم في خانة Investing.com داخل التطبيق لفتح صفحة Historical Data.
+- اختر Daily وحدد النطاق المطلوب ثم نزّل CSV من الموقع واستورده في التطبيق.
+- فتح الرابط لا يعني أن التطبيق يسحب بيانات الموقع تلقائيًا؛ الاستيراد يتم من الملف الذي تنزله من الموقع.
+
 ## تنسيق CSV
 الأعمدة بالترتيب:
 Date,Open,High,Low,Close,Volume
