@@ -18,9 +18,11 @@ import androidx.compose.ui.geometry.Offset
 import java.util.zip.ZipInputStream
 import java.io.ByteArrayOutputStream
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,6 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -275,74 +278,113 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     }
 
     Scaffold(
-        containerColor = Page,
+        containerColor = Color(0xFFE8FBEA),
         topBar = {
             TopAppBar(
                 title = {
-                    Column {
-                        Text("EGX ANALYZER", color = Green, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                        Text("محلل الأسهم المصرية", color = Navy, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                    }
+                    Text(
+                        "تحميل بيانات الأسهم",
+                        color = Color(0xFF075C20),
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
                 },
                 actions = {
-                    Icon(Icons.Default.ShowChart, null, tint = Green, modifier = Modifier.padding(end = 18.dp).size(30.dp))
+                    Icon(
+                        Icons.Default.ShowChart,
+                        null,
+                        tint = Color(0xFF00A52B),
+                        modifier = Modifier.padding(end = 18.dp).size(32.dp)
+                    )
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Page)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color(0xFFDDF8E2))
             )
         }
     ) { pad ->
         Column(
             Modifier.fillMaxSize().padding(pad).verticalScroll(rememberScrollState()).padding(16.dp)
         ) {
-            Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(22.dp)) {
-                Column(Modifier.padding(18.dp)) {
-                    Text("لوحة تحليل EGX", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                    Text("ارفع ملف بيانات السهم وسيتم تحديد رمزه تلقائيًا من اسم الملف.", color = Color(0xFFB9C9D8), fontSize = 12.sp)
-                    Spacer(Modifier.height(13.dp))
+            Box(
+                Modifier.fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(listOf(Color(0xFF087A22), Color(0xFFB8F6BE), Color(0xFF087A22))),
+                        RoundedCornerShape(28.dp)
+                    )
+                    .padding(14.dp)
+            ) {
+                Column(
+                    Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     BasicTextField(
                         value = symbol,
                         onValueChange = { symbol = it.uppercase(Locale.ROOT) },
                         modifier = Modifier.fillMaxWidth()
-                            .background(Color.White, RoundedCornerShape(12.dp))
-                            .padding(horizontal = 14.dp, vertical = 16.dp),
+                            .border(2.dp, Color(0xFF168B39), RoundedCornerShape(28.dp))
+                            .background(Color.White, RoundedCornerShape(28.dp))
+                            .padding(horizontal = 14.dp, vertical = 20.dp),
                         singleLine = true,
                         textStyle = androidx.compose.ui.text.TextStyle(
-                            color = Navy,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
+                            color = Color(0xFF174E9B),
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
                         ),
                         decorationBox = { inner ->
-                            if (symbol.isBlank()) Text("كود السهم", color = Muted, fontSize = 14.sp)
-                            inner()
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                if (symbol.isBlank()) {
+                                    Text(
+                                        "كود السهم",
+                                        color = Color(0xFF174E9B),
+                                        fontSize = 22.sp,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                                inner()
+                            }
                         }
                     )
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Green)
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        },
+                        modifier = Modifier.fillMaxWidth().height(66.dp),
+                        shape = RoundedCornerShape(34.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00C82B),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
                     ) {
-                        Icon(Icons.Default.UploadFile, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("استيراد CSV أو Excel", fontWeight = FontWeight.Bold)
+                        Icon(Icons.Default.UploadFile, null, modifier = Modifier.size(30.dp))
+                        Spacer(Modifier.width(12.dp))
+                        Text("تحميل اكسل أو CSV", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
                     }
-                    Spacer(Modifier.height(8.dp))
+                    Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
                             symbol = ""
                             candles = emptyList()
-                            message = "لم يتم تحميل أي ملف. يمكنك استيراد ملف سهم جديد."
+                            message = "لم يتم تحميل أي ملف. يمكنك تحميل ملف سهم جديد."
                             result = null
                             period = "يومي"
                         },
-                        modifier = Modifier.fillMaxWidth().height(44.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Red, contentColor = Color.White)
+                        modifier = Modifier.size(142.dp),
+                        shape = CircleShape,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFFE50916),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp),
+                        contentPadding = PaddingValues(8.dp)
                     ) {
-                        Text("RESET", fontWeight = FontWeight.Bold)
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(46.dp))
+                            Text("RESET", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                        }
                     }
-                    Spacer(Modifier.height(8.dp))
                 }
             }
             Spacer(Modifier.height(12.dp))
