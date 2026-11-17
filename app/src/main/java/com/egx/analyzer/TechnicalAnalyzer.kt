@@ -234,10 +234,11 @@ object TechnicalAnalyzer {
             else -> 0.0
         }
         val rsiText = when {
-            rsiSignal >= 1.0 -> "زخم إيجابي"
-            rsiSignal > 0.0 -> "إيجابي مع اقتراب التشبع الشرائي"
-            rsiSignal <= -1.0 -> "زخم سلبي / تشبع شرائي مرتفع"
-            rsiSignal < 0.0 -> "ضعف مع احتمال تشبع بيعي"
+            rsi in 55.0..68.0 -> "زخم إيجابي"
+            rsi > 68.0 && rsi <= 75.0 -> "إيجابي مع اقتراب التشبع الشرائي"
+            rsi > 75.0 -> "تشبع شرائي مرتفع ومخاطر تصحيح"
+            rsi in 32.0..45.0 -> "زخم سلبي"
+            rsi < 32.0 -> "ضعف مع احتمال تشبع بيعي"
             else -> "محايد"
         }
         addRatingSignal("RSI 14", rsiSignal, 1.0, "$rsiText ($rsi)")
@@ -331,6 +332,7 @@ object TechnicalAnalyzer {
         val finalRatingScore = if (ratingWeight > 0.0)
             (ratingNet / ratingWeight * 100.0).toInt().coerceIn(-100, 100) else 0
         val finalRating = when {
+            ratingWeight < 3.0 -> "محايد / انتظار"
             ratingWeight >= 5.0 && finalRatingScore >= 55 -> "شراء قوي"
             finalRatingScore >= 22 -> "شراء بحذر"
             ratingWeight >= 5.0 && finalRatingScore <= -55 -> "بيع قوي"
