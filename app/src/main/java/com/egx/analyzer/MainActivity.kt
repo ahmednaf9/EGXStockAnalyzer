@@ -785,7 +785,7 @@ fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
         Column(Modifier.padding(11.dp)) {
             Text(label, color = Muted, fontSize = 10.sp)
             Spacer(Modifier.height(5.dp))
-            Text(value, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
+            Text(value, color = semanticColor(value), fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
         }
     }
 }
@@ -793,7 +793,11 @@ fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
 @Composable
 fun ResultCard(text: String) {
     Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
-        Text(text, Modifier.fillMaxWidth().padding(14.dp), color = Navy, fontSize = 13.sp, lineHeight = 22.sp)
+        Column(Modifier.fillMaxWidth().padding(14.dp)) {
+            text.split("\\n").forEach { line ->
+                Text(line, color = semanticColor(line), fontSize = 13.sp, lineHeight = 22.sp)
+            }
+        }
     }
 }
 
@@ -812,9 +816,35 @@ fun Feature(title: String, desc: String) {
 }
 
 private fun scoreColor(label: String): Color = when (label) {
-    "إيجابي فنيًا", "يميل للإيجابية" -> Green
-    "ضعيف فنيًا" -> Red
+    "إيجابي فنيًا", "يميل للإيجابية", "قوي جداً", "قوي", "إيجابي" -> Green
+    "ضعيف فنيًا", "ضعيف", "ضعيف جداً" -> Red
     else -> Amber
+}
+
+private fun classificationColor(label: String): Color = when (label) {
+    "قوي جداً", "قوي", "إيجابي" -> Green
+    "ضعيف", "ضعيف جداً" -> Red
+    else -> Amber
+}
+
+private fun recommendationColor(label: String): Color = when (label) {
+    "شراء", "شراء تدريجي" -> Green
+    "تجنب" -> Red
+    else -> Amber
+}
+
+// Apply the same positive/negative palette to all result text and metric values.
+private fun semanticColor(text: String): Color {
+    val s = text.trim()
+    return when {
+        listOf("ضعيف جداً", "ضعيف فنيًا", "ضعيف", "سلبي", "هابط", "ضغط هابط",
+            "تصريف", "بيع قوي", "بيع بحذر", "تجنب", "كسر الدعم", "وقف الخسارة")
+            .any { s.contains(it) } -> Red
+        listOf("قوي جداً", "قوي", "إيجابي", "صاعد", "تحسن صاعد", "تجميع",
+            "شراء قوي", "شراء بحذر", "شراء تدريجي", "شراء اختراق", "ارتداد")
+            .any { s.contains(it) } -> Green
+        else -> Navy
+    }
 }
 
 private fun marketStateColor(label: String): Color = when (label) {
@@ -825,9 +855,9 @@ private fun marketStateColor(label: String): Color = when (label) {
 }
 
 private fun finalRatingColor(label: String): Color = when (label) {
-    "شراء قوي" -> Color(0xFF087F5B)
-    "شراء بحذر" -> Color(0xFF4F9D75)
-    "بيع بحذر" -> Color(0xFFD27A48)
+    "شراء قوي" -> Green
+    "شراء بحذر" -> Green
+    "بيع بحذر" -> Red
     "بيع قوي" -> Red
     else -> Amber
 }
