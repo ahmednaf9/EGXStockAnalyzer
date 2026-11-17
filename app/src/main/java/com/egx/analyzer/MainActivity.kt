@@ -444,22 +444,25 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, openHistoric
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("الخلاصة الفنية")
-                ResultCard(
-                    "الحالة: ${a.scoreLabel}\n" +
-                    "التوصية التنفيذية: ${a.recommendation}\n" +
-                    "الاتجاه الحالي: ${a.trend}\n" +
-                    "درجة توافق المؤشرات: ${a.score}/100\n" +
-                    when {
-                        a.score >= 75 && a.trend == "صاعد" ->
-                            "القراءة: أغلب المؤشرات متوافقة مع اتجاه صاعد، لكن يلزم متابعة تأكيد الحركة."
-                        a.score <= 35 && a.trend == "هابط" ->
-                            "القراءة: توجد ضغوط فنية هابطة؛ راجع مستويات الدعم ومؤشرات الزخم."
-                        a.score >= 62 ->
-                            "القراءة: توجد إشارات إيجابية جزئيًا، لكنها لا تزال بحاجة إلى تأكيد."
-                        else ->
-                            "القراءة: الإشارات مختلطة أو غير كافية لتحديد اتجاه واضح."
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                        Text("الحالة: ${a.scoreLabel}", color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("التوصية التنفيذية: ${a.recommendation}", color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("الاتجاه الحالي: ${a.trend}", color = semanticColor(a.trend), fontWeight = FontWeight.Bold)
+                        Text("درجة توافق المؤشرات: ${a.score}/100", color = Navy)
+                        val reading = when {
+                            a.score >= 75 && a.trend == "صاعد" ->
+                                "أغلب المؤشرات متوافقة مع اتجاه صاعد، لكن يلزم متابعة تأكيد الحركة."
+                            a.score <= 35 && a.trend == "هابط" ->
+                                "توجد ضغوط فنية هابطة؛ راجع مستويات الدعم ومؤشرات الزخم."
+                            a.score >= 62 ->
+                                "توجد إشارات إيجابية جزئيًا، لكنها لا تزال بحاجة إلى تأكيد."
+                            else ->
+                                "الإشارات مختلطة أو غير كافية لتحديد اتجاه واضح."
+                        }
+                        Text("القراءة: $reading", color = semanticColor(reading), lineHeight = 22.sp)
                     }
-                )
+                }
                 Spacer(Modifier.height(8.dp))
                 Text("هذه قراءة تعليمية آلية للبيانات التاريخية وليست توصية شراء أو بيع أو ضمانًا للربح.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                 Spacer(Modifier.height(12.dp))
