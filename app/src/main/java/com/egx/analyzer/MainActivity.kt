@@ -1,6 +1,7 @@
 package com.egx.analyzer
 
 import android.net.Uri
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
@@ -65,7 +66,7 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage) } }
+        setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage, ::openChartUrl, ::downloadChartImage) } }
     }
 
     private fun readChartImage(uri: Uri): Pair<String, String> {
@@ -78,6 +79,52 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             "" to "تعذر تحليل الصورة: ${e.message ?: "صيغة غير مدعومة"}"
         }
+    }
+
+
+    private fun openChartUrl(rawUrl: String) {
+        try {
+            val normalized = if (rawUrl.startsWith("http://", true) || rawUrl.startsWith("https://", true)) rawUrl else "https://$rawUrl"
+            val uri = Uri.parse(normalized)
+            require(uri.scheme == "http" || uri.scheme == "https") { "الرابط يجب أن يبدأ بـ http أو https." }
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "تعذر فتح الرابط. تأكد من صحته.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun downloadChartImage(rawUrl: String, onResult: (Pair<String, String>) -> Unit) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            val result = try {
+                val normalized = if (rawUrl.startsWith("http://", true) || rawUrl.startsWith("https://", true)) rawUrl else "https://$rawUrl"
+                val uri = Uri.parse(normalized)
+                require(uri.scheme == "http" || uri.scheme == "https") { "الرابط يجب أن يبدأ بـ http أو https." }
+                connection = (URL(normalized).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 12000
+                    readTimeout = 15000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", "Mozilla/5.0 EGXStockAnalyzer")
+                }
+                connection.connect()
+                if (connection.responseCode !in 200..299) error("الموقع رفض التحميل (HTTP ${connection.responseCode}).")
+                val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(Locale.ROOT)
+                if (!type.startsWith("image/")) error("الرابط يفتح صفحة موقع وليس ملف صورة مباشرًا. افتح الشارت واحفظ صورته أو التقط لقطة شاشة ثم اخترها من الهاتف.")
+                val length = connection.contentLengthLong
+                if (length > 8L * 1024L * 1024L) error("حجم الصورة أكبر من 8 ميجابايت.")
+                val bitmap = connection.inputStream.use { BitmapFactory.decodeStream(it) }
+                    ?: error("تعذر قراءة الصورة من هذا الرابط.")
+                val report = ChartImageAnalyzer.analyze(bitmap)
+                bitmap.recycle()
+                report
+            } catch (e: Exception) {
+                "" to (e.message ?: "تعذر تحميل صورة الشارت من الرابط.")
+            } finally {
+                connection?.disconnect()
+            }
+            runOnUiThread { onResult(result) }
+        }.start()
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -241,7 +288,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart: (Uri) -> Pair<String, String>) {
+fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart: (Uri) -> Pair<String, String>, openChart: (String) -> Unit, downloadChart: (String, (Pair<String, String>) -> Unit) -> Unit) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
@@ -251,6 +298,9 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
     var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
     var imageReport by remember { mutableStateOf("") }
     var imageMessage by remember { mutableStateOf("") }
+    var chartUrl by remember { mutableStateOf("") }
+    var chartUrlMessage by remember { mutableStateOf("") }
+    var downloadingChart by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
@@ -331,6 +381,53 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                         Spacer(Modifier.width(8.dp))
                         Text("تحليل صورة الشارت دون إنترنت", fontWeight = FontWeight.Bold)
                     }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                    Text("شارت من أي موقع (اختياري)", color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.height(5.dp))
+                    Text("الصق رابط صفحة الشارت أو رابط صورة مباشرة. يمكنك ترك الحقل فارغًا واستخدام البرنامج كالمعتاد.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                    Spacer(Modifier.height(9.dp))
+                    BasicTextField(
+                        value = chartUrl,
+                        onValueChange = { chartUrl = it },
+                        modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp),
+                        singleLine = true,
+                        decorationBox = { inner ->
+                            if (chartUrl.isBlank()) Text("https://example.com/chart", color = Muted, fontSize = 12.sp)
+                            inner()
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { if (chartUrl.isNotBlank()) openChart(chartUrl.trim()) else chartUrlMessage = "أدخل رابط الشارت أولًا." },
+                            modifier = Modifier.weight(1f)
+                        ) { Icon(Icons.Default.OpenInBrowser, null); Spacer(Modifier.width(5.dp)); Text("فتح الشارت") }
+                        Button(
+                            onClick = {
+                                if (chartUrl.isNotBlank()) {
+                                    downloadingChart = true
+                                    chartUrlMessage = "جارٍ محاولة تحميل صورة الشارت..."
+                                    downloadChart(chartUrl.trim()) { report ->
+                                        imageReport = report.first
+                                        imageMessage = report.second
+                                        chartUrlMessage = report.second
+                                        downloadingChart = false
+                                    }
+                                } else chartUrlMessage = "أدخل رابط صورة مباشرًا، أو افتح صفحة الشارت واختر لقطة شاشة من الهاتف."
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !downloadingChart
+                        ) { Icon(Icons.Default.Download, null); Spacer(Modifier.width(5.dp)); Text(if (downloadingChart) "جارٍ التحميل" else "تحميل الصورة") }
+                    }
+                    if (chartUrlMessage.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(chartUrlMessage, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+                    Text("ملاحظة: تحميل الصورة المباشر يعمل عندما يعطي الموقع رابط ملف صورة. روابط صفحات المواقع تُفتح عاديًا، وإذا منع الموقع التحميل استخدم زر اختيار صورة الشارت من الهاتف.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                 }
             }
             Spacer(Modifier.height(12.dp))
