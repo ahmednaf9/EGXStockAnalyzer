@@ -542,20 +542,20 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Spacer(Modifier.height(9.dp))
                 ResultCard(
-                    "الدعوم: ${supportText}\\n" +
-                    "المقاومات: ${resistanceText}\\n" +
-                    "وقف الخسارة المقترح: ${money(a.invalidation)} (إغلاق أسفل المستوى)\\n\\n" +
-                    "المستهدفات السعرية:\\n" +
-                    "قريب: ${money(a.targets[0])}\\n" +
-                    "متوسط: ${money(a.targets[1])}\\n" +
-                    "بعيد: ${money(a.targets[2])}\\n\\n" +
-                    "خطة التعامل في الصعود:\\n" +
-                    "شراء اختراق: ${money(breakoutBuy)} بعد إغلاق أعلى المقاومة وتأكيد حجم التداول.\\n" +
-                    "شراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"} بشرط ظهور ارتداد واضح.\\n" +
-                    "بيع/جني ربح: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"} ثم المستهدف القريب ${money(a.targets[0])}.\\n\\n" +
-                    "خطة التعامل في الهبوط:\\n" +
-                    "بيع أو تخفيف: عند كسر الدعم والإغلاق أسفل ${money(breakdownExit)}.\\n" +
-                    "شراء بعد الهبوط: راقب الدعم ${nearestSupport?.let(::money) ?: "غير متاح"}؛ لا يتم الشراء إلا بعد ارتداد وتأكيد انعكاس، وليس لمجرد ملامسة الدعم.\\n" +
+                    "الدعوم: ${supportText}\n" +
+                    "المقاومات: ${resistanceText}\n" +
+                    "وقف الخسارة المقترح: ${money(a.invalidation)} (إغلاق أسفل المستوى)\n\n" +
+                    "المستهدفات السعرية:\n" +
+                    "قريب: ${money(a.targets[0])}\n" +
+                    "متوسط: ${money(a.targets[1])}\n" +
+                    "بعيد: ${money(a.targets[2])}\n\n" +
+                    "خطة التعامل في الصعود:\n" +
+                    "شراء اختراق: ${money(breakoutBuy)} بعد إغلاق أعلى المقاومة وتأكيد حجم التداول.\n" +
+                    "شراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"} بشرط ظهور ارتداد واضح.\n" +
+                    "بيع/جني ربح: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"} ثم المستهدف القريب ${money(a.targets[0])}.\n\n" +
+                    "خطة التعامل في الهبوط:\n" +
+                    "بيع أو تخفيف: عند كسر الدعم والإغلاق أسفل ${money(breakdownExit)}.\n" +
+                    "شراء بعد الهبوط: راقب الدعم ${nearestSupport?.let(::money) ?: "غير متاح"}؛ لا يتم الشراء إلا بعد ارتداد وتأكيد انعكاس، وليس لمجرد ملامسة الدعم.\n" +
                     "المقاومة التالية للبيع: ${secondResistance?.let(::money) ?: nearestResistance?.let(::money) ?: "غير متاحة"}."
                 )
                 Spacer(Modifier.height(7.dp))
