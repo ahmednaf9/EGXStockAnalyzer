@@ -195,8 +195,10 @@ object TechnicalAnalyzer {
         // Execution guidance is deliberately stricter than the score alone and considers trend and reward/risk.
         val recommendation = when {
             label == "قوي جداً" && rr != null && rr >= 2.0 -> "شراء"
+            label == "قوي جداً" && rr != null && rr >= 1.2 -> "شراء تدريجي"
             label == "قوي" && trend != "هابط" && rr != null && rr >= 1.5 -> "شراء تدريجي"
             label == "إيجابي" && trend != "هابط" && rr != null && rr >= 1.2 -> "شراء تدريجي"
+            label == "قوي جداً" || label == "قوي" || label == "إيجابي" -> "مراقبة"
             label == "محايد" && trend == "تحسن صاعد" -> "مراقبة"
             label == "محايد" -> "انتظار"
             else -> "تجنب"
