@@ -48,7 +48,7 @@ object TechnicalAnalyzer {
         return s
     }
     fun analyze(input: List<Candle>): Analysis {
-        require(input.size >= 12) { "At least 12 valid candles are required for technical analysis." }
+        require(input.size >= 35) { "At least 35 valid candles are required for reliable RSI and MACD analysis." }
         // Use the same chronological normalization as CSV import. Raw string sorting
         // misorders dates such as 16/11/2026 and can make the summary use an older close.
         val rows = input.sortedBy { dateSortKey(it.date) }
@@ -101,11 +101,15 @@ object TechnicalAnalyzer {
                 max(c.high - c.low, max(abs(c.high - prevClose), abs(c.low - prevClose)))
             }
         }
-        val atr = trueRanges.takeLast(14).average().coerceAtLeast(0.000001)
+        var atrValue = trueRanges.take(14).average()
+        for (i in 14 until trueRanges.size) {
+            atrValue = (atrValue * 13.0 + trueRanges[i]) / 14.0
+        }
+        val atr = atrValue.coerceAtLeast(0.000001)
         val s20 = sma(closes, 20)
         val s50 = sma(closes, 50)
-        val bbMean = s20 ?: closes.average()
         val last20 = closes.takeLast(20)
+        val bbMean = last20.average()
         val variance = last20.map { (it - bbMean) * (it - bbMean) }.average()
         val deviation = sqrt(variance)
         val bbUpper = bbMean + 2.0 * deviation
@@ -142,10 +146,13 @@ object TechnicalAnalyzer {
 
         val nearestSupport = supports.firstOrNull()
         val nearestResistance = resistances.firstOrNull()
-        val stop = (nearestSupport ?: (last.close - atr * 1.5)).coerceAtLeast(0.0)
+        val stop = ((nearestSupport?.minus(atr * 0.2)) ?: (last.close - atr * 1.5))
+            .coerceAtLeast(0.000001)
         val shortTarget = nearestResistance ?: (last.close + atr * 1.5)
-        val mediumTarget = max(shortTarget, last.close + atr * 3.0)
-        val longTarget = max(mediumTarget, last.close + atr * 5.0)
+        val mediumTarget = resistances.getOrNull(1)
+            ?: max(shortTarget + atr * 1.5, last.close + atr * 3.0)
+        val longTarget = resistances.getOrNull(2)
+            ?: max(mediumTarget + atr * 2.0, last.close + atr * 5.0)
         val reward = shortTarget - last.close
         val risk = last.close - stop
         val rr = if (reward > 0.0 && risk > 0.0) reward / risk else null
@@ -226,19 +233,21 @@ object TechnicalAnalyzer {
         }
 
         val rsiSignal = when {
-            rsi in 55.0..68.0 -> 1.0
-            rsi > 68.0 && rsi <= 75.0 -> 0.35
-            rsi > 75.0 -> -1.0
-            rsi in 32.0..45.0 -> -1.0
-            rsi < 32.0 -> -0.5
+            rsi in 55.0..70.0 -> 1.0
+            rsi > 70.0 && rsi <= 80.0 -> 0.35
+            rsi > 80.0 -> 0.10
+            rsi in 50.0..55.0 -> 0.25
+            rsi in 32.0..45.0 -> -0.75
+            rsi < 32.0 -> -0.30
             else -> 0.0
         }
         val rsiText = when {
-            rsi in 55.0..68.0 -> "زخم إيجابي"
-            rsi > 68.0 && rsi <= 75.0 -> "إيجابي مع اقتراب التشبع الشرائي"
-            rsi > 75.0 -> "تشبع شرائي مرتفع ومخاطر تصحيح"
+            rsi in 55.0..70.0 -> "زخم إيجابي"
+            rsi > 70.0 && rsi <= 80.0 -> "زخم قوي مع ارتفاع مخاطر التشبع الشرائي"
+            rsi > 80.0 -> "زخم مرتفع جدًا؛ لا يُعد وحده إشارة بيع"
+            rsi in 50.0..55.0 -> "ميل إيجابي محدود"
             rsi in 32.0..45.0 -> "زخم سلبي"
-            rsi < 32.0 -> "ضعف مع احتمال تشبع بيعي"
+            rsi < 32.0 -> "ضعف واضح مع احتمال ارتداد فني"
             else -> "محايد"
         }
         addRatingSignal("RSI 14", rsiSignal, 1.0, "$rsiText ($rsi)")
@@ -331,16 +340,29 @@ object TechnicalAnalyzer {
 
         val finalRatingScore = if (ratingWeight > 0.0)
             (ratingNet / ratingWeight * 100.0).toInt().coerceIn(-100, 100) else 0
+        val enoughForStrongRating = rows.size >= 50 &&
+            avgVolume > 0.0 && last.volume > 0.0 &&
+            (nearestSupport != null || nearestResistance != null)
+        val strongBullishConfirmation = enoughForStrongRating &&
+            (trend == "صاعد" || trend == "تحسن صاعد") &&
+            macd > macdSignal && volumeRatio >= 1.3 &&
+            last.close > previous.close
+        val strongBearishConfirmation = enoughForStrongRating &&
+            (trend == "هابط" || trend == "ضغط هابط") &&
+            macd < macdSignal && volumeRatio >= 1.3 &&
+            last.close < previous.close
         val finalRating = when {
             ratingWeight < 3.0 -> "محايد / انتظار"
-            ratingWeight >= 5.0 && finalRatingScore >= 55 -> "شراء قوي"
+            finalRatingScore >= 60 && strongBullishConfirmation -> "شراء قوي"
             finalRatingScore >= 22 -> "شراء بحذر"
-            ratingWeight >= 5.0 && finalRatingScore <= -55 -> "بيع قوي"
+            finalRatingScore <= -60 && strongBearishConfirmation -> "بيع قوي"
             finalRatingScore <= -22 -> "بيع بحذر"
             else -> "محايد / انتظار"
         }
         val finalRatingReason = when {
-            ratingWeight < 3.0 -> "البيانات المتاحة لا تكفي لتأكيد اتجاه قوي؛ انتظر اكتمال المؤشرات."
+            ratingWeight < 3.0 -> "البيانات المتاحة لا تكفي لتأكيد اتجاه واضح؛ انتظر اكتمال المؤشرات."
+            finalRating == "شراء قوي" -> "اتفاق الاتجاه والزخم وحجم التداول يدعم السيناريو الصاعد، مع ضرورة الالتزام بوقف الخسارة."
+            finalRating == "بيع قوي" -> "اتفاق الاتجاه والزخم وحجم التداول يدعم السيناريو الهابط؛ راقب الدعوم وإدارة المخاطر."
             finalRating == "شراء قوي" -> "توافق مرتفع بين عدة مؤشرات إيجابية، مع ضرورة تأكيد الحركة بالسعر والسيولة."
             finalRating == "شراء بحذر" -> "الإشارات تميل للصعود لكنها غير مكتملة أو يوجد بينها بعض الاختلاف."
             finalRating == "بيع قوي" -> "توافق مرتفع بين عدة مؤشرات سلبية؛ راقب الدعوم وإدارة المخاطر."
