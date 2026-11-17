@@ -300,6 +300,25 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
+                        onClick = {
+                            symbol = ""
+                            candles = emptyList()
+                            message = "لم يتم تحميل أي ملف. يمكنك استيراد ملف سهم جديد."
+                            result = null
+                            period = "يومي"
+                            drawTrend = false
+                            trendPoints = emptyList()
+                        },
+                        modifier = Modifier.fillMaxWidth().height(44.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Red)
+                    ) {
+                        Icon(Icons.Default.RestartAlt, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text("RESET - مسح الملف والبدء من جديد", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
                         onClick = { picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(12.dp),
