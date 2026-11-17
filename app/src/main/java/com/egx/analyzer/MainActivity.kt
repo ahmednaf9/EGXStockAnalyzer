@@ -1,7 +1,6 @@
 package com.egx.analyzer
 
 import android.net.Uri
-import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
 import org.json.JSONObject
@@ -55,6 +54,8 @@ private val Muted = Color(0xFF718096)
 private val Red = Color(0xFFC64D55)
 private val Amber = Color(0xFFB7791F)
 
+data class ImportedStockFile(val candles: List<Candle>, val message: String, val symbol: String)
+
 data class Candle(
     val date: String,
     val open: Double,
@@ -71,19 +72,7 @@ class MainActivity : ComponentActivity() {
         window.navigationBarColor = android.graphics.Color.WHITE
         window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
             (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
-        setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage) } }
-    }
-
-    private fun readChartImage(uri: Uri): Pair<String, String> {
-        return try {
-            val bitmap = contentResolver.openInputStream(uri)?.use { BitmapFactory.decodeStream(it) }
-                ?: return "" to "تعذر فتح صورة الشارت."
-            val report = ChartImageAnalyzer.analyze(bitmap)
-            bitmap.recycle()
-            report
-        } catch (e: Exception) {
-            "" to "تعذر تحليل الصورة: ${e.message ?: "صيغة غير مدعومة"}"
-        }
+        setContent { MaterialTheme { AnalyzerScreen(::readFile) } }
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -138,12 +127,24 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun readFile(uri: Uri): Pair<List<Candle>, String> {
-        val n = contentResolver.query(uri,null,null,null,null)?.use { c ->
-            val i=c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
-            if(i>=0 && c.moveToFirst()) c.getString(i) else ""
+    private fun readFile(uri: Uri): ImportedStockFile {
+        val fileName = contentResolver.query(uri, null, null, null, null)?.use { c ->
+            val i = c.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            if (i >= 0 && c.moveToFirst()) c.getString(i) else ""
         }.orEmpty()
-        return if(n.endsWith(".xlsx",true) || contentResolver.getType(uri)?.contains("spreadsheetml")==true) readExcel(uri) else readCsv(uri)
+        val imported = if (fileName.endsWith(".xlsx", true) ||
+            contentResolver.getType(uri)?.contains("spreadsheetml") == true) readExcel(uri) else readCsv(uri)
+        return ImportedStockFile(imported.first, imported.second, stockSymbolFromFileName(fileName))
+    }
+
+    private fun stockSymbolFromFileName(fileName: String): String {
+        val base = fileName.substringAfterLast('/').substringBeforeLast('.')
+            .replace(Regex("[^A-Za-z0-9_-]"), "")
+        if (base.isBlank()) return ""
+        val tokens = base.split(Regex("[_-]+")).filter { it.isNotBlank() }
+        val ignored = setOf("HISTORICAL", "HISTORY", "DATA", "STOCK", "PRICES", "PRICE", "DAILY", "WEEKLY", "MONTHLY")
+        val candidates = tokens.filterNot { it.uppercase(Locale.ROOT) in ignored || it.all(Char::isDigit) }
+        return (candidates.lastOrNull() ?: base).uppercase(Locale.ROOT).take(16)
     }
 
     private fun readExcel(uri: Uri): Pair<List<Candle>, String> = try {
@@ -235,7 +236,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart: (Uri) -> Pair<String, String>) {
+fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
@@ -243,22 +244,14 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
     var period by remember { mutableStateOf("يومي") }
     var drawTrend by remember { mutableStateOf(false) }
     var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
-    var imageReport by remember { mutableStateOf("") }
-    var imageMessage by remember { mutableStateOf("") }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
-            candles = loaded.first
-            message = loaded.second
+            candles = loaded.candles
+            message = loaded.message
+            symbol = loaded.symbol
             result = if (candles.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
-            trendPoints=emptyList()
-        }
-    }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) {
-            val report = importChart(uri)
-            imageReport = report.first
-            imageMessage = report.second
+            trendPoints = emptyList()
         }
     }
 
@@ -285,7 +278,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
             Card(colors = CardDefaults.cardColors(containerColor = Navy), shape = RoundedCornerShape(22.dp)) {
                 Column(Modifier.padding(18.dp)) {
                     Text("لوحة تحليل EGX", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                    Text("أدخل رمز التداول وارفع بيانات السهم لتحصل على قراءة فنية منظمة.", color = Color(0xFFB9C9D8), fontSize = 12.sp)
+                    Text("ارفع ملف بيانات السهم وسيتم تحديد رمزه تلقائيًا من اسم الملف.", color = Color(0xFFB9C9D8), fontSize = 12.sp)
                     Spacer(Modifier.height(13.dp))
                     Row(
                         Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
@@ -295,11 +288,11 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                         Spacer(Modifier.width(8.dp))
                         BasicTextField(
                             value = symbol,
-                            onValueChange = { symbol = it.uppercase(Locale.ROOT).take(16) },
+                            onValueChange = { },
                             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
                             singleLine = true,
                             decorationBox = { inner ->
-                                if (symbol.isBlank()) Text("كود السهم مثال: COMI", color = Muted)
+                                if (symbol.isBlank()) Text("سيظهر كود السهم تلقائيًا بعد تحميل الملف", color = Muted)
                                 inner()
                             }
                         )
@@ -316,16 +309,6 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                         Text("استيراد CSV أو Excel", fontWeight = FontWeight.Bold)
                     }
                     Spacer(Modifier.height(8.dp))
-                    OutlinedButton(
-                        onClick = { imagePicker.launch("image/*") },
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White)
-                    ) {
-                        Icon(Icons.Default.ImageSearch, null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("تحليل صورة الشارت دون إنترنت", fontWeight = FontWeight.Bold)
-                    }
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -334,20 +317,6 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                     Icon(Icons.Default.Info, null, tint = Green)
                     Spacer(Modifier.width(8.dp))
                     Text(message, color = Muted, fontSize = 12.sp)
-                }
-            }
-            if (imageMessage.isNotBlank()) {
-                Spacer(Modifier.height(10.dp))
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("تحليل صورة الشارت", color = Navy, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(6.dp))
-                        Text(imageMessage, color = Muted, fontSize = 12.sp, lineHeight = 19.sp)
-                        if (imageReport.isNotBlank()) {
-                            Spacer(Modifier.height(8.dp))
-                            Text(imageReport, color = Navy, fontSize = 13.sp, lineHeight = 21.sp)
-                        }
-                    }
                 }
             }
             Spacer(Modifier.height(16.dp))
