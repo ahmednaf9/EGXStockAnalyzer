@@ -330,7 +330,7 @@ object TechnicalAnalyzer {
             val structureSignal = when {
                 resistanceDistance != null && resistanceDistance in 0.0..0.025 -> -1.0
                 supportDistance != null && supportDistance in 0.0..0.03 &&
-                    last.close >= last.open -> 1.0
+                    last.close > last.open && trend != "هابط" && trend != "ضغط هابط" -> 1.0
                 else -> 0.0
             }
             addRatingSignal("الدعم والمقاومة", structureSignal, 1.0, when {
@@ -346,13 +346,11 @@ object TechnicalAnalyzer {
             avgVolume > 0.0 && last.volume > 0.0 &&
             (nearestSupport != null || nearestResistance != null)
         val strongBullishConfirmation = enoughForStrongRating &&
-            (trend == "صاعد" || trend == "تحسن صاعد") &&
-            macd > macdSignal && volumeRatio >= 1.3 &&
-            last.close > previous.close
+            trend == "صاعد" && macd > macdSignal && macd > 0.0 &&
+            volumeRatio >= 1.3 && last.close > previous.close
         val strongBearishConfirmation = enoughForStrongRating &&
-            (trend == "هابط" || trend == "ضغط هابط") &&
-            macd < macdSignal && volumeRatio >= 1.3 &&
-            last.close < previous.close
+            trend == "هابط" && macd < macdSignal && macd < 0.0 &&
+            volumeRatio >= 1.3 && last.close < previous.close
         val finalRating = when {
             ratingWeight < 3.0 -> "محايد / انتظار"
             finalRatingScore >= 60 && strongBullishConfirmation -> "شراء قوي"
