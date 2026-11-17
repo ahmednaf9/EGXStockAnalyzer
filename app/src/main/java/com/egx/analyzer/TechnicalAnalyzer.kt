@@ -24,6 +24,8 @@ data class Analysis(
     val invalidation: Double,
     val score: Int,
     val scoreLabel: String,
+    val technicalClassification: String,
+    val executionRecommendation: String,
     val volumeRatio: Double,
     val riskReward: Double?,
     val scoreParts: List<ScorePart>,
@@ -436,10 +438,29 @@ object TechnicalAnalyzer {
             score <= 35 && clearlyBearish -> "ضعيف فنيًا"
             else -> "محايد / مراقبة"
         }
+        val technicalClassification = when {
+            score >= 90 && trend == "صاعد" -> "قوي جداً"
+            score >= 80 && trend != "هابط" && trend != "ضغط هابط" -> "قوي"
+            score >= 65 && trend != "هابط" -> "إيجابي"
+            score >= 45 -> "محايد"
+            score >= 25 -> "ضعيف"
+            else -> "ضعيف جداً"
+        }
+        val executionRecommendation = when {
+            technicalClassification == "قوي جداً" && (rr ?: 0.0) >= 2.0 -> "شراء"
+            technicalClassification == "قوي جداً" && (rr ?: 0.0) >= 1.2 -> "شراء تدريجي"
+            technicalClassification in listOf("قوي", "إيجابي") &&
+                trend != "هابط" && (rr ?: 0.0) >= 1.2 -> "شراء تدريجي"
+            technicalClassification in listOf("قوي", "إيجابي") -> "مراقبة"
+            technicalClassification == "محايد" && trend == "تحسن صاعد" -> "مراقبة"
+            technicalClassification == "محايد" -> "انتظار"
+            else -> "تجنب"
+        }
         return Analysis(
             last, supports, resistances, rsi, s20, s50, macd, macdSignal,
             atr, bbLower, bbUpper, trend, patterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
+            technicalClassification, executionRecommendation,
             volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0,
             marketState, marketStateScore, marketStateStrength, marketStateReason,
             finalRating, finalRatingScore,
