@@ -141,13 +141,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun stockSymbolFromFileName(fileName: String): String {
-        val base = fileName.substringAfterLast('/').substringBeforeLast('.')
+        var base = fileName.substringAfterLast('/').substringBeforeLast('.')
             .replace(Regex("[^A-Za-z0-9_-]"), "")
+            .uppercase(Locale.ROOT)
         if (base.isBlank()) return ""
-        val tokens = base.split(Regex("[_-]+")).filter { it.isNotBlank() }
-        val ignored = setOf("HISTORICAL", "HISTORY", "DATA", "STOCK", "PRICES", "PRICE", "DAILY", "WEEKLY", "MONTHLY")
-        val candidates = tokens.filterNot { it.uppercase(Locale.ROOT) in ignored || it.all(Char::isDigit) }
-        return candidates.lastOrNull()?.uppercase(Locale.ROOT)?.take(16).orEmpty()
+        base = base.replace(Regex("^(HISTORICAL[_-]?DATA|HISTORY[_-]?DATA|DATA)[_-]+"), "")
+        base = base.replace(Regex("[_-](DAILY|WEEKLY|MONTHLY|HISTORICAL|HISTORY|PRICES|PRICE)$"), "")
+            .trim('_', '-')
+        if (base.isBlank() || base.all(Char::isDigit)) return ""
+        return base.take(24)
     }
 
     private fun readExcel(uri: Uri): Pair<List<Candle>, String> = try {
