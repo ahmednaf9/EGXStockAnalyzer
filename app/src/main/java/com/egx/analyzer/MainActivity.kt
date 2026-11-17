@@ -526,15 +526,20 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("المؤشرات الفنية")
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Metric("RSI 14", one(a.rsi), Modifier.weight(1f))
-                    Metric("SMA 20", a.sma20?.let(::money) ?: "—", Modifier.weight(1f))
-                    Metric("SMA 50", a.sma50?.let(::money) ?: "—", Modifier.weight(1f))
+                    Metric("RSI 14", one(a.rsi), Modifier.weight(1f),
+                        if (a.rsi < 45.0) Red else if (a.rsi >= 55.0) Green else Amber)
+                    Metric("SMA 20", a.sma20?.let(::money) ?: "—", Modifier.weight(1f),
+                        a.sma20?.let { if (a.last.close >= it) Green else Red } ?: Muted)
+                    Metric("SMA 50", a.sma50?.let(::money) ?: "—", Modifier.weight(1f),
+                        a.sma50?.let { if (a.last.close >= it) Green else Red } ?: Muted)
                 }
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Metric("MACD", a.macd?.let(::money) ?: "—", Modifier.weight(1f))
-                    Metric("إشارة MACD", a.macdSignal?.let(::money) ?: "—", Modifier.weight(1f))
-                    Metric("ATR 14", money(a.atr), Modifier.weight(1f))
+                    Metric("MACD", a.macd?.let(::money) ?: "—", Modifier.weight(1f),
+                        a.macd?.let { if (it >= 0.0) Green else Red } ?: Muted)
+                    Metric("إشارة MACD", a.macdSignal?.let(::money) ?: "—", Modifier.weight(1f),
+                        a.macdSignal?.let { if (it >= 0.0) Green else Red } ?: Muted)
+                    Metric("ATR 14", money(a.atr), Modifier.weight(1f), Muted)
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("السيولة والبنية السعرية")
@@ -780,12 +785,12 @@ private fun SectionTitle(title: String) {
 }
 
 @Composable
-fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
+fun Metric(label: String, value: String, modifier: Modifier = Modifier, valueColor: Color = semanticColor(value)) {
     Card(modifier, colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
         Column(Modifier.padding(11.dp)) {
             Text(label, color = Muted, fontSize = 10.sp)
             Spacer(Modifier.height(5.dp))
-            Text(value, color = semanticColor(value), fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
+            Text(value, color = valueColor, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
         }
     }
 }
