@@ -395,7 +395,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, openHistoric
                     }
                 }
                 Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
-                PriceTrendChart(aggregateCandles(candles,period),trendPoints,drawTrend) { i,price ->
+                PriceTrendChart(aggregateCandles(candles,period),trendPoints,drawTrend,a.trend) { i,price ->
                     trendPoints=if(trendPoints.size>=2) listOf(i to price) else trendPoints+(i to price)
                     if(trendPoints.size>=2) drawTrend=false
                 }
@@ -420,6 +420,8 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, openHistoric
                             }
                             Text(a.scoreLabel, color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold)
                         }
+                        Spacer(Modifier.height(6.dp))
+                        Text("التوصية التنفيذية: ${a.recommendation}", color = scoreColor(a.scoreLabel), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
                         LinearProgressIndicator(
                             progress = { a.score / 100f },
                             modifier = Modifier.fillMaxWidth().height(8.dp),
@@ -444,6 +446,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, openHistoric
                 SectionTitle("الخلاصة الفنية")
                 ResultCard(
                     "الحالة: ${a.scoreLabel}\n" +
+                    "التوصية التنفيذية: ${a.recommendation}\n" +
                     "الاتجاه الحالي: ${a.trend}\n" +
                     "درجة توافق المؤشرات: ${a.score}/100\n" +
                     when {
@@ -486,7 +489,13 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, openHistoric
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج المرصودة")
-                ResultCard(a.patterns.joinToString("\n"))
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        a.patterns.forEach { pattern ->
+                            Text(pattern, color = semanticColor(pattern), fontSize = 13.sp, lineHeight = 21.sp)
+                        }
+                    }
+                }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("سيناريوهات سعرية افتراضية")
                 ResultCard(
@@ -523,7 +532,7 @@ private fun aggregateCandles(input:List<Candle>,period:String):List<Candle>{
 }
 
 @Composable
-private fun PriceTrendChart(data:List<Candle>,points:List<Pair<Int,Double>>,drawing:Boolean,onTap:(Int,Double)->Unit){
+private fun PriceTrendChart(data:List<Candle>,points:List<Pair<Int,Double>>,drawing:Boolean,trend:String,onTap:(Int,Double)->Unit){
     if(data.isEmpty()) return
     val low=data.minOf{it.low};val high=data.maxOf{it.high};val range=(high-low).coerceAtLeast(0.000001)
     Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(14.dp)){
@@ -538,7 +547,7 @@ private fun PriceTrendChart(data:List<Candle>,points:List<Pair<Int,Double>>,draw
                 val dx=size.width/data.lastIndex.coerceAtLeast(1);val path=Path()
                 data.forEachIndexed{i,c->val y=size.height-((c.close-low)/range).toFloat()*size.height
                     if(i==0)path.moveTo(i*dx,y) else path.lineTo(i*dx,y)}
-                drawPath(path,Green,style=Stroke(width=3f))
+                drawPath(path,semanticColor(trend),style=Stroke(width=3f))
                 if(points.size==2){
                     fun xy(p:Pair<Int,Double>)=Offset(p.first.coerceIn(0,data.lastIndex)*dx,size.height-((p.second-low)/range).toFloat()*size.height)
                     drawLine(Red,xy(points[0]),xy(points[1]),strokeWidth=4f)
@@ -562,7 +571,7 @@ fun Metric(label: String, value: String, modifier: Modifier = Modifier) {
         Column(Modifier.padding(11.dp)) {
             Text(label, color = Muted, fontSize = 10.sp)
             Spacer(Modifier.height(5.dp))
-            Text(value, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
+            Text(value, color = semanticColor(value), fontSize = 12.sp, fontWeight = FontWeight.Bold, lineHeight = 17.sp)
         }
     }
 }
@@ -589,9 +598,21 @@ fun Feature(title: String, desc: String) {
 }
 
 private fun scoreColor(label: String): Color = when (label) {
-    "إيجابي فنيًا", "يميل للإيجابية" -> Green
-    "ضعيف فنيًا" -> Red
+    "قوي جداً" -> Color(0xFF087443)
+    "قوي" -> Color(0xFF14966C)
+    "إيجابي" -> Color(0xFF48A978)
+    "ضعيف" -> Color(0xFFD65A5A)
+    "ضعيف جداً" -> Color(0xFFAD252D)
     else -> Amber
+}
+
+private fun semanticColor(value: String): Color {
+    val s = value.lowercase(Locale.ROOT)
+    return when {
+        listOf("سلبي", "هابط", "ضغط هابط", "ضعيف", "تجنب", "بيع").any { s.contains(it) } -> Red
+        listOf("إيجابي", "صاعد", "تحسن صاعد", "شراء", "قوي").any { s.contains(it) } -> Green
+        else -> Navy
+    }
 }
 private fun money(v: Double) = String.format(Locale.US, "%.2f", v)
 private fun one(v: Double) = String.format(Locale.US, "%.1f", v)
