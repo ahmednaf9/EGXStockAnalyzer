@@ -358,9 +358,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
                     ) {
-                        Icon(Icons.Default.UploadFile, null, modifier = Modifier.size(30.dp))
-                        Spacer(Modifier.width(12.dp))
-                        Text("تحميل اكسل أو CSV", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("تحميل ملف Excel/CSV", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                     }
                     Spacer(Modifier.height(14.dp))
                     Button(
@@ -371,7 +369,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             result = null
                             period = "يومي"
                         },
-                        modifier = Modifier.size(142.dp),
+                        modifier = Modifier.size(78.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFE50916),
@@ -381,8 +379,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Refresh, null, modifier = Modifier.size(46.dp))
-                            Text("RESET", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                            Icon(Icons.Default.Sync, null, modifier = Modifier.size(28.dp))
+                            Text("RESET", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
