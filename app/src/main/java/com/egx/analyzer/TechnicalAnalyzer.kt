@@ -24,6 +24,7 @@ data class Analysis(
     val invalidation: Double,
     val score: Int,
     val scoreLabel: String,
+    val recommendation: String,
     val volumeRatio: Double,
     val riskReward: Double?,
     val scoreParts: List<ScorePart>,
@@ -181,20 +182,30 @@ object TechnicalAnalyzer {
             ScorePart("العائد إلى المخاطرة", riskPoints, 20)
         )
         val score = parts.sumOf { it.points }.coerceIn(0, 100)
-        // A low score alone is not enough to call a stock bearish. Require several
-        // independent bearish signals; otherwise classify mixed/uncertain readings as neutral.
+        // Six-level score classification. Strong positive labels also require a non-bearish trend.
         val clearlyBearish = trend == "هابط" && rsi < 45.0 && macdHistogram < 0.0
         val label = when {
-            score >= 75 && trend != "ضغط هابط" && trend != "هابط" -> "إيجابي فنيًا"
-            score >= 62 -> "يميل للإيجابية"
-            score <= 35 && clearlyBearish -> "ضعيف فنيًا"
-            else -> "محايد / مراقبة"
+            score >= 90 && trend == "صاعد" && !clearlyBearish -> "قوي جداً"
+            score >= 80 && trend != "هابط" && trend != "ضغط هابط" -> "قوي"
+            score >= 65 && trend != "هابط" -> "إيجابي"
+            score >= 45 -> "محايد"
+            score >= 25 -> "ضعيف"
+            else -> "ضعيف جداً"
+        }
+        // Execution guidance is deliberately stricter than the score alone and considers trend and reward/risk.
+        val recommendation = when {
+            label == "قوي جداً" && rr != null && rr >= 2.0 -> "شراء"
+            label == "قوي" && trend != "هابط" && rr != null && rr >= 1.5 -> "شراء تدريجي"
+            label == "إيجابي" && trend != "هابط" && rr != null && rr >= 1.2 -> "شراء تدريجي"
+            label == "محايد" && trend == "تحسن صاعد" -> "مراقبة"
+            label == "محايد" -> "انتظار"
+            else -> "تجنب"
         }
         return Analysis(
             last, supports, resistances, rsi, s20, s50, macd, macdSignal,
             atr, bbLower, bbUpper, trend, patterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
-            volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0
+            recommendation, volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0
         )
     }
 
