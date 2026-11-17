@@ -117,7 +117,7 @@ class MainActivity : ComponentActivity() {
             }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
 
             val note = when {
-                parsed.size < 15 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 26 جلسة على الأقل. أضف بيانات تاريخية أكثر."
+                parsed.size < 12 -> "تم استيراد ${parsed.size} شمعة فقط؛ يلزم 12 شمعة على الأقل لبدء التحليل."
                 parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
@@ -186,7 +186,7 @@ class MainActivity : ComponentActivity() {
             val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),parseNumber(r[v]?: "0"))
             if(date.isNotBlank() && x.open>0 && x.close>0 && x.high>=maxOf(x.open,x.close,x.low) && x.low<=minOf(x.open,x.close)) x else null
         } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{it.date}
-        data to "تم استيراد ${data.size} جلسة من Excel."
+        data to if (data.size < 12) "تم استيراد ${data.size} شمعة من Excel؛ يلزم 12 شمعة على الأقل لبدء التحليل." else "تم استيراد ${data.size} شمعة من Excel."
     } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة Excel: ${e.message ?: "تأكد من الملف."}" }
 
     private fun parseNumber(raw: String): Double {
@@ -250,7 +250,10 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             candles = loaded.candles
             message = loaded.message
             symbol = loaded.symbol
-            result = if (candles.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
+            period = detectDataPeriod(candles)
+            val grouped = aggregateCandles(candles, period)
+            result = if (grouped.size >= 12) TechnicalAnalyzer.analyze(grouped) else null
+            if (grouped.size < 12) message = "تم استيراد ${candles.size} شمعة، لكن الفترة ${period} تحتوي على ${grouped.size} شمعة فقط؛ يلزم 12 على الأقل."
             trendPoints = emptyList()
         }
     }
@@ -353,16 +356,33 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Text("آخر جلسة: ${a.last.date}", color = Muted, fontSize = 11.sp)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                     listOf("يومي","أسبوعي","شهري").forEach { p ->
-                        FilterChip(selected=period==p,onClick={
-                            val grouped=aggregateCandles(candles,p)
-                            if(grouped.size>=26) {
-                                period=p
-                                result=TechnicalAnalyzer.analyze(grouped)
-                                trendPoints=emptyList()
-                            } else {
-                                message="الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 15 على الأقل. تم الاحتفاظ بالفترة الحالية."
-                            }
-                        },label={Text(p)})
+                        FilterChip(
+                            selected = period == p,
+                            onClick = {
+                                val grouped = aggregateCandles(candles, p)
+                                if (grouped.size >= 12) {
+                                    period = p
+                                    result = TechnicalAnalyzer.analyze(grouped)
+                                    message = "الفترة $p: ${grouped.size} شمعة جاهزة للتحليل."
+                                    trendPoints = emptyList()
+                                } else {
+                                    message = "الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 12 على الأقل. تم الاحتفاظ بالفترة الحالية."
+                                }
+                            },
+                            label = { Text(p) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFFD5BCEB),
+                                selectedLabelColor = Navy,
+                                containerColor = Color.White,
+                                labelColor = Navy
+                            ),
+                            border = FilterChipDefaults.filterChipBorder(
+                                enabled = true,
+                                selected = period == p,
+                                borderColor = Muted,
+                                selectedBorderColor = Color(0xFFB18AD8)
+                            )
+                        )
                     }
                 }
                 Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
@@ -514,17 +534,50 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     }
 }
 
-private fun aggregateCandles(input:List<Candle>,period:String):List<Candle>{
-    if(period=="يومي") return input
-    val groups=input.sortedBy{it.date}.groupBy{c->
-        val p=c.date.take(10).replace('/','-').split('-')
-        val y=p.getOrNull(0)?.toIntOrNull()?:0; val m=p.getOrNull(1)?.toIntOrNull()?:1; val d=p.getOrNull(2)?.toIntOrNull()?:1
-        if(period=="شهري") "%04d-%02d".format(Locale.US,y,m) else {
-            val cal=Calendar.getInstance(Locale.US);cal.clear();cal.set(y,(m-1).coerceIn(0,11),d.coerceIn(1,28))
-            "%04d-W%02d".format(Locale.US,y,cal.get(Calendar.WEEK_OF_YEAR))
+private fun normalizedDateParts(value: String): Triple<Int, Int, Int>? {
+    val normalized = dateSortKey(value)
+    val match = Regex("^(\\d{4})-(\\d{2})-(\\d{2})").find(normalized) ?: return null
+    return Triple(match.groupValues[1].toInt(), match.groupValues[2].toInt(), match.groupValues[3].toInt())
+}
+
+private fun detectDataPeriod(input: List<Candle>): String {
+    if (input.size < 2) return "يومي"
+    val dates = input.mapNotNull { candle ->
+        val parts = normalizedDateParts(candle.date) ?: return@mapNotNull null
+        Calendar.getInstance(Locale.US).apply {
+            clear()
+            set(parts.first, parts.second - 1, parts.third)
+        }.timeInMillis / 86_400_000L
+    }.sorted()
+    if (dates.size < 2) return "يومي"
+    val gaps = dates.zipWithNext { a, b -> (b - a).toInt() }.filter { it > 0 }.sorted()
+    if (gaps.isEmpty()) return "يومي"
+    val medianGap = gaps[gaps.size / 2]
+    return when {
+        medianGap >= 20 -> "شهري"
+        medianGap >= 5 -> "أسبوعي"
+        else -> "يومي"
+    }
+}
+
+private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> {
+    if (period == "يومي") return input.sortedBy { dateSortKey(it.date) }
+    val groups = input.sortedBy { dateSortKey(it.date) }.groupBy { candle ->
+        val parts = normalizedDateParts(candle.date)
+        if (parts == null) candle.date else {
+            val (year, month, day) = parts
+            if (period == "شهري") "%04d-%02d".format(Locale.US, year, month) else {
+                val cal = Calendar.getInstance(Locale.US)
+                cal.clear()
+                cal.set(year, month - 1, day)
+                "%04d-W%02d".format(Locale.US, year, cal.get(Calendar.WEEK_OF_YEAR))
+            }
         }
     }
-    return groups.toSortedMap().values.map{r->Candle(r.first().date,r.first().open,r.maxOf{it.high},r.minOf{it.low},r.last().close,r.sumOf{it.volume})}
+    return groups.toSortedMap().values.map { rows ->
+        Candle(rows.first().date, rows.first().open, rows.maxOf { it.high },
+            rows.minOf { it.low }, rows.last().close, rows.sumOf { it.volume })
+    }
 }
 
 @Composable
