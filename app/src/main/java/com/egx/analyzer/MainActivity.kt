@@ -471,6 +471,34 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Text("التصنيف الفني للسهم", color = Muted, fontSize = 12.sp)
+                        val classificationColor = when (a.technicalClassification) {
+                            "قوي جداً", "قوي", "إيجابي" -> Green
+                            "ضعيف", "ضعيف جداً" -> Red
+                            else -> Amber
+                        }
+                        Text(a.technicalClassification, color = classificationColor, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(8.dp))
+                        Text("التوصية التنفيذية", color = Muted, fontSize = 12.sp)
+                        val recommendationColor = when (a.executionRecommendation) {
+                            "شراء", "شراء تدريجي" -> Green
+                            "تجنب" -> Red
+                            else -> Amber
+                        }
+                        Text(a.executionRecommendation, color = recommendationColor, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            "العائد إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "غير متاح"}",
+                            color = Muted, fontSize = 11.sp
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 SectionTitle("الخلاصة الفنية")
                 ResultCard(
                     "الحالة: ${a.scoreLabel}\n" +
