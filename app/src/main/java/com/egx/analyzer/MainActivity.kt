@@ -397,11 +397,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 if(drawTrend) Text("اضغط على نقطتين في الرسم لرسم خط الاتجاه.",color=Green,fontSize=11.sp)
 
                 Spacer(Modifier.height(9.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Metric("آخر إغلاق", money(a.last.close), Modifier.weight(1f))
-                    Metric("الاتجاه", a.trend, Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(9.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(15.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -595,21 +590,29 @@ private fun PriceTrendChart(data:List<Candle>,points:List<Pair<Int,Double>>,draw
     val low=data.minOf{it.low};val high=data.maxOf{it.high};val range=(high-low).coerceAtLeast(0.000001)
     Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(14.dp)){
         Column(Modifier.fillMaxWidth().padding(12.dp)){
-            Text("الرسم السعري وخط الاتجاه",color=Navy,fontWeight=FontWeight.Bold,fontSize=13.sp)
-            Canvas(Modifier.fillMaxWidth().height(180.dp).pointerInput(data,drawing,points){
+            Text("الشارت بالشموع اليابانية وخط الاتجاه",color=Navy,fontWeight=FontWeight.Bold,fontSize=13.sp)
+            Canvas(Modifier.fillMaxWidth().height(210.dp).pointerInput(data,drawing,points){
                 detectTapGestures{p->if(drawing&&data.size>1){
-                    val i=((p.x/size.width)*data.lastIndex).toInt().coerceIn(0,data.lastIndex)
+                    val i=((p.x/size.width)*data.size).toInt().coerceIn(0,data.lastIndex)
                     onTap(i,high-(p.y/size.height).coerceIn(0f,1f)*range)
                 }}
             }){
-                val dx=size.width/data.lastIndex.coerceAtLeast(1);val path=Path()
-                data.forEachIndexed{i,c->val y=size.height-((c.close-low)/range).toFloat()*size.height
-                    if(i==0)path.moveTo(i*dx,y) else path.lineTo(i*dx,y)}
-                drawPath(path,Green,style=Stroke(width=3f))
+                val dx=size.width/data.size
+                val bodyWidth=(dx*0.62f).coerceAtLeast(2f)
+                fun y(price:Double) = size.height-((price-low)/range).toFloat()*size.height
+                data.forEachIndexed { i,c ->
+                    val x=(i+0.5f)*dx
+                    val candleColor=if(c.close>=c.open) Green else Red
+                    drawLine(candleColor,Offset(x,y(c.high)),Offset(x,y(c.low)),strokeWidth=1.5f)
+                    val bodyTop=minOf(y(c.open),y(c.close))
+                    val bodyBottom=maxOf(y(c.open),y(c.close))
+                    val bodyHeight=(bodyBottom-bodyTop).coerceAtLeast(2f)
+                    drawRect(candleColor,topLeft=Offset(x-bodyWidth/2f,bodyTop),size=androidx.compose.ui.geometry.Size(bodyWidth,bodyHeight))
+                }
                 if(points.size==2){
-                    fun xy(p:Pair<Int,Double>)=Offset(p.first.coerceIn(0,data.lastIndex)*dx,size.height-((p.second-low)/range).toFloat()*size.height)
-                    drawLine(Red,xy(points[0]),xy(points[1]),strokeWidth=4f)
-                    drawCircle(Red,6f,xy(points[0]));drawCircle(Red,6f,xy(points[1]))
+                    fun xy(p:Pair<Int,Double>)=Offset((p.first.coerceIn(0,data.lastIndex)+0.5f)*dx,y(p.second))
+                    drawLine(Amber,xy(points[0]),xy(points[1]),strokeWidth=3f)
+                    drawCircle(Amber,5f,xy(points[0]));drawCircle(Amber,5f,xy(points[1]))
                 }
             }
             Text("آخر إغلاق: "+String.format(Locale.US,"%.2f",data.last().close),color=Muted,fontSize=10.sp)
