@@ -32,9 +32,20 @@ data class Analysis(
 )
 
 object TechnicalAnalyzer {
+
+    private fun dateSortKey(value: String): String {
+        val s = value.trim()
+        val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
+        if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
+        val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
+        if (dmy != null) return "${dmy.groupValues[3]}-${dmy.groupValues[2].padStart(2, '0')}-${dmy.groupValues[1].padStart(2, '0')}"
+        return s
+    }
     fun analyze(input: List<Candle>): Analysis {
         require(input.size >= 15) { "At least 15 valid sessions are required for RSI calculation." }
-        val rows = input.sortedBy { it.date }
+        // Use the same chronological normalization as CSV import. Raw string sorting
+        // misorders dates such as 16/11/2026 and can make the summary use an older close.
+        val rows = input.sortedBy { dateSortKey(it.date) }
         val closes = rows.map { it.close }
         val last = rows.last()
         val previous = rows[rows.lastIndex - 1]
