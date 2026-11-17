@@ -113,7 +113,20 @@ class MainActivity : ComponentActivity() {
                 if (!type.startsWith("image/")) error("الرابط يفتح صفحة موقع وليس ملف صورة مباشرًا. افتح الشارت واحفظ صورته أو التقط لقطة شاشة ثم اخترها من الهاتف.")
                 val length = connection.contentLengthLong
                 if (length > 8L * 1024L * 1024L) error("حجم الصورة أكبر من 8 ميجابايت.")
-                val bitmap = connection.inputStream.use { BitmapFactory.decodeStream(it) }
+                val imageBytes = connection.inputStream.use { input ->
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        if (total > 8 * 1024 * 1024) error("حجم الصورة أكبر من 8 ميجابايت.")
+                        output.write(buffer, 0, count)
+                    }
+                    output.toByteArray()
+                }
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
                     ?: error("تعذر قراءة الصورة من هذا الرابط.")
                 val report = ChartImageAnalyzer.analyze(bitmap)
                 bitmap.recycle()
