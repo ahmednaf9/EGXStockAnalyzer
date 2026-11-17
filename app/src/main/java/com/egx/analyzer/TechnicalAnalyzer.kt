@@ -28,7 +28,9 @@ data class Analysis(
     val riskReward: Double?,
     val scoreParts: List<ScorePart>,
     val sessions: Int,
-    val volumeAvailable: Boolean
+    val volumeAvailable: Boolean,
+    val marketState: String,
+    val marketStateReason: String
 )
 
 object TechnicalAnalyzer {
@@ -183,6 +185,31 @@ object TechnicalAnalyzer {
             rr >= 1.0 -> 8
             else -> 3
         }
+        // Estimate accumulation/distribution from the last 20 sessions using
+        // volume-weighted close location within each candle's range.
+        val flowRows = rows.takeLast(20)
+        val flowRowsWithVolume = flowRows.filter { it.volume > 0.0 }
+        val signedFlow = flowRowsWithVolume.sumOf { c ->
+            val range = (c.high - c.low).coerceAtLeast(0.000001)
+            ((2.0 * c.close - c.high - c.low) / range) * c.volume
+        }
+        val totalFlowVolume = flowRowsWithVolume.sumOf { it.volume }
+        val flowRatio = if (totalFlowVolume > 0.0) signedFlow / totalFlowVolume else 0.0
+        val priceChange20 = if (flowRows.size >= 2 && flowRows.first().close > 0.0)
+            (last.close - flowRows.first().close) / flowRows.first().close else 0.0
+        val marketState = when {
+            flowRowsWithVolume.size < 10 -> "غير محسوم"
+            flowRatio >= 0.12 && priceChange20 >= -0.03 -> "تجميع محتمل"
+            flowRatio <= -0.12 && priceChange20 <= 0.03 -> "تصريف محتمل"
+            else -> "تذبذب / حياد"
+        }
+        val marketStateReason = when (marketState) {
+            "تجميع محتمل" -> "ضغط السيولة يميل للشراء خلال الجلسات الأخيرة مع عدم وجود هبوط سعري حاد."
+            "تصريف محتمل" -> "ضغط السيولة يميل للبيع خلال الجلسات الأخيرة؛ راقب كسر الدعوم."
+            "غير محسوم" -> "بيانات الحجم غير كافية لتقدير التجميع أو التصريف بثقة."
+            else -> "تدفق السيولة وحركة السعر لا يعطيان إشارة حاسمة للتجميع أو التصريف."
+        }
+
         val parts = listOf(
             ScorePart("الاتجاه", trendPoints, 20),
             ScorePart("الزخم", momentumPoints, 15),
@@ -205,7 +232,8 @@ object TechnicalAnalyzer {
             last, supports, resistances, rsi, s20, s50, macd, macdSignal,
             atr, bbLower, bbUpper, trend, patterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
-            volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0
+            volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0,
+            marketState, marketStateReason
         )
     }
 
