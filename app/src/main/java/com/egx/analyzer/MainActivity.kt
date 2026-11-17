@@ -534,8 +534,17 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     }
 }
 
+private fun dateSortKeyGlobal(value: String): String {
+    val s = value.trim()
+    val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
+    if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
+    val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
+    if (dmy != null) return "${dmy.groupValues[3]}-${dmy.groupValues[2].padStart(2, '0')}-${dmy.groupValues[1].padStart(2, '0')}"
+    return s
+}
+
 private fun normalizedDateParts(value: String): Triple<Int, Int, Int>? {
-    val normalized = dateSortKey(value)
+    val normalized = dateSortKeyGlobal(value)
     val match = Regex("^(\\d{4})-(\\d{2})-(\\d{2})").find(normalized) ?: return null
     return Triple(match.groupValues[1].toInt(), match.groupValues[2].toInt(), match.groupValues[3].toInt())
 }
@@ -561,8 +570,8 @@ private fun detectDataPeriod(input: List<Candle>): String {
 }
 
 private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> {
-    if (period == "يومي") return input.sortedBy { dateSortKey(it.date) }
-    val groups = input.sortedBy { dateSortKey(it.date) }.groupBy { candle ->
+    if (period == "يومي") return input.sortedBy { dateSortKeyGlobal(it.date) }
+    val groups = input.sortedBy { dateSortKeyGlobal(it.date) }.groupBy { candle ->
         val parts = normalizedDateParts(candle.date)
         if (parts == null) candle.date else {
             val (year, month, day) = parts
