@@ -518,8 +518,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     "المستويات تقديرية ومحسوبة آليًا من البيانات التاريخية والفترة المختارة. نقاط الاختراق والارتداد تحتاج تأكيدًا بالإغلاق والسيولة؛ لا توجد ضمانات، ووقف الخسارة قد يتأثر بالفجوات السعرية.",
                     color = Muted, fontSize = 11.sp, lineHeight = 17.sp
                 )
-            }
-            Spacer(Modifier.height(18.dp))
             Spacer(Modifier.height(14.dp))
             SectionTitle("التقييم الفني النهائي")
             Card(
@@ -563,6 +561,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         color = Muted, fontSize = 10.sp, lineHeight = 15.sp
                     )
                 }
+            }
             }
             Spacer(Modifier.height(18.dp))
             Text(
