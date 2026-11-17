@@ -164,10 +164,11 @@ object TechnicalAnalyzer {
             else -> 3
         }
         val momentumPoints = when {
-            rsi in 52.0..68.0 && macdHistogram > 0.0 -> 15
-            rsi in 45.0..70.0 && macdHistogram >= 0.0 -> 11
+            rsi in 52.0..70.0 && macdHistogram > 0.0 -> 15
+            rsi in 45.0..75.0 && macdHistogram >= 0.0 -> 11
+            rsi < 30.0 && macdHistogram < 0.0 -> 3
             rsi in 35.0..50.0 -> 7
-            rsi > 75.0 -> 3
+            rsi > 75.0 -> 8
             else -> 5
         }
         val volumePoints = when {
@@ -178,7 +179,8 @@ object TechnicalAnalyzer {
             else -> 8
         }
         val structurePoints = when {
-            nearestSupport != null && (last.close - nearestSupport) / last.close <= 0.025 && trend != "ضغط هابط" -> 15
+            nearestSupport != null && (last.close - nearestSupport) / last.close <= 0.025 &&
+                last.close > last.open && trend != "ضغط هابط" && trend != "هابط" -> 15
             nearestResistance != null && (nearestResistance - last.close) / last.close <= 0.02 -> 4
             last.close > bbMean -> 11
             else -> 7
@@ -362,15 +364,19 @@ object TechnicalAnalyzer {
         val finalRatingReason = when {
             ratingWeight < 3.0 -> "البيانات المتاحة لا تكفي لتأكيد اتجاه واضح؛ انتظر اكتمال المؤشرات."
             finalRating == "شراء قوي" -> "اتفاق الاتجاه والزخم وحجم التداول يدعم السيناريو الصاعد، مع ضرورة الالتزام بوقف الخسارة."
-            finalRating == "بيع قوي" -> "اتفاق الاتجاه والزخم وحجم التداول يدعم السيناريو الهابط؛ راقب الدعوم وإدارة المخاطر."
-            finalRating == "شراء قوي" -> "توافق مرتفع بين عدة مؤشرات إيجابية، مع ضرورة تأكيد الحركة بالسعر والسيولة."
             finalRating == "شراء بحذر" -> "الإشارات تميل للصعود لكنها غير مكتملة أو يوجد بينها بعض الاختلاف."
-            finalRating == "بيع قوي" -> "توافق مرتفع بين عدة مؤشرات سلبية؛ راقب الدعوم وإدارة المخاطر."
+            finalRating == "بيع قوي" -> "اتفاق الاتجاه والزخم وحجم التداول يدعم السيناريو الهابط؛ راقب الدعوم وإدارة المخاطر."
             finalRating == "بيع بحذر" -> "الإشارات تميل للهبوط لكنها غير مكتملة أو يوجد بينها بعض الاختلاف."
             else -> "الإشارات متضاربة أو متوازنة؛ الانتظار حتى ظهور تأكيد أوضح هو القراءة الأكثر تحفظًا."
         }
         if (ratingWeight < 5.0) {
             ratingFactors.add("تنبيه: بعض المؤشرات غير متاحة لعدم كفاية عدد الجلسات أو بيانات الحجم.")
+        }
+        if (rows.size < 50) {
+            ratingFactors.add("ملاحظة: يلزم 50 جلسة على الأقل لإتاحة SMA 50 والتصنيف القوي.")
+        }
+        if (avgVolume <= 0.0 || last.volume <= 0.0) {
+            ratingFactors.add("ملاحظة: بيانات حجم التداول غير كافية لتأكيد الاتجاه.")
         }
 
         val parts = listOf(
