@@ -12,6 +12,8 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import android.os.Bundle
+import android.os.Build
+import android.view.View
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -65,6 +67,10 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = android.graphics.Color.rgb(243, 246, 249)
+        window.navigationBarColor = android.graphics.Color.WHITE
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR else 0)
         setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage) } }
     }
 
@@ -302,7 +308,8 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                     OutlinedButton(
                         onClick = { picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(12.dp)
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Green)
                     ) {
                         Icon(Icons.Default.UploadFile, null)
                         Spacer(Modifier.width(8.dp))
@@ -333,7 +340,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                 Spacer(Modifier.height(10.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("تحليل صورة الشارت • ${period}", color = Navy, fontWeight = FontWeight.Bold)
+                        Text("تحليل صورة الشارت", color = Navy, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(6.dp))
                         Text(imageMessage, color = Muted, fontSize = 12.sp, lineHeight = 19.sp)
                         if (imageReport.isNotBlank()) {
