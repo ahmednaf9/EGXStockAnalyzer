@@ -30,7 +30,11 @@ data class Analysis(
     val sessions: Int,
     val volumeAvailable: Boolean,
     val marketState: String,
-    val marketStateReason: String
+    val marketStateReason: String,
+    val finalRating: String,
+    val finalRatingScore: Int,
+    val finalRatingReason: String,
+    val finalRatingFactors: List<String>
 )
 
 object TechnicalAnalyzer {
@@ -210,6 +214,141 @@ object TechnicalAnalyzer {
             else -> "تدفق السيولة وحركة السعر لا يعطيان إشارة حاسمة للتجميع أو التصريف."
         }
 
+        // Independent multi-factor rating: each available indicator contributes
+        // a weighted bullish, neutral, or bearish signal. Missing data is excluded.
+        var ratingNet = 0.0
+        var ratingWeight = 0.0
+        val ratingFactors = mutableListOf<String>()
+        fun addRatingSignal(name: String, signal: Double, weight: Double, explanation: String) {
+            ratingNet += signal * weight
+            ratingWeight += weight
+            ratingFactors.add("$name: $explanation")
+        }
+
+        val rsiSignal = when {
+            rsi in 55.0..68.0 -> 1.0
+            rsi > 68.0 && rsi <= 75.0 -> 0.35
+            rsi > 75.0 -> -1.0
+            rsi in 32.0..45.0 -> -1.0
+            rsi < 32.0 -> -0.5
+            else -> 0.0
+        }
+        val rsiText = when {
+            rsiSignal >= 1.0 -> "زخم إيجابي"
+            rsiSignal > 0.0 -> "إيجابي مع اقتراب التشبع الشرائي"
+            rsiSignal <= -1.0 -> "زخم سلبي / تشبع شرائي مرتفع"
+            rsiSignal < 0.0 -> "ضعف مع احتمال تشبع بيعي"
+            else -> "محايد"
+        }
+        addRatingSignal("RSI 14", rsiSignal, 1.0, "$rsiText ($rsi)")
+
+        val macdSignalStrength = when {
+            macd > macdSignal && macd > 0.0 -> 1.0
+            macd > macdSignal -> 0.5
+            macd < macdSignal && macd < 0.0 -> -1.0
+            macd < macdSignal -> -0.5
+            else -> 0.0
+        }
+        addRatingSignal(
+            "MACD",
+            macdSignalStrength,
+            2.0,
+            when {
+                macdSignalStrength >= 1.0 -> "إيجابي وفوق خط الإشارة والصفر"
+                macdSignalStrength > 0.0 -> "تقاطع إيجابي لكن دون الصفر"
+                macdSignalStrength <= -1.0 -> "سلبي وتحت خط الإشارة والصفر"
+                macdSignalStrength < 0.0 -> "أضعف من خط الإشارة رغم بقائه فوق الصفر"
+                else -> "متوافق مع خط الإشارة"
+            }
+        )
+
+        s20?.let { average ->
+            val signal = when {
+                last.close > average * 1.003 -> 1.0
+                last.close < average * 0.997 -> -1.0
+                else -> 0.0
+            }
+            addRatingSignal("SMA 20", signal, 1.0, when {
+                signal > 0.0 -> "الإغلاق أعلى المتوسط"
+                signal < 0.0 -> "الإغلاق أسفل المتوسط"
+                else -> "الإغلاق قريب من المتوسط"
+            })
+        }
+        s50?.let { average ->
+            val signal = when {
+                last.close > average * 1.003 -> 1.0
+                last.close < average * 0.997 -> -1.0
+                else -> 0.0
+            }
+            addRatingSignal("SMA 50", signal, 1.0, when {
+                signal > 0.0 -> "الإغلاق أعلى المتوسط"
+                signal < 0.0 -> "الإغلاق أسفل المتوسط"
+                else -> "الإغلاق قريب من المتوسط"
+            })
+        }
+        if (s20 != null && s50 != null) {
+            val signal = when {
+                s20 > s50 * 1.002 -> 1.0
+                s20 < s50 * 0.998 -> -1.0
+                else -> 0.0
+            }
+            addRatingSignal("ترتيب المتوسطات", signal, 1.0, when {
+                signal > 0.0 -> "SMA 20 أعلى SMA 50"
+                signal < 0.0 -> "SMA 20 أسفل SMA 50"
+                else -> "المتوسطان متقاربان"
+            })
+        }
+
+        if (avgVolume > 0.0 && last.volume > 0.0) {
+            val volumeSignal = when {
+                volumeRatio >= 1.3 && last.close > previous.close -> 1.0
+                volumeRatio >= 1.3 && last.close < previous.close -> -1.0
+                else -> 0.0
+            }
+            addRatingSignal("حجم التداول", volumeSignal, 1.0, when {
+                volumeSignal > 0.0 -> "ارتفاع الحجم مع صعود السعر"
+                volumeSignal < 0.0 -> "ارتفاع الحجم مع هبوط السعر"
+                else -> "لا يوجد تأكيد واضح من الحجم"
+            })
+        }
+
+        if (nearestSupport != null || nearestResistance != null) {
+            val supportDistance = nearestSupport?.let { (last.close - it) / last.close }
+            val resistanceDistance = nearestResistance?.let { (it - last.close) / last.close }
+            val structureSignal = when {
+                resistanceDistance != null && resistanceDistance in 0.0..0.025 -> -1.0
+                supportDistance != null && supportDistance in 0.0..0.03 &&
+                    last.close >= last.open -> 1.0
+                else -> 0.0
+            }
+            addRatingSignal("الدعم والمقاومة", structureSignal, 1.0, when {
+                structureSignal > 0.0 -> "السعر قرب دعم مع شمعة صاعدة"
+                structureSignal < 0.0 -> "السعر قريب من مقاومة"
+                else -> "لا توجد ملامسة قريبة تعطي إشارة واضحة"
+            })
+        }
+
+        val finalRatingScore = if (ratingWeight > 0.0)
+            (ratingNet / ratingWeight * 100.0).toInt().coerceIn(-100, 100) else 0
+        val finalRating = when {
+            ratingWeight >= 5.0 && finalRatingScore >= 55 -> "شراء قوي"
+            finalRatingScore >= 22 -> "شراء بحذر"
+            ratingWeight >= 5.0 && finalRatingScore <= -55 -> "بيع قوي"
+            finalRatingScore <= -22 -> "بيع بحذر"
+            else -> "محايد / انتظار"
+        }
+        val finalRatingReason = when {
+            ratingWeight < 3.0 -> "البيانات المتاحة لا تكفي لتأكيد اتجاه قوي؛ انتظر اكتمال المؤشرات."
+            finalRating == "شراء قوي" -> "توافق مرتفع بين عدة مؤشرات إيجابية، مع ضرورة تأكيد الحركة بالسعر والسيولة."
+            finalRating == "شراء بحذر" -> "الإشارات تميل للصعود لكنها غير مكتملة أو يوجد بينها بعض الاختلاف."
+            finalRating == "بيع قوي" -> "توافق مرتفع بين عدة مؤشرات سلبية؛ راقب الدعوم وإدارة المخاطر."
+            finalRating == "بيع بحذر" -> "الإشارات تميل للهبوط لكنها غير مكتملة أو يوجد بينها بعض الاختلاف."
+            else -> "الإشارات متضاربة أو متوازنة؛ الانتظار حتى ظهور تأكيد أوضح هو القراءة الأكثر تحفظًا."
+        }
+        if (ratingWeight < 5.0) {
+            ratingFactors.add("تنبيه: بعض المؤشرات غير متاحة لعدم كفاية عدد الجلسات أو بيانات الحجم.")
+        }
+
         val parts = listOf(
             ScorePart("الاتجاه", trendPoints, 20),
             ScorePart("الزخم", momentumPoints, 15),
@@ -233,7 +372,8 @@ object TechnicalAnalyzer {
             atr, bbLower, bbUpper, trend, patterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
             volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0,
-            marketState, marketStateReason
+            marketState, marketStateReason, finalRating, finalRatingScore,
+            finalRatingReason, ratingFactors
         )
     }
 
