@@ -469,6 +469,41 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                Spacer(Modifier.height(14.dp))
+                SectionTitle("حالة السهم")
+                val nearestSupport = a.supports.firstOrNull()
+                val secondSupport = a.supports.getOrNull(1)
+                val nearestResistance = a.resistances.firstOrNull()
+                val secondResistance = a.resistances.getOrNull(1)
+                val breakoutBuy = nearestResistance?.plus(a.atr * 0.2) ?: (a.last.close + a.atr * 0.5)
+                val supportBuy = nearestSupport?.let { it + a.atr * 0.2 }
+                val breakdownExit = nearestSupport?.minus(a.atr * 0.2) ?: a.invalidation
+                val supportText = a.supports.take(3).joinToString(" - ") { money(it) }.ifBlank { "غير متاح" }
+                val resistanceText = a.resistances.take(3).joinToString(" - ") { money(it) }.ifBlank { "غير متاح" }
+                ResultCard(
+                    "تصنيف السيولة: ${a.marketState}\\n" +
+                    "${a.marketStateReason}\\n\\n" +
+                    "الدعوم: ${supportText}\\n" +
+                    "المقاومات: ${resistanceText}\\n" +
+                    "وقف الخسارة المقترح: ${money(a.invalidation)} (إغلاق أسفل المستوى)\\n\\n" +
+                    "المستهدفات السعرية:\\n" +
+                    "قريب: ${money(a.targets[0])}\\n" +
+                    "متوسط: ${money(a.targets[1])}\\n" +
+                    "بعيد: ${money(a.targets[2])}\\n\\n" +
+                    "خطة التعامل في الصعود:\\n" +
+                    "شراء اختراق: ${money(breakoutBuy)} بعد إغلاق أعلى المقاومة وتأكيد حجم التداول.\\n" +
+                    "شراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"} بشرط ظهور ارتداد واضح.\\n" +
+                    "بيع/جني ربح: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"} ثم المستهدف القريب ${money(a.targets[0])}.\\n\\n" +
+                    "خطة التعامل في الهبوط:\\n" +
+                    "بيع أو تخفيف: عند كسر الدعم والإغلاق أسفل ${money(breakdownExit)}.\\n" +
+                    "شراء بعد الهبوط: راقب الدعم ${nearestSupport?.let(::money) ?: "غير متاح"}؛ لا يتم الشراء إلا بعد ارتداد وتأكيد انعكاس، وليس لمجرد ملامسة الدعم.\\n" +
+                    "المقاومة التالية للبيع: ${secondResistance?.let(::money) ?: nearestResistance?.let(::money) ?: "غير متاحة"}."
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "المستويات تقديرية ومحسوبة آليًا من البيانات التاريخية والفترة المختارة. نقاط الاختراق والارتداد تحتاج تأكيدًا بالإغلاق والسيولة؛ لا توجد ضمانات، ووقف الخسارة قد يتأثر بالفجوات السعرية.",
+                    color = Muted, fontSize = 11.sp, lineHeight = 17.sp
+                )
             }
             Spacer(Modifier.height(18.dp))
             Text(
