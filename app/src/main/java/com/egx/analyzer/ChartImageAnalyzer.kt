@@ -47,9 +47,9 @@ object ChartImageAnalyzer {
         val report = buildString {
             appendLine(trend)
             appendLine("قوة الميل المرئي: $strength")
-            appendLine("منطقة دعم بصرية تقريبية: عند ${supportPosition.toInt()}% من أعلى مساحة الرسم.")
-            appendLine("منطقة مقاومة بصرية تقريبية: عند ${resistancePosition.toInt()}% من أعلى مساحة الرسم.")
-            appendLine("ثقة اكتشاف مسار الخط: $confidence%")
+            appendLine("النطاق البصري المنخفض: عند ${supportPosition.toInt()}% من أعلى مساحة الرسم (ليس مستوى سعر).")
+            appendLine("النطاق البصري المرتفع: عند ${resistancePosition.toInt()}% من أعلى مساحة الرسم (ليس مستوى سعر).")
+            appendLine("تغطية اكتشاف المسار الملون: $confidence%")
             append("الفترة المختارة في التطبيق لا يمكن التحقق منها من الصورة وحدها.")
         }
         return report to "تم فحص الصورة محليًا دون إنترنت. لا يمكن استخراج أسعار فعلية أو مستويات سعرية دقيقة من الصورة وحدها."
