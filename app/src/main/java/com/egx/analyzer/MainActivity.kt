@@ -1,6 +1,7 @@
 package com.egx.analyzer
 
 import android.net.Uri
+import android.content.Intent
 import android.graphics.BitmapFactory
 import android.os.Handler
 import android.os.Looper
@@ -65,7 +66,7 @@ data class Candle(
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage) } }
+        setContent { MaterialTheme { AnalyzerScreen(::readFile, ::readChartImage, ::openChartUrl, ::downloadChartImage) } }
     }
 
     private fun readChartImage(uri: Uri): Pair<String, String> {
@@ -78,6 +79,65 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             "" to "تعذر تحليل الصورة: ${e.message ?: "صيغة غير مدعومة"}"
         }
+    }
+
+
+    private fun openChartUrl(rawUrl: String) {
+        try {
+            val normalized = if (rawUrl.startsWith("http://", true) || rawUrl.startsWith("https://", true)) rawUrl else "https://$rawUrl"
+            val uri = Uri.parse(normalized)
+            require(uri.scheme == "http" || uri.scheme == "https") { "الرابط يجب أن يبدأ بـ http أو https." }
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (e: Exception) {
+            android.widget.Toast.makeText(this, "تعذر فتح الرابط. تأكد من صحته.", android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun downloadChartImage(rawUrl: String, onResult: (Pair<String, String>) -> Unit) {
+        Thread {
+            var connection: HttpURLConnection? = null
+            val result = try {
+                val normalized = if (rawUrl.startsWith("http://", true) || rawUrl.startsWith("https://", true)) rawUrl else "https://$rawUrl"
+                val uri = Uri.parse(normalized)
+                require(uri.scheme == "http" || uri.scheme == "https") { "الرابط يجب أن يبدأ بـ http أو https." }
+                connection = (URL(normalized).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    connectTimeout = 12000
+                    readTimeout = 15000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", "Mozilla/5.0 EGXStockAnalyzer")
+                }
+                connection.connect()
+                if (connection.responseCode !in 200..299) error("الموقع رفض التحميل (HTTP ${connection.responseCode}).")
+                val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase(Locale.ROOT)
+                if (!type.startsWith("image/")) error("الرابط يفتح صفحة موقع وليس ملف صورة مباشرًا. افتح الشارت واحفظ صورته أو التقط لقطة شاشة ثم اخترها من الهاتف.")
+                val length = connection.contentLengthLong
+                if (length > 8L * 1024L * 1024L) error("حجم الصورة أكبر من 8 ميجابايت.")
+                val imageBytes = connection.inputStream.use { input ->
+                    val output = ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val count = input.read(buffer)
+                        if (count < 0) break
+                        total += count
+                        if (total > 8 * 1024 * 1024) error("حجم الصورة أكبر من 8 ميجابايت.")
+                        output.write(buffer, 0, count)
+                    }
+                    output.toByteArray()
+                }
+                val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+                    ?: error("تعذر قراءة الصورة من هذا الرابط.")
+                val report = ChartImageAnalyzer.analyze(bitmap)
+                bitmap.recycle()
+                report
+            } catch (e: Exception) {
+                "" to (e.message ?: "تعذر تحميل صورة الشارت من الرابط.")
+            } finally {
+                connection?.disconnect()
+            }
+            runOnUiThread { onResult(result) }
+        }.start()
     }
 
     private fun readCsv(uri: Uri): Pair<List<Candle>, String> {
@@ -102,18 +162,18 @@ class MainActivity : ComponentActivity() {
             val highI = indexOf("high", "الأعلى", "اعلى", fallback = 2)
             val lowI = indexOf("low", "الأدنى", "ادنى", fallback = 3)
             val closeI = indexOf("close", "price", "last", "الإغلاق", "الاغلاق", "السعر", fallback = 4)
-            val volumeI = indexOf("volume", "vol.", "vol", "الحجم", fallback = 5)
+            val volumeI = header.indexOfFirst { h -> listOf("volume", "vol.", "vol", "الحجم").any { h == it || h.contains(it) } }
             val parsed = lines.drop(1).mapNotNull { line ->
                 val cells = splitCsvLine(line, delimiter)
-                val needed = listOf(dateI, openI, highI, lowI, closeI, volumeI)
+                val needed = listOf(dateI, openI, highI, lowI, closeI)
                 if (cells.size <= (needed.maxOrNull() ?: 5)) null else try {
                     val candle = Candle(
-                        cells[dateI].trim(),
+                        normalizeDate(cells[dateI].trim()),
                         parseNumber(cells[openI]),
                         parseNumber(cells[highI]),
                         parseNumber(cells[lowI]),
                         parseNumber(cells[closeI]),
-                        parseNumber(cells[volumeI])
+                        if (volumeI >= 0 && cells.size > volumeI && cells[volumeI].isNotBlank()) parseNumber(cells[volumeI]) else 0.0
                     )
                     if (candle.date.isBlank() || candle.open <= 0.0 || candle.close <= 0.0 ||
                         candle.high < maxOf(candle.open, candle.close, candle.low) ||
@@ -122,7 +182,7 @@ class MainActivity : ComponentActivity() {
             }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
 
             val note = when {
-                parsed.size < 15 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 26 جلسة على الأقل. أضف بيانات تاريخية أكثر."
+                parsed.size < 15 -> "تم استيراد ${parsed.size} جلسة بنجاح، لكن التحليل الفني يحتاج 15 جلسة على الأقل. أضف بيانات تاريخية أكثر."
                 parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
@@ -169,21 +229,24 @@ class MainActivity : ComponentActivity() {
         fun ix(vararg names:String,fallback:Int)=h.entries.firstOrNull{(_,v)->names.any{v==it || v.contains(it)}}?.key ?: fallback
         val d=ix("date","التاريخ",fallback=0); val o=ix("open","الفتح",fallback=1)
         val hi=ix("high","الأعلى","اعلى",fallback=2); val lo=ix("low","الأدنى","ادنى",fallback=3)
-        val c=ix("close","الإغلاق","الاغلاق",fallback=4); val v=ix("volume","الحجم",fallback=5)
+        val c=ix("close","الإغلاق","الاغلاق",fallback=4); val v=h.entries.firstOrNull { (_, value) -> value.contains("volume") || value.contains("الحجم") || value == "vol" }?.key ?: -1
         val data=rows.drop(1).mapNotNull { r -> try {
             val rawDate=r[d].orEmpty()
             val date=rawDate.toDoubleOrNull()?.let { serial ->
                 val cal=Calendar.getInstance(); cal.timeInMillis=(serial-25569.0).toLong()*86400000L
                 SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cal.time)
-            } ?: rawDate
-            val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),parseNumber(r[v]?: "0"))
+            } ?: normalizeDate(rawDate)
+            val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),if(v>=0) parseNumber(r[v]?: "0") else 0.0)
             if(date.isNotBlank() && x.open>0 && x.close>0 && x.high>=maxOf(x.open,x.close,x.low) && x.low<=minOf(x.open,x.close)) x else null
         } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{it.date}
         data to "تم استيراد ${data.size} جلسة من Excel."
     } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة Excel: ${e.message ?: "تأكد من الملف."}" }
 
     private fun parseNumber(raw: String): Double {
-        val cleaned = raw.trim().replace("\"", "").replace(",", "").replace(" ", "")
+        var cleaned = raw.trim().replace("\"", "").replace(" ", "")
+        if (cleaned.contains(',') && cleaned.contains('.')) {
+            cleaned = if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) cleaned.replace(".", "").replace(',', '.') else cleaned.replace(",", "")
+        } else if (cleaned.contains(',')) cleaned = cleaned.replace(',', '.')
         val suffix = cleaned.lastOrNull()?.uppercaseChar()
         val number = if (suffix == 'K' || suffix == 'M' || suffix == 'B') cleaned.dropLast(1).toDouble() else cleaned.toDouble()
         return number * when (suffix) {
@@ -217,8 +280,17 @@ class MainActivity : ComponentActivity() {
         return out
     }
 
-    private fun dateSortKey(value: String): String {
+    private fun normalizeDate(value: String): String {
         val s = value.trim()
+        val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
+        if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
+        val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
+        if (dmy != null) return "${dmy.groupValues[3]}-${dmy.groupValues[2].padStart(2, '0')}-${dmy.groupValues[1].padStart(2, '0')}"
+        return s
+    }
+
+    private fun dateSortKey(value: String): String {
+        val s = normalizeDate(value)
         val iso = Regex("^(\\d{4})[-/](\\d{1,2})[-/](\\d{1,2})").find(s)
         if (iso != null) return "${iso.groupValues[1].padStart(4, '0')}-${iso.groupValues[2].padStart(2, '0')}-${iso.groupValues[3].padStart(2, '0')}"
         val dmy = Regex("^(\\d{1,2})[-/](\\d{1,2})[-/](\\d{4})").find(s)
@@ -229,7 +301,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart: (Uri) -> Pair<String, String>) {
+fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart: (Uri) -> Pair<String, String>, openChart: (String) -> Unit, downloadChart: (String, (Pair<String, String>) -> Unit) -> Unit) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
@@ -239,12 +311,15 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
     var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
     var imageReport by remember { mutableStateOf("") }
     var imageMessage by remember { mutableStateOf("") }
+    var chartUrl by remember { mutableStateOf("") }
+    var chartUrlMessage by remember { mutableStateOf("") }
+    var downloadingChart by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
             candles = loaded.first
             message = loaded.second
-            result = if (candles.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(candles,period)) else null
+            result = if (loaded.first.size >= 15) TechnicalAnalyzer.analyze(aggregateCandles(loaded.first,period)) else null
             trendPoints=emptyList()
         }
     }
@@ -322,6 +397,53 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                 }
             }
             Spacer(Modifier.height(12.dp))
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                    Text("شارت من أي موقع (اختياري)", color = Navy, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Spacer(Modifier.height(5.dp))
+                    Text("الصق رابط صفحة الشارت أو رابط صورة مباشرة. يمكنك ترك الحقل فارغًا واستخدام البرنامج كالمعتاد.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                    Spacer(Modifier.height(9.dp))
+                    BasicTextField(
+                        value = chartUrl,
+                        onValueChange = { chartUrl = it },
+                        modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp),
+                        singleLine = true,
+                        decorationBox = { inner ->
+                            if (chartUrl.isBlank()) Text("https://example.com/chart", color = Muted, fontSize = 12.sp)
+                            inner()
+                        }
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedButton(
+                            onClick = { if (chartUrl.isNotBlank()) openChart(chartUrl.trim()) else chartUrlMessage = "أدخل رابط الشارت أولًا." },
+                            modifier = Modifier.weight(1f)
+                        ) { Icon(Icons.Default.OpenInBrowser, null); Spacer(Modifier.width(5.dp)); Text("فتح الشارت") }
+                        Button(
+                            onClick = {
+                                if (chartUrl.isNotBlank()) {
+                                    downloadingChart = true
+                                    chartUrlMessage = "جارٍ محاولة تحميل صورة الشارت..."
+                                    downloadChart(chartUrl.trim()) { report ->
+                                        imageReport = report.first
+                                        imageMessage = report.second
+                                        chartUrlMessage = report.second
+                                        downloadingChart = false
+                                    }
+                                } else chartUrlMessage = "أدخل رابط صورة مباشرًا، أو افتح صفحة الشارت واختر لقطة شاشة من الهاتف."
+                            },
+                            modifier = Modifier.weight(1f),
+                            enabled = !downloadingChart
+                        ) { Icon(Icons.Default.Download, null); Spacer(Modifier.width(5.dp)); Text(if (downloadingChart) "جارٍ التحميل" else "تحميل الصورة") }
+                    }
+                    if (chartUrlMessage.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(chartUrlMessage, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+                    }
+                    Text("ملاحظة: تحميل الصورة المباشر يعمل عندما يعطي الموقع رابط ملف صورة. روابط صفحات المواقع تُفتح عاديًا، وإذا منع الموقع التحميل استخدم زر اختيار صورة الشارت من الهاتف.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
                     Icon(Icons.Default.Info, null, tint = Green)
@@ -361,7 +483,7 @@ fun AnalyzerScreen(importFile: (Uri) -> Pair<List<Candle>, String>, importChart:
                     listOf("يومي","أسبوعي","شهري").forEach { p ->
                         FilterChip(selected=period==p,onClick={
                             val grouped=aggregateCandles(candles,p)
-                            if(grouped.size>=26) {
+                            if(grouped.size>=15) {
                                 period=p
                                 result=TechnicalAnalyzer.analyze(grouped)
                                 trendPoints=emptyList()
