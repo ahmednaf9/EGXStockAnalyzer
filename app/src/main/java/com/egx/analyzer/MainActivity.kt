@@ -538,7 +538,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             )
                         }
                         Text(
-                            "\${if (a.finalRatingScore > 0) "+" else ""}\${a.finalRatingScore} / 100",
+                            (if (a.finalRatingScore > 0) "+" else "") + a.finalRatingScore + " / 100",
                             color = finalRatingColor(a.finalRating),
                             fontSize = 17.sp,
                             fontWeight = FontWeight.Bold
