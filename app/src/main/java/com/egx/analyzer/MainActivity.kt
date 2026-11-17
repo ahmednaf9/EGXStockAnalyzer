@@ -3,10 +3,6 @@ package com.egx.analyzer
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import org.json.JSONObject
-import java.net.HttpURLConnection
-import java.net.URL
-import java.net.URLEncoder
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
@@ -65,6 +61,15 @@ data class Candle(
     val volume: Double
 )
 
+private fun Candle.isValidForAnalysis(): Boolean =
+    date.isNotBlank() &&
+    open.isFinite() && high.isFinite() && low.isFinite() &&
+    close.isFinite() && volume.isFinite() &&
+    open > 0.0 && high > 0.0 && low > 0.0 && close > 0.0 &&
+    volume >= 0.0 &&
+    high >= maxOf(open, close, low) &&
+    low <= minOf(open, close)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -110,15 +115,13 @@ class MainActivity : ComponentActivity() {
                         parseNumber(cells[closeI]),
                         parseNumber(cells[volumeI])
                     )
-                    if (candle.date.isBlank() || candle.open <= 0.0 || candle.close <= 0.0 ||
-                        candle.high < maxOf(candle.open, candle.close, candle.low) ||
-                        candle.low > minOf(candle.open, candle.close)) null else candle
+                    if (candle.isValidForAnalysis()) candle else null
                 } catch (_: Exception) { null }
-            }.sortedBy { dateSortKey(it.date) }.distinctBy { it.date }
+            }.sortedBy { dateSortKey(it.date) }.distinctBy { dateSortKey(it.date) }
 
             val note = when {
-                parsed.size < 12 -> "تم استيراد ${parsed.size} شمعة فقط؛ يلزم 12 شمعة على الأقل لبدء التحليل."
-                parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. بعض المؤشرات طويلة المدى ستظهر عند توافر 50 جلسة."
+                parsed.size < 35 -> "تم استيراد ${parsed.size} شمعة فقط؛ يلزم 35 شمعة على الأقل لحساب RSI وMACD بصورة أفضل."
+                parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. التحليل متاح، لكن SMA 50 والتقييم القوي يحتاجان 50 جلسة على الأقل."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
             parsed to note
@@ -184,15 +187,33 @@ class MainActivity : ComponentActivity() {
                 SimpleDateFormat("yyyy-MM-dd",Locale.US).format(cal.time)
             } ?: rawDate
             val x=Candle(date,parseNumber(r[o]?: ""),parseNumber(r[hi]?: ""),parseNumber(r[lo]?: ""),parseNumber(r[c]?: ""),parseNumber(r[v]?: "0"))
-            if(date.isNotBlank() && x.open>0 && x.close>0 && x.high>=maxOf(x.open,x.close,x.low) && x.low<=minOf(x.open,x.close)) x else null
-        } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{it.date}
-        data to if (data.size < 12) "تم استيراد ${data.size} شمعة من Excel؛ يلزم 12 شمعة على الأقل لبدء التحليل." else "تم استيراد ${data.size} شمعة من Excel."
+            if(x.isValidForAnalysis()) x else null
+        } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{dateSortKey(it.date)}
+        data to when {
+            data.size < 35 -> "تم استيراد ${data.size} شمعة من Excel؛ يلزم 35 شمعة على الأقل لحساب RSI وMACD بصورة أفضل."
+            data.size < 50 -> "تم استيراد ${data.size} شمعة من Excel؛ SMA 50 والتقييم القوي يحتاجان 50 جلسة على الأقل."
+            else -> "تم استيراد ${data.size} شمعة من Excel بعد التحقق من سلامة الأسعار."
+        }
     } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة Excel: ${e.message ?: "تأكد من الملف."}" }
 
     private fun parseNumber(raw: String): Double {
-        val cleaned = raw.trim().replace("\"", "").replace(",", "").replace(" ", "")
+        var cleaned = raw.trim()
+            .replace("\"", "")
+            .replace(" ", "")
+            .replace("\u00A0", "")
         val suffix = cleaned.lastOrNull()?.uppercaseChar()
-        val number = if (suffix == 'K' || suffix == 'M' || suffix == 'B') cleaned.dropLast(1).toDouble() else cleaned.toDouble()
+        if (suffix == 'K' || suffix == 'M' || suffix == 'B') cleaned = cleaned.dropLast(1)
+        if (cleaned.contains(',') && cleaned.contains('.')) {
+            cleaned = if (cleaned.lastIndexOf(',') > cleaned.lastIndexOf('.')) {
+                cleaned.replace(".", "").replace(',', '.')
+            } else {
+                cleaned.replace(",", "")
+            }
+        } else if (cleaned.contains(',')) {
+            val decimals = cleaned.substringAfterLast(',').length
+            cleaned = if (decimals in 1..2) cleaned.replace(',', '.') else cleaned.replace(",", "")
+        }
+        val number = cleaned.toDouble()
         return number * when (suffix) {
             'K' -> 1_000.0
             'M' -> 1_000_000.0
@@ -252,8 +273,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             symbol = loaded.symbol
             period = detectDataPeriod(candles)
             val grouped = aggregateCandles(candles, period)
-            result = if (grouped.size >= 12) TechnicalAnalyzer.analyze(grouped) else null
-            if (grouped.size < 12) message = "تم استيراد ${candles.size} شمعة، لكن الفترة ${period} تحتوي على ${grouped.size} شمعة فقط؛ يلزم 12 على الأقل."
+            result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+            if (grouped.size < 35) message = "تم استيراد ${candles.size} شمعة، لكن الفترة ${period} تحتوي على ${grouped.size} شمعة فقط؛ يلزم 35 شمعة على الأقل للتحليل."
             trendPoints = emptyList()
         }
     }
@@ -360,13 +381,13 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             selected = period == p,
                             onClick = {
                                 val grouped = aggregateCandles(candles, p)
-                                if (grouped.size >= 12) {
+                                if (grouped.size >= 35) {
                                     period = p
                                     result = TechnicalAnalyzer.analyze(grouped)
                                     message = "الفترة $p: ${grouped.size} شمعة جاهزة للتحليل."
                                     trendPoints = emptyList()
                                 } else {
-                                    message = "الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 12 على الأقل. تم الاحتفاظ بالفترة الحالية."
+                                    message = "الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 35 شمعة على الأقل. تم الاحتفاظ بالفترة الحالية."
                                 }
                             },
                             label = { Text(p) },
