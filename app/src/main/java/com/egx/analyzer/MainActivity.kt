@@ -14,11 +14,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.Stroke
 import java.util.zip.ZipInputStream
 import java.io.ByteArrayOutputStream
 import androidx.compose.foundation.background
@@ -265,8 +261,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
-    var drawTrend by remember { mutableStateOf(false) }
-    var trendPoints by remember { mutableStateOf(emptyList<Pair<Int,Double>>()) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
@@ -277,7 +271,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             val grouped = aggregateCandles(candles, period)
             result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
             if (grouped.size < 35) message = "تم استيراد ${candles.size} شمعة، لكن الفترة ${period} تحتوي على ${grouped.size} شمعة فقط؛ يلزم 35 شمعة على الأقل للتحليل."
-            trendPoints = emptyList()
         }
     }
 
@@ -306,24 +299,23 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Text("لوحة تحليل EGX", color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                     Text("ارفع ملف بيانات السهم وسيتم تحديد رمزه تلقائيًا من اسم الملف.", color = Color(0xFFB9C9D8), fontSize = 12.sp)
                     Spacer(Modifier.height(13.dp))
-                    Row(
-                        Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(Icons.Default.Search, null, tint = Muted)
-                        Spacer(Modifier.width(8.dp))
-                        BasicTextField(
-                            value = symbol,
-                            onValueChange = { },
-                            modifier = Modifier.weight(1f).padding(vertical = 12.dp),
-                            singleLine = true,
-                            readOnly = true,
-                            decorationBox = { inner ->
-                                if (symbol.isBlank()) Text("سيظهر كود السهم تلقائيًا بعد تحميل الملف", color = Muted)
-                                inner()
-                            }
-                        )
-                    }
+                    BasicTextField(
+                        value = symbol,
+                        onValueChange = { symbol = it.uppercase(Locale.ROOT) },
+                        modifier = Modifier.fillMaxWidth()
+                            .background(Color.White, RoundedCornerShape(12.dp))
+                            .padding(horizontal = 14.dp, vertical = 16.dp),
+                        singleLine = true,
+                        textStyle = androidx.compose.ui.text.TextStyle(
+                            color = Navy,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        ),
+                        decorationBox = { inner ->
+                            if (symbol.isBlank()) Text("كود السهم", color = Muted, fontSize = 14.sp)
+                            inner()
+                        }
+                    )
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
                         onClick = { picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")) },
@@ -343,8 +335,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             message = "لم يتم تحميل أي ملف. يمكنك استيراد ملف سهم جديد."
                             result = null
                             period = "يومي"
-                            drawTrend = false
-                            trendPoints = emptyList()
                         },
                         modifier = Modifier.fillMaxWidth().height(44.dp),
                         shape = RoundedCornerShape(12.dp),
@@ -387,7 +377,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                     period = p
                                     result = TechnicalAnalyzer.analyze(grouped)
                                     message = "الفترة $p: ${grouped.size} شمعة جاهزة للتحليل."
-                                    trendPoints = emptyList()
                                 } else {
                                     message = "الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 35 شمعة على الأقل. تم الاحتفاظ بالفترة الحالية."
                                 }
@@ -409,15 +398,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
-                PriceTrendChart(aggregateCandles(candles,period),trendPoints,drawTrend) { i,price ->
-                    trendPoints=if(trendPoints.size>=2) listOf(i to price) else trendPoints+(i to price)
-                    if(trendPoints.size>=2) drawTrend=false
-                }
-                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick={drawTrend=true;trendPoints=emptyList()},modifier=Modifier.weight(1f)){Text("رسم خط اتجاه")}
-                    OutlinedButton(onClick={drawTrend=false;trendPoints=emptyList()},modifier=Modifier.weight(1f)){Text("مسح الخط")}
-                }
-                if(drawTrend) Text("اضغط على نقطتين في الرسم لرسم خط الاتجاه.",color=Green,fontSize=11.sp)
+                PriceTrendChart(aggregateCandles(candles, period))
 
                 Spacer(Modifier.height(9.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
@@ -652,37 +633,33 @@ private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> 
 }
 
 @Composable
-private fun PriceTrendChart(data:List<Candle>,points:List<Pair<Int,Double>>,drawing:Boolean,onTap:(Int,Double)->Unit){
-    if(data.isEmpty()) return
-    val low=data.minOf{it.low};val high=data.maxOf{it.high};val range=(high-low).coerceAtLeast(0.000001)
-    Card(colors=CardDefaults.cardColors(containerColor=Color.White),shape=RoundedCornerShape(14.dp)){
-        Column(Modifier.fillMaxWidth().padding(12.dp)){
-            Text("الشارت بالشموع اليابانية وخط الاتجاه",color=Navy,fontWeight=FontWeight.Bold,fontSize=13.sp)
-            Canvas(Modifier.fillMaxWidth().height(210.dp).pointerInput(data,drawing,points){
-                detectTapGestures{p->if(drawing&&data.size>1){
-                    val i=((p.x/size.width)*data.size).toInt().coerceIn(0,data.lastIndex)
-                    onTap(i,high-(p.y/size.height).coerceIn(0f,1f)*range)
-                }}
-            }){
-                val dx=size.width/data.size
-                val bodyWidth=(dx*0.62f).coerceAtLeast(2f)
-                fun y(price:Double) = size.height-((price-low)/range).toFloat()*size.height
-                data.forEachIndexed { i,c ->
-                    val x=(i+0.5f)*dx
-                    val candleColor=if(c.close>=c.open) Green else Red
-                    drawLine(candleColor,Offset(x,y(c.high)),Offset(x,y(c.low)),strokeWidth=1.5f)
-                    val bodyTop=minOf(y(c.open),y(c.close))
-                    val bodyBottom=maxOf(y(c.open),y(c.close))
-                    val bodyHeight=(bodyBottom-bodyTop).coerceAtLeast(2f)
-                    drawRect(candleColor,topLeft=Offset(x-bodyWidth/2f,bodyTop),size=androidx.compose.ui.geometry.Size(bodyWidth,bodyHeight))
-                }
-                if(points.size==2){
-                    fun xy(p:Pair<Int,Double>)=Offset((p.first.coerceIn(0,data.lastIndex)+0.5f)*dx,y(p.second))
-                    drawLine(Amber,xy(points[0]),xy(points[1]),strokeWidth=3f)
-                    drawCircle(Amber,5f,xy(points[0]));drawCircle(Amber,5f,xy(points[1]))
+private fun PriceTrendChart(data: List<Candle>) {
+    if (data.isEmpty()) return
+    val low = data.minOf { it.low }
+    val high = data.maxOf { it.high }
+    val range = (high - low).coerceAtLeast(0.000001)
+    Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+        Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Text("الشارت بالشموع اليابانية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Canvas(Modifier.fillMaxWidth().height(210.dp)) {
+                val dx = size.width / data.size
+                val bodyWidth = (dx * 0.62f).coerceAtLeast(2f)
+                fun y(price: Double) = size.height - ((price - low) / range).toFloat() * size.height
+                data.forEachIndexed { i, candle ->
+                    val x = (i + 0.5f) * dx
+                    val candleColor = if (candle.close >= candle.open) Green else Red
+                    drawLine(candleColor, Offset(x, y(candle.high)), Offset(x, y(candle.low)), strokeWidth = 1.5f)
+                    val bodyTop = minOf(y(candle.open), y(candle.close))
+                    val bodyBottom = maxOf(y(candle.open), y(candle.close))
+                    val bodyHeight = (bodyBottom - bodyTop).coerceAtLeast(2f)
+                    drawRect(
+                        candleColor,
+                        topLeft = Offset(x - bodyWidth / 2f, bodyTop),
+                        size = androidx.compose.ui.geometry.Size(bodyWidth, bodyHeight)
+                    )
                 }
             }
-            Text("آخر إغلاق: "+String.format(Locale.US,"%.2f",data.last().close),color=Muted,fontSize=10.sp)
+            Text("آخر إغلاق: " + String.format(Locale.US, "%.2f", data.last().close), color = Muted, fontSize = 10.sp)
         }
     }
 }
