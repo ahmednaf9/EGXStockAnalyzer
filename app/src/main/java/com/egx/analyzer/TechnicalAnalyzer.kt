@@ -44,7 +44,7 @@ object TechnicalAnalyzer {
         return s
     }
     fun analyze(input: List<Candle>): Analysis {
-        require(input.size >= 15) { "At least 15 valid sessions are required for RSI calculation." }
+        require(input.size >= 12) { "At least 12 valid candles are required for technical analysis." }
         // Use the same chronological normalization as CSV import. Raw string sorting
         // misorders dates such as 16/11/2026 and can make the summary use an older close.
         val rows = input.sortedBy { dateSortKey(it.date) }
