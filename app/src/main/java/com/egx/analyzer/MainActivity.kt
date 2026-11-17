@@ -144,7 +144,7 @@ class MainActivity : ComponentActivity() {
         val tokens = base.split(Regex("[_-]+")).filter { it.isNotBlank() }
         val ignored = setOf("HISTORICAL", "HISTORY", "DATA", "STOCK", "PRICES", "PRICE", "DAILY", "WEEKLY", "MONTHLY")
         val candidates = tokens.filterNot { it.uppercase(Locale.ROOT) in ignored || it.all(Char::isDigit) }
-        return (candidates.lastOrNull() ?: base).uppercase(Locale.ROOT).take(16)
+        return candidates.lastOrNull()?.uppercase(Locale.ROOT)?.take(16).orEmpty()
     }
 
     private fun readExcel(uri: Uri): Pair<List<Candle>, String> = try {
@@ -291,6 +291,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             onValueChange = { },
                             modifier = Modifier.weight(1f).padding(vertical = 12.dp),
                             singleLine = true,
+                            readOnly = true,
                             decorationBox = { inner ->
                                 if (symbol.isBlank()) Text("سيظهر كود السهم تلقائيًا بعد تحميل الملف", color = Muted)
                                 inner()
