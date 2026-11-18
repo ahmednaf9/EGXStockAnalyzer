@@ -438,7 +438,84 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
-                PriceTrendChart(aggregateCandles(candles, period))
+
+                Spacer(Modifier.height(14.dp))
+                SectionTitle("حالة السهم")
+                val nearestSupport = a.supports.firstOrNull()
+                val nearestResistance = a.resistances.firstOrNull()
+                val secondResistance = a.resistances.getOrNull(1)
+                val breakoutBuy = nearestResistance?.plus(a.atr * 0.2) ?: (a.last.close + a.atr * 0.5)
+                val supportBuy = nearestSupport?.let { it + a.atr * 0.2 }
+                val breakdownExit = nearestSupport?.minus(a.atr * 0.2) ?: a.invalidation
+                val supportText = a.supports.take(3).joinToString(" - ") { money(it) }.ifBlank { "غير متاح" }
+                val resistanceText = a.resistances.take(3).joinToString(" - ") { money(it) }.ifBlank { "غير متاح" }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text("قراءة التجميع والتصريف", color = Muted, fontSize = 11.sp)
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                a.marketState,
+                                Modifier.weight(1f),
+                                color = marketStateColor(a.marketState),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                            Text(
+                                if (a.marketState == "غير محسوم") "—" else
+                                    "${if (a.marketStateScore > 0) "+" else ""}${a.marketStateScore}/100",
+                                color = marketStateColor(a.marketState),
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Text("قوة الإشارة: ${a.marketStateStrength}", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        if (a.marketState != "غير محسوم") {
+                            LinearProgressIndicator(
+                                progress = { (kotlin.math.abs(a.marketStateScore) / 100f).coerceIn(0f, 1f) },
+                                modifier = Modifier.fillMaxWidth().height(6.dp),
+                                color = marketStateColor(a.marketState),
+                                trackColor = Page
+                            )
+                            Spacer(Modifier.height(7.dp))
+                        }
+                        Text(a.marketStateReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "هذا تقدير فني من بيانات السعر والحجم، وليس إثباتًا لتحركات المحافظ أو المستثمرين الكبار.",
+                            color = Muted, fontSize = 10.sp, lineHeight = 15.sp
+                        )
+                    }
+                }
+                Spacer(Modifier.height(9.dp))
+                ResultCard(
+                    "الدعوم: ${supportText}\n" +
+                    "المقاومات: ${resistanceText}\n" +
+                    "وقف الخسارة المقترح: ${money(a.invalidation)} (إغلاق أسفل المستوى)\n\n" +
+                    "المستهدفات السعرية:\n" +
+                    "قريب: ${money(a.targets[0])}\n" +
+                    "متوسط: ${money(a.targets[1])}\n" +
+                    "بعيد: ${money(a.targets[2])}\n\n" +
+                    "خطة التعامل في الصعود:\n" +
+                    "شراء اختراق: ${money(breakoutBuy)} بعد إغلاق أعلى المقاومة وتأكيد حجم التداول.\n" +
+                    "شراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"} بشرط ظهور ارتداد واضح.\n" +
+                    "بيع/جني ربح: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"} ثم المستهدف القريب ${money(a.targets[0])}.\n\n" +
+                    "خطة التعامل في الهبوط:\n" +
+                    "بيع أو تخفيف: عند كسر الدعم والإغلاق أسفل ${money(breakdownExit)}.\n" +
+                    "شراء بعد الهبوط: راقب الدعم ${nearestSupport?.let(::money) ?: "غير متاح"}؛ لا يتم الشراء إلا بعد ارتداد وتأكيد انعكاس، وليس لمجرد ملامسة الدعم.\n" +
+                    "المقاومة التالية للبيع: ${secondResistance?.let(::money) ?: nearestResistance?.let(::money) ?: "غير متاحة"}."
+                )
+                Spacer(Modifier.height(7.dp))
+                Text(
+                    "المستويات تقديرية ومحسوبة آليًا من البيانات التاريخية والفترة المختارة. نقاط الاختراق والارتداد تحتاج تأكيدًا بالإغلاق والسيولة؛ لا توجد ضمانات، ووقف الخسارة قد يتأثر بالفجوات السعرية.",
+                    color = Muted, fontSize = 11.sp, lineHeight = 17.sp
+                )
+
+                                PriceTrendChart(aggregateCandles(candles, period))
 
                 Spacer(Modifier.height(9.dp))
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
@@ -561,81 +638,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
-                Spacer(Modifier.height(14.dp))
-                SectionTitle("حالة السهم")
-                val nearestSupport = a.supports.firstOrNull()
-                val nearestResistance = a.resistances.firstOrNull()
-                val secondResistance = a.resistances.getOrNull(1)
-                val breakoutBuy = nearestResistance?.plus(a.atr * 0.2) ?: (a.last.close + a.atr * 0.5)
-                val supportBuy = nearestSupport?.let { it + a.atr * 0.2 }
-                val breakdownExit = nearestSupport?.minus(a.atr * 0.2) ?: a.invalidation
-                val supportText = a.supports.take(3).joinToString(" - ") { money(it) }.ifBlank { "غير متاح" }
-                val resistanceText = a.resistances.take(3).joinToString(" - ") { money(it) }.ifBlank { "غير متاح" }
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("قراءة التجميع والتصريف", color = Muted, fontSize = 11.sp)
-                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                a.marketState,
-                                Modifier.weight(1f),
-                                color = marketStateColor(a.marketState),
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                            Text(
-                                if (a.marketState == "غير محسوم") "—" else
-                                    "${if (a.marketStateScore > 0) "+" else ""}${a.marketStateScore}/100",
-                                color = marketStateColor(a.marketState),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        Spacer(Modifier.height(5.dp))
-                        Text("قوة الإشارة: ${a.marketStateStrength}", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                        Spacer(Modifier.height(6.dp))
-                        if (a.marketState != "غير محسوم") {
-                            LinearProgressIndicator(
-                                progress = { (kotlin.math.abs(a.marketStateScore) / 100f).coerceIn(0f, 1f) },
-                                modifier = Modifier.fillMaxWidth().height(6.dp),
-                                color = marketStateColor(a.marketState),
-                                trackColor = Page
-                            )
-                            Spacer(Modifier.height(7.dp))
-                        }
-                        Text(a.marketStateReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            "هذا تقدير فني من بيانات السعر والحجم، وليس إثباتًا لتحركات المحافظ أو المستثمرين الكبار.",
-                            color = Muted, fontSize = 10.sp, lineHeight = 15.sp
-                        )
-                    }
-                }
-                Spacer(Modifier.height(9.dp))
-                ResultCard(
-                    "الدعوم: ${supportText}\n" +
-                    "المقاومات: ${resistanceText}\n" +
-                    "وقف الخسارة المقترح: ${money(a.invalidation)} (إغلاق أسفل المستوى)\n\n" +
-                    "المستهدفات السعرية:\n" +
-                    "قريب: ${money(a.targets[0])}\n" +
-                    "متوسط: ${money(a.targets[1])}\n" +
-                    "بعيد: ${money(a.targets[2])}\n\n" +
-                    "خطة التعامل في الصعود:\n" +
-                    "شراء اختراق: ${money(breakoutBuy)} بعد إغلاق أعلى المقاومة وتأكيد حجم التداول.\n" +
-                    "شراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"} بشرط ظهور ارتداد واضح.\n" +
-                    "بيع/جني ربح: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"} ثم المستهدف القريب ${money(a.targets[0])}.\n\n" +
-                    "خطة التعامل في الهبوط:\n" +
-                    "بيع أو تخفيف: عند كسر الدعم والإغلاق أسفل ${money(breakdownExit)}.\n" +
-                    "شراء بعد الهبوط: راقب الدعم ${nearestSupport?.let(::money) ?: "غير متاح"}؛ لا يتم الشراء إلا بعد ارتداد وتأكيد انعكاس، وليس لمجرد ملامسة الدعم.\n" +
-                    "المقاومة التالية للبيع: ${secondResistance?.let(::money) ?: nearestResistance?.let(::money) ?: "غير متاحة"}."
-                )
-                Spacer(Modifier.height(7.dp))
-                Text(
-                    "المستويات تقديرية ومحسوبة آليًا من البيانات التاريخية والفترة المختارة. نقاط الاختراق والارتداد تحتاج تأكيدًا بالإغلاق والسيولة؛ لا توجد ضمانات، ووقف الخسارة قد يتأثر بالفجوات السعرية.",
-                    color = Muted, fontSize = 11.sp, lineHeight = 17.sp
-                )
             Spacer(Modifier.height(14.dp))
             SectionTitle("التقييم الفني النهائي")
             Card(
