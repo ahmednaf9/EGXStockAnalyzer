@@ -1,19 +1,19 @@
 plugins {
-    id("com.android.application") version "8.7.3"
+    id("com.android.application") version "8.9.1"
     id("org.jetbrains.kotlin.android") version "2.0.21"
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
 
 android {
     namespace = "com.egx.analyzer"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.egx.analyzer"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 4
-        versionName = "1.1.2"
+        targetSdk = 36
+        versionCode = 5
+        versionName = "1.2.0"
     }
 
     compileOptions {
