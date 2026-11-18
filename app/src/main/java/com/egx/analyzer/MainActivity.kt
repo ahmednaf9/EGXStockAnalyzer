@@ -483,6 +483,9 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             )
                             Spacer(Modifier.height(7.dp))
                         }
+                        Text("المعنى ببساطة", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        Text(a.marketStateInterpretation, color = marketStateColor(a.marketState), fontSize = 12.sp, lineHeight = 18.sp)
+                        Spacer(Modifier.height(5.dp))
                         Text(a.marketStateReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(5.dp))
                         Text(
@@ -538,6 +541,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             if (a.sessions < 50) "تنبيه: أقل من 50 جلسة؛ اتجاه SMA50 غير متاح والتقييم مبدئي." else "عدد الجلسات: ${a.sessions} جلسة${if (a.volumeAvailable) " • بيانات الحجم متاحة" else " • بيانات الحجم غير مكتملة"}",
                             color = Amber, fontSize = 11.sp, lineHeight = 16.sp
                         )
+                        Spacer(Modifier.height(6.dp))
+                        Text(a.scoreInterpretation, color = scoreColor(a.scoreLabel), fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
                         Spacer(Modifier.height(7.dp))
                         a.scoreParts.forEach { part ->
                             Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -561,7 +566,9 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             else -> Amber
                         }
                         Text(a.technicalClassification, color = classificationColor, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                        Spacer(Modifier.height(8.dp))
+                        Spacer(Modifier.height(4.dp))
+                        Text(a.technicalClassificationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Spacer(Modifier.height(9.dp))
                         Text("التوصية التنفيذية", color = Muted, fontSize = 12.sp)
                         val recommendationColor = when (a.executionRecommendation) {
                             "شراء", "شراء تدريجي" -> Green
@@ -569,6 +576,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             else -> Amber
                         }
                         Text(a.executionRecommendation, color = recommendationColor, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                        Text(a.executionRecommendationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Spacer(Modifier.height(5.dp))
                         Text(
                             "العائد إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "غير متاح"}",
                             color = Muted, fontSize = 11.sp
