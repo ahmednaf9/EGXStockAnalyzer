@@ -32,6 +32,9 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
+import android.graphics.Paint as AndroidPaint
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -725,6 +728,34 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                     fontWeight = FontWeight.SemiBold,
                                     lineHeight = 17.sp
                                 )
+                                Spacer(Modifier.height(8.dp))
+                                PatternPriceChart(candles.takeLast(16), pattern)
+                                Spacer(Modifier.height(7.dp))
+                                Text(
+                                    "قمة النموذج: ${money(pattern.patternHigh)}   •   قاع النموذج: ${money(pattern.patternLow)}",
+                                    color = Muted, fontSize = 10.sp
+                                )
+                                if (pattern.confirmationDate != null && pattern.confirmationPrice != null) {
+                                    Text(
+                                        "إغلاق التأكيد (${pattern.confirmationDate}): ${money(pattern.confirmationPrice)}",
+                                        color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                                if (pattern.entryPrice != null && pattern.stopPrice != null) {
+                                    Text(
+                                        "مستوى التفعيل: ${money(pattern.entryPrice)}   •   وقف/إبطال: ${money(pattern.stopPrice)}",
+                                        color = Navy, fontSize = 10.sp
+                                    )
+                                }
+                                if (pattern.targets.isNotEmpty()) {
+                                    Text(
+                                        "المستهدفات النظرية: م1 ${money(pattern.targets[0])}   •   م2 ${money(pattern.targets[1])}   •   م3 ${money(pattern.targets[2])}",
+                                        color = if (pattern.direction == "إيجابي") Green else Red,
+                                        fontSize = 10.sp, lineHeight = 16.sp
+                                    )
+                                } else {
+                                    Text("النموذج المحايد لا يملك مستهدفًا اتجاهيًا قبل تأكيد الاختراق.", color = Amber, fontSize = 10.sp)
+                                }
                             }
                         }
                     }
@@ -851,6 +882,104 @@ private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> 
 }
 
 @Composable
+@Composable
+private fun PatternPriceChart(data: List<Candle>, pattern: CandlestickPattern) {
+    if (data.isEmpty()) return
+    val levels = buildList {
+        pattern.entryPrice?.let { add("تفعيل" to it) }
+        pattern.stopPrice?.let { add("وقف" to it) }
+        pattern.targets.forEachIndexed { index, value -> add("م${index + 1}" to value) }
+    }
+    val allPrices = data.flatMap { listOf(it.high, it.low) } + levels.map { it.second }
+    val minPrice = allPrices.minOrNull() ?: return
+    val maxPrice = allPrices.maxOrNull() ?: return
+    val padding = ((maxPrice - minPrice) * 0.10).coerceAtLeast(maxPrice * 0.002)
+    val low = (minPrice - padding).coerceAtLeast(0.000001)
+    val high = maxPrice + padding
+    val range = (high - low).coerceAtLeast(0.000001)
+    val patternIndex = data.indexOfLast { it.date == pattern.date }
+    val confirmationIndex = pattern.confirmationDate?.let { date -> data.indexOfLast { it.date == date } } ?: -1
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFBFDFC)), shape = RoundedCornerShape(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(8.dp)) {
+            Text("خريطة النموذج والمستهدفات السعرية", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Canvas(Modifier.fillMaxWidth().height(220.dp)) {
+                val left = 8f
+                val right = size.width - 66f
+                val top = 12f
+                val bottom = size.height - 20f
+                val plotWidth = (right - left).coerceAtLeast(1f)
+                val plotHeight = (bottom - top).coerceAtLeast(1f)
+                val dx = plotWidth / data.size
+                val bodyWidth = (dx * 0.58f).coerceAtLeast(2f)
+                fun y(price: Double) = bottom - ((price - low) / range).toFloat() * plotHeight
+
+                val native = drawContext.canvas.nativeCanvas
+                val paint = AndroidPaint(AndroidPaint.ANTI_ALIAS_FLAG).apply {
+                    color = android.graphics.Color.rgb(113, 128, 150)
+                    textSize = 23f
+                    textAlign = AndroidPaint.Align.LEFT
+                }
+                for (grid in 0..4) {
+                    val gy = top + plotHeight * grid / 4f
+                    drawLine(Color(0xFFE4EBE7), Offset(left, gy), Offset(right, gy), strokeWidth = 1f)
+                    val price = high - range * grid / 4.0
+                    native.drawText(String.format(Locale.US, "%.2f", price), right + 5f, gy + 7f, paint)
+                }
+                data.forEachIndexed { i, candle ->
+                    val x = left + (i + 0.5f) * dx
+                    val isPattern = i == patternIndex
+                    val color = when {
+                        isPattern -> Color(0xFFB7791F)
+                        candle.close >= candle.open -> Green
+                        else -> Red
+                    }
+                    drawLine(color, Offset(x, y(candle.high)), Offset(x, y(candle.low)), strokeWidth = if (isPattern) 3f else 1.5f)
+                    val bodyTop = minOf(y(candle.open), y(candle.close))
+                    val bodyBottom = maxOf(y(candle.open), y(candle.close))
+                    drawRect(
+                        color,
+                        topLeft = Offset(x - bodyWidth / 2f, bodyTop),
+                        size = androidx.compose.ui.geometry.Size(bodyWidth, (bodyBottom - bodyTop).coerceAtLeast(2f))
+                    )
+                    if (isPattern) {
+                        drawLine(Color(0xFFB7791F), Offset(x, top), Offset(x, bottom), strokeWidth = 1.5f)
+                    }
+                    if (i == confirmationIndex) {
+                        drawCircle(Color(0xFF168A62), radius = 5f, center = Offset(x, y(candle.close)))
+                    }
+                }
+                levels.forEach { (label, price) ->
+                    val yy = y(price)
+                    val color = when {
+                        label == "وقف" -> Red
+                        label == "تفعيل" -> Color(0xFF315E9B)
+                        else -> Green
+                    }
+                    var x = left
+                    while (x < right) {
+                        drawLine(color.copy(alpha = 0.75f), Offset(x, yy), Offset((x + 7f).coerceAtMost(right), yy), strokeWidth = 1.4f)
+                        x += 12f
+                    }
+                    paint.color = color.toArgb()
+                    paint.textSize = 22f
+                    native.drawText("$label ${String.format(Locale.US, "%.2f", price)}", left + 3f, (yy - 4f).coerceAtLeast(top + 13f), paint)
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(data.first().date, color = Muted, fontSize = 9.sp)
+                Text("النموذج: ${pattern.date}", color = Color(0xFFB7791F), fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Text(data.last().date, color = Muted, fontSize = 9.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("● النموذج", color = Color(0xFFB7791F), fontSize = 9.sp)
+                Text("● التأكيد", color = Green, fontSize = 9.sp)
+                Text("— المستهدفات", color = Green, fontSize = 9.sp)
+                Text("— الوقف", color = Red, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
 private fun PriceTrendChart(data: List<Candle>) {
     if (data.isEmpty()) return
     val low = data.minOf { it.low }
