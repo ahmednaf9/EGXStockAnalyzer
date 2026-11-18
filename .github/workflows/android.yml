@@ -16,6 +16,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 35
+    env:
+      ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+      ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+      ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+      ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+      ANDROID_KEYSTORE_PATH: app/release-key.jks
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,19 +38,35 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: "8.11.1"
+      - name: Prepare private upload key
+        shell: bash
+        run: |
+          if [[ -n "$ANDROID_KEYSTORE_BASE64" && -n "$ANDROID_KEYSTORE_PASSWORD" && -n "$ANDROID_KEY_ALIAS" && -n "$ANDROID_KEY_PASSWORD" ]]; then
+            printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_PATH"
+            echo "Release signing key is configured."
+          else
+            echo "No signing secrets configured; building unsigned release candidates."
+            echo "ANDROID_KEYSTORE_PATH=" >> "$GITHUB_ENV"
+          fi
       - name: Build review APK and Play bundle
         run: gradle --no-daemon --stacktrace :app:assembleDebug :app:assembleRelease :app:bundleRelease
       - name: Verify generated files
+        shell: bash
         run: |
           test -s app/build/outputs/apk/debug/app-debug.apk
-          test -s app/build/outputs/apk/release/app-release-unsigned.apk
           test -s app/build/outputs/bundle/release/app-release.aab
+          if [[ -f app/build/outputs/apk/release/app-release.apk ]]; then
+            echo "Signed release APK generated."
+          else
+            test -s app/build/outputs/apk/release/app-release-unsigned.apk
+            echo "Unsigned release APK generated."
+          fi
       - name: Upload review and release-candidate files
         uses: actions/upload-artifact@v4
         with:
-          name: EGXStockAnalyzer-v1.2.0-review
+          name: EGXStockAnalyzer-v1.2.0-candidate
           path: |
             app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/apk/release/*.apk
             app/build/outputs/bundle/release/app-release.aab
           if-no-files-found: error
