@@ -77,6 +77,25 @@ jobs:
             test -s app/build/outputs/apk/release/app-release-unsigned.apk
             echo "Unsigned release APK generated."
           fi
+      - name: Verify release signatures
+        shell: bash
+        run: |
+          AAB="app/build/outputs/bundle/release/app-release.aab"
+          VERIFY_OUTPUT="$(jarsigner -verify -certs "$AAB" 2>&1)" || {
+            echo "$VERIFY_OUTPUT"
+            exit 1
+          }
+          echo "$VERIFY_OUTPUT"
+          if ! grep -q "jar verified." <<< "$VERIFY_OUTPUT"; then
+            echo "Release AAB signature verification failed."
+            exit 1
+          fi
+          APK="app/build/outputs/apk/release/app-release.apk"
+          if [[ -f "$APK" ]]; then
+            "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify "$APK"
+            echo "Release APK signature verified."
+          fi
+          echo "Release AAB signature verified."
       - name: Upload review and release-candidate files
         uses: actions/upload-artifact@v4
         with:
