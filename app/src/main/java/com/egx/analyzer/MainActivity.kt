@@ -674,14 +674,61 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("إشارات الشموع")
-                val simplePattern = when {
-                    a.patterns.any { it.contains("ابتلاع شرائي") || it.contains("مطرقة") } -> "ظهرت إشارة قد تدعم صعود السعر، وتحتاج إلى تأكيد."
-                    a.patterns.any { it.contains("ابتلاع بيعي") || it.contains("شهاب") } -> "ظهرت إشارة قد تضغط على السعر هبوطًا، وتحتاج إلى تأكيد."
-                    a.patterns.any { it.contains("دوجي") } -> "حركة الجلسة مترددة؛ لا يوجد اتجاه واضح."
-                    else -> "لا توجد إشارة شموع واضحة في آخر جلسة."
+                SectionTitle("إشارات الشموع — آخر 10 جلسات")
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text(
+                            "النماذج المرصودة خلال آخر 10 جلسات، مع فحص تأكيد كل نموذج من إغلاق الجلسة التالية.",
+                            color = Muted, fontSize = 11.sp, lineHeight = 17.sp
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        if (a.recentPatterns.isEmpty()) {
+                            Text(
+                                "لم يتم رصد نماذج شموع أساسية واضحة خلال آخر 10 جلسات.",
+                                color = Muted, fontSize = 13.sp, lineHeight = 19.sp
+                            )
+                        } else {
+                            a.recentPatterns.forEachIndexed { index, pattern ->
+                                if (index > 0) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Divider(color = Page)
+                                    Spacer(Modifier.height(8.dp))
+                                }
+                                val patternColor = when (pattern.direction) {
+                                    "إيجابي" -> Green
+                                    "سلبي" -> Red
+                                    else -> Amber
+                                }
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        pattern.name,
+                                        Modifier.weight(1f),
+                                        color = patternColor,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Text(pattern.direction, color = patternColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                }
+                                Spacer(Modifier.height(3.dp))
+                                Text("التاريخ: ${pattern.date}", color = Muted, fontSize = 11.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text(pattern.explanation, color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    pattern.confirmation,
+                                    color = if (pattern.confirmation.startsWith("تأكدت") || pattern.confirmation.startsWith("تحول إلى")) Green
+                                    else if (pattern.confirmation.startsWith("أُبطلت")) Red else Amber,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    lineHeight = 17.sp
+                                )
+                            }
+                        }
+                    }
                 }
-                ResultCard(simplePattern)
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("سيناريوهات سعرية افتراضية")
                 ResultCard(
