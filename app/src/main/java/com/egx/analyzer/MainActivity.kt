@@ -619,14 +619,60 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Metric("ATR 14", money(a.atr), Modifier.weight(1f), Muted)
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("السيولة والبنية السعرية")
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Metric("حجم التداول", "${one(a.volumeRatio)} × متوسط 20 جلسة", Modifier.weight(1f))
-                    Metric("نطاق بولينجر", "${money(a.bbLower)} - ${money(a.bbUpper)}", Modifier.weight(1f))
+                SectionTitle("السيولة وحركة السعر")
+                val liquidityText = when {
+                    !a.volumeAvailable -> "بيانات التداول غير كافية"
+                    a.volumeRatio >= 1.3 -> "التداول مرتفع"
+                    a.volumeRatio <= 0.7 -> "التداول منخفض"
+                    else -> "التداول متوسط"
+                }
+                val liquidityColor = when {
+                    !a.volumeAvailable -> Amber
+                    a.volumeRatio >= 1.3 -> Green
+                    a.volumeRatio <= 0.7 -> Red
+                    else -> Amber
+                }
+                val priceLocation = when {
+                    nearestSupport != null && (a.last.close - nearestSupport) / a.last.close <= 0.03 -> "السعر قريب من منطقة دعم"
+                    nearestResistance != null && (nearestResistance - a.last.close) / a.last.close <= 0.025 -> "السعر قريب من منطقة مقاومة"
+                    else -> "السعر بين مناطق الدعم والمقاومة"
+                }
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text("حركة التداول", Modifier.weight(1f), color = Navy, fontSize = 13.sp)
+                            Text(liquidityText, color = liquidityColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                        Spacer(Modifier.height(7.dp))
+                        Text(
+                            if (a.volumeAvailable) "حجم التداول مقارنة بالمعتاد: ${when {
+                                a.volumeRatio >= 1.3 -> "أعلى من المعتاد"
+                                a.volumeRatio <= 0.7 -> "أقل من المعتاد"
+                                else -> "قريب من المعتاد"
+                            }}" else "لا تتوفر بيانات كافية للحكم على حجم التداول.",
+                            color = Muted, fontSize = 11.sp
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Divider(color = Page)
+                        Spacer(Modifier.height(9.dp))
+                        Text("مكان السعر: $priceLocation", color = Navy, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                        Spacer(Modifier.height(6.dp))
+                        Text("اتجاه السهم: ${a.trend}", color = when {
+                            a.trend == "صاعد" || a.trend == "تحسن صاعد" -> Green
+                            a.trend == "هابط" || a.trend == "ضغط هابط" -> Red
+                            else -> Amber
+                        }, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("النماذج المرصودة")
-                ResultCard(a.patterns.joinToString("\n"))
+                SectionTitle("إشارات الشموع")
+                val simplePattern = when {
+                    a.patterns.any { it.contains("ابتلاع شرائي") || it.contains("مطرقة") } -> "ظهرت إشارة قد تدعم صعود السعر، وتحتاج إلى تأكيد."
+                    a.patterns.any { it.contains("ابتلاع بيعي") || it.contains("شهاب") } -> "ظهرت إشارة قد تضغط على السعر هبوطًا، وتحتاج إلى تأكيد."
+                    a.patterns.any { it.contains("دوجي") } -> "حركة الجلسة مترددة؛ لا يوجد اتجاه واضح."
+                    else -> "لا توجد إشارة شموع واضحة في آخر جلسة."
+                }
+                ResultCard(simplePattern)
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("سيناريوهات سعرية افتراضية")
                 ResultCard(
