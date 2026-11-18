@@ -4,6 +4,13 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose") version "2.0.21"
 }
 
+val keystorePath = System.getenv("ANDROID_KEYSTORE_PATH")
+val keystorePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+val keyAliasValue = System.getenv("ANDROID_KEY_ALIAS")
+val keyPasswordValue = System.getenv("ANDROID_KEY_PASSWORD")
+val hasReleaseSigning = listOf(keystorePath, keystorePassword, keyAliasValue, keyPasswordValue)
+    .all { !it.isNullOrBlank() }
+
 android {
     namespace = "com.egx.analyzer"
     compileSdk = 36
@@ -14,6 +21,25 @@ android {
         targetSdk = 36
         versionCode = 5
         versionName = "1.2.0"
+    }
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(requireNotNull(keystorePath))
+                storePassword = requireNotNull(keystorePassword)
+                keyAlias = requireNotNull(keyAliasValue)
+                keyPassword = requireNotNull(keyPasswordValue)
+            }
+        }
+    }
+
+    buildTypes {
+        getByName("release") {
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     compileOptions {
