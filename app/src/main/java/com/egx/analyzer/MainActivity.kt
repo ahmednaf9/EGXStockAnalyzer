@@ -882,7 +882,6 @@ private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> 
 }
 
 @Composable
-@Composable
 private fun PatternPriceChart(data: List<Candle>, pattern: CandlestickPattern) {
     if (data.isEmpty()) return
     val levels = buildList {
@@ -980,6 +979,7 @@ private fun PatternPriceChart(data: List<Candle>, pattern: CandlestickPattern) {
     }
 }
 
+@Composable
 private fun PriceTrendChart(data: List<Candle>) {
     if (data.isEmpty()) return
     val low = data.minOf { it.low }
