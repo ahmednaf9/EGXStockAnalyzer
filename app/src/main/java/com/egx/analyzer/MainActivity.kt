@@ -756,6 +756,47 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 } else {
                                     Text("النموذج المحايد لا يملك مستهدفًا اتجاهيًا قبل تأكيد الاختراق.", color = Amber, fontSize = 10.sp)
                                 }
+                                Spacer(Modifier.height(9.dp))
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F8F6)),
+                                    shape = RoundedCornerShape(10.dp)
+                                ) {
+                                    Column(Modifier.fillMaxWidth().padding(10.dp)) {
+                                        Text("ماذا يعني هذا النموذج؟ ببساطة", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                        Spacer(Modifier.height(6.dp))
+                                        Text("1. ماذا حدث؟  ${pattern.explanation}", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Spacer(Modifier.height(4.dp))
+                                        val meaning = when (pattern.direction) {
+                                            "إيجابي" -> "قد يشير إلى تحسن قوة المشترين ومحاولة السعر الارتداد لأعلى."
+                                            "سلبي" -> "قد يشير إلى زيادة ضغط البائعين واحتمال تعرض السعر لهبوط."
+                                            else -> "يعكس ترددًا بين المشترين والبائعين؛ والاتجاه لم يُحسم بعد."
+                                        }
+                                        Text("2. ماذا يعني؟  $meaning", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Spacer(Modifier.height(4.dp))
+                                        val expectation = when {
+                                            pattern.confirmation.startsWith("تأكدت") -> "الإشارة اجتازت شرط التأكيد المبدئي؛ راقب استمرار الحركة نحو المستهدفات."
+                                            pattern.confirmation.startsWith("أُبطلت") -> "السيناريو الأصلي فقد صلاحيته؛ لا تعتمد على مستهدفاته."
+                                            pattern.confirmation.startsWith("تحول إلى") -> "خرج السعر من نطاق التردد؛ تابع اتجاه الاختراق بحذر."
+                                            pattern.direction == "إيجابي" -> "ننتظر إغلاقًا أعلى قمة النموذج قبل اعتبار الصعود مؤكدًا."
+                                            pattern.direction == "سلبي" -> "ننتظر إغلاقًا أسفل قاع النموذج قبل اعتبار الهبوط مؤكدًا."
+                                            else -> "ننتظر إغلاقًا خارج قمة أو قاع النموذج لتحديد الاتجاه."
+                                        }
+                                        Text("3. ماذا نتوقع؟  $expectation", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Spacer(Modifier.height(4.dp))
+                                        val action = when {
+                                            pattern.confirmation.startsWith("أُبطلت") -> "القرار: تجنب تنفيذ هذا السيناريو، وأعد تقييم السهم."
+                                            pattern.confirmation.startsWith("تأكدت") -> "القرار: متابعة السعر وإدارة المخاطرة؛ التأكيد لا يضمن الوصول للأهداف."
+                                            pattern.confirmation.startsWith("تحول إلى") -> "القرار: انتظر ثبات الاختراق ولا تتسرع قبل وضوح الحركة."
+                                            else -> "القرار: انتظار التأكيد، وعدم الدخول اعتمادًا على شكل الشمعة وحده."
+                                        }
+                                        Text("4. ماذا أفعل؟  $action", color = patternColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
+                                    }
+                                }
+                                Spacer(Modifier.height(5.dp))
+                                Text(
+                                    "تنبيه: المستهدفات تقديرية مبنية على مدى شمعة النموذج، وليست توقعات مضمونة أو توصية مباشرة.",
+                                    color = Muted, fontSize = 9.sp, lineHeight = 14.sp
+                                )
                             }
                         }
                     }
