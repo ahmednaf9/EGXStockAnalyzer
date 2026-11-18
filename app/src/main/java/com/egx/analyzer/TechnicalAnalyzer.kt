@@ -6,6 +6,14 @@ import kotlin.math.sqrt
 
 data class ScorePart(val name: String, val points: Int, val maxPoints: Int)
 
+data class CandlestickPattern(
+    val name: String,
+    val date: String,
+    val direction: String,
+    val confirmation: String,
+    val explanation: String
+)
+
 data class Analysis(
     val last: Candle,
     val supports: List<Double>,
@@ -20,6 +28,7 @@ data class Analysis(
     val bbUpper: Double,
     val trend: String,
     val patterns: List<String>,
+    val recentPatterns: List<CandlestickPattern>,
     val targets: List<Double>,
     val invalidation: Double,
     val score: Int,
@@ -148,6 +157,7 @@ object TechnicalAnalyzer {
             .take(3)
 
         val patterns = detectPatterns(rows)
+        val recentPatterns = detectRecentPatterns(rows)
         val priorVolumes = rows.dropLast(1).takeLast(20).map { it.volume }.filter { it > 0.0 }
         val avgVolume = priorVolumes.average()
         val volumeRatio = if (avgVolume > 0.0 && last.volume > 0.0) last.volume / avgVolume else 0.0
@@ -495,7 +505,7 @@ object TechnicalAnalyzer {
         }
         return Analysis(
             last, supports, resistances, rsi, s20, s50, macd, macdSignal,
-            atr, bbLower, bbUpper, trend, patterns,
+            atr, bbLower, bbUpper, trend, patterns, recentPatterns,
             listOf(shortTarget, mediumTarget, longTarget), stop, score, label,
             technicalClassification, executionRecommendation,
             volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0,
@@ -517,6 +527,64 @@ object TechnicalAnalyzer {
             } else group.add(value)
         }
         return groups.map { it.average() }
+    }
+
+    private fun detectRecentPatterns(rows: List<Candle>): List<CandlestickPattern> {
+        if (rows.size < 2) return emptyList()
+        val start = (rows.lastIndex - 9).coerceAtLeast(1)
+        val found = mutableListOf<CandlestickPattern>()
+
+        for (i in start..rows.lastIndex) {
+            val candle = rows[i]
+            val previous = rows[i - 1]
+            val range = (candle.high - candle.low).coerceAtLeast(0.000001)
+            val body = abs(candle.close - candle.open)
+            val upperShadow = (candle.high - maxOf(candle.open, candle.close)).coerceAtLeast(0.0)
+            val lowerShadow = (minOf(candle.open, candle.close) - candle.low).coerceAtLeast(0.0)
+
+            val candidates = mutableListOf<Pair<String, String>>()
+            if (body / range <= 0.10) {
+                candidates.add("دوجي" to "محايد")
+            } else {
+                if (lowerShadow >= body * 2.0 && upperShadow <= body * 0.8) {
+                    candidates.add("مطرقة محتملة" to "إيجابي")
+                }
+                if (upperShadow >= body * 2.0 && lowerShadow <= body * 0.8) {
+                    candidates.add("شهاب محتمل" to "سلبي")
+                }
+            }
+            if (candle.close > candle.open && previous.close < previous.open &&
+                candle.close >= previous.open && candle.open <= previous.close) {
+                candidates.add("ابتلاع شرائي" to "إيجابي")
+            }
+            if (candle.close < candle.open && previous.close > previous.open &&
+                candle.open >= previous.close && candle.close <= previous.open) {
+                candidates.add("ابتلاع بيعي" to "سلبي")
+            }
+
+            for ((name, direction) in candidates) {
+                val next = rows.getOrNull(i + 1)
+                val confirmation = when {
+                    next == null -> "لم تتأكد بعد — ننتظر الجلسة التالية"
+                    direction == "إيجابي" && next.close > candle.high -> "تأكدت: إغلاق الجلسة التالية أعلى قمة النموذج"
+                    direction == "إيجابي" && next.close < candle.low -> "أُبطلت: إغلاق الجلسة التالية أسفل قاع النموذج"
+                    direction == "سلبي" && next.close < candle.low -> "تأكدت: إغلاق الجلسة التالية أسفل قاع النموذج"
+                    direction == "سلبي" && next.close > candle.high -> "أُبطلت: إغلاق الجلسة التالية أعلى قمة النموذج"
+                    direction == "محايد" && next.close > candle.high -> "تحول إلى إشارة إيجابية: إغلاق أعلى قمة الدوجي"
+                    direction == "محايد" && next.close < candle.low -> "تحول إلى إشارة سلبية: إغلاق أسفل قاع الدوجي"
+                    else -> "لم تتأكد: الإغلاق التالي لم يتجاوز حدود النموذج"
+                }
+                val explanation = when (name) {
+                    "دوجي" -> "تقارب الافتتاح والإغلاق يعكس ترددًا؛ اتجاه الحركة التالية هو الأهم."
+                    "مطرقة محتملة" -> "ظل سفلي طويل قد يعكس رفض الأسعار المنخفضة؛ تزداد أهميتها بعد هبوط."
+                    "شهاب محتمل" -> "ظل علوي طويل قد يعكس رفض الأسعار المرتفعة؛ تزداد أهميته بعد صعود."
+                    "ابتلاع شرائي" -> "جسم الشمعة الصاعدة ابتلع جسم السابقة الهابطة، بما يشير إلى تحسن ضغط الشراء."
+                    else -> "جسم الشمعة الهابطة ابتلع جسم السابقة الصاعدة، بما يشير إلى زيادة ضغط البيع."
+                }
+                found.add(CandlestickPattern(name, candle.date, direction, confirmation, explanation))
+            }
+        }
+        return found.sortedByDescending { dateSortKey(it.date) }
     }
 
     private fun detectPatterns(rows: List<Candle>): List<String> {
