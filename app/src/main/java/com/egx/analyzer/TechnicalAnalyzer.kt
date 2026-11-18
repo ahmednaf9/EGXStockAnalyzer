@@ -35,6 +35,10 @@ data class Analysis(
     val marketStateScore: Int,
     val marketStateStrength: String,
     val marketStateReason: String,
+    val marketStateInterpretation: String,
+    val scoreInterpretation: String,
+    val technicalClassificationReason: String,
+    val executionRecommendationReason: String,
     val finalRating: String,
     val finalRatingScore: Int,
     val finalRatingReason: String,
@@ -456,6 +460,39 @@ object TechnicalAnalyzer {
             technicalClassification == "محايد" -> "انتظار"
             else -> "تجنب"
         }
+        val marketStateInterpretation = when (marketState) {
+            "تجميع محتمل" -> "هناك ميل نسبي للشراء في بيانات السعر والحجم، لكنه احتمال فني وليس دليلًا مؤكدًا على دخول محافظ كبيرة."
+            "تصريف محتمل" -> "هناك ميل نسبي للبيع في بيانات السعر والحجم، ويستحسن الحذر ومراقبة الدعم قبل اتخاذ القرار."
+            "غير محسوم" -> "بيانات أحجام التداول غير كافية؛ لا يمكن تحديد ما إذا كان السهم في تجميع أم تصريف."
+            else -> "الحركة متذبذبة، ولا يوجد حتى الآن توافق كافٍ يثبت سيطرة المشترين أو البائعين."
+        }
+        val scoreInterpretation = when {
+            score >= 75 && trend == "صاعد" -> "النتيجة مرتفعة مع اتجاه صاعد؛ راقب تأكيد الاختراق وحجم التداول."
+            score >= 75 -> "النتيجة مرتفعة، لكن الاتجاه لا يؤكد صعودًا كاملًا؛ انتظر تأكيد الحركة."
+            score >= 62 -> "توجد نقاط إيجابية، لكنها غير كافية وحدها لاعتبار السهم فرصة شراء مؤكدة."
+            score <= 35 && clearlyBearish -> "النتيجة منخفضة مع اتجاه وزخم هابطين؛ الأولوية لحماية رأس المال ومراقبة الدعم."
+            score <= 35 -> "النتيجة منخفضة، لكن إشارات الهبوط ليست متوافقة بالكامل؛ تجنب الحكم من الدرجة وحدها."
+            else -> "الإشارات مختلطة؛ لا توجد أفضلية فنية واضحة حاليًا، والأفضل انتظار تأكيد جديد."
+        }
+        val technicalClassificationReason = buildString {
+            append("التصنيف مبني على نتيجة ").append(score).append("/100 واتجاه ").append(trend).append(". ")
+            append(when (technicalClassification) {
+                "قوي جداً" -> "تجتمع درجة مرتفعة مع اتجاه صاعد واضح؛ ومع ذلك يلزم فحص المقاومة والعائد إلى المخاطرة."
+                "قوي" -> "المؤشرات تميل بقوة للإيجابية، لكن شروط التصنيف الأقوى غير مكتملة."
+                "إيجابي" -> "هناك تفوق نسبي للإشارات الإيجابية، مع بقاء بعض عوامل التأكيد أو المخاطر."
+                "محايد" -> "الإشارات متوازنة أو متعارضة؛ لا توجد أفضلية كافية للمشترين أو البائعين."
+                "ضعيف" -> "النتيجة تميل للسلبية، لكن لا تتوافر كل شروط الضعف الشديد المتزامن."
+                else -> "النتيجة منخفضة جدًا؛ راقب الاتجاه والزخم والدعوم، ولا تعتمد على التصنيف وحده."
+            })
+            append(" RSI=").append(oneDecimal(rsi)).append("، وحجم التداول إلى متوسطه=").append(oneDecimal(volumeRatio)).append(" مرة.")
+        }
+        val executionRecommendationReason = when (executionRecommendation) {
+            "شراء" -> "التصنيف قوي جدًا والعائد إلى المخاطرة مناسب وفق الحساب الحالي؛ لا تدخل إلا بعد تحقق شروط السعر والسيولة ووقف الخسارة."
+            "شراء تدريجي" -> "الإشارات إيجابية نسبيًا، لكن الأفضل تقسيم الدخول وعدم الشراء بكامل الكمية دفعة واحدة."
+            "مراقبة" -> "لا توجد إشارة دخول مكتملة الآن؛ راقب اختراق المقاومة أو ارتدادًا مؤكدًا من الدعم مع تحسن الحجم."
+            "انتظار" -> "الإشارات محايدة؛ انتظر اتجاهًا أوضح وتوافقًا أفضل بين المؤشرات قبل اتخاذ قرار."
+            else -> "المخاطر الفنية مرتفعة أو الاتجاه غير مناسب؛ تجنب فتح مركز جديد حتى تتحسن الإشارات ويثبت السعر دعمه."
+        }
         return Analysis(
             last, supports, resistances, rsi, s20, s50, macd, macdSignal,
             atr, bbLower, bbUpper, trend, patterns,
@@ -463,7 +500,8 @@ object TechnicalAnalyzer {
             technicalClassification, executionRecommendation,
             volumeRatio, rr, parts, rows.size, avgVolume > 0.0 && last.volume > 0.0,
             marketState, marketStateScore, marketStateStrength, marketStateReason,
-            finalRating, finalRatingScore,
+            marketStateInterpretation, scoreInterpretation, technicalClassificationReason,
+            executionRecommendationReason, finalRating, finalRatingScore,
             finalRatingReason, ratingFactors
         )
     }
