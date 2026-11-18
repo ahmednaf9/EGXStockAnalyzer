@@ -11,7 +11,16 @@ data class CandlestickPattern(
     val date: String,
     val direction: String,
     val confirmation: String,
-    val explanation: String
+    val explanation: String,
+    val patternOpen: Double,
+    val patternHigh: Double,
+    val patternLow: Double,
+    val patternClose: Double,
+    val confirmationDate: String?,
+    val confirmationPrice: Double?,
+    val entryPrice: Double?,
+    val stopPrice: Double?,
+    val targets: List<Double>
 )
 
 data class Analysis(
@@ -581,7 +590,40 @@ object TechnicalAnalyzer {
                     "ابتلاع شرائي" -> "جسم الشمعة الصاعدة ابتلع جسم السابقة الهابطة، بما يشير إلى تحسن ضغط الشراء."
                     else -> "جسم الشمعة الهابطة ابتلع جسم السابقة الصاعدة، بما يشير إلى زيادة ضغط البيع."
                 }
-                found.add(CandlestickPattern(name, candle.date, direction, confirmation, explanation))
+                val isDirectional = direction != "محايد"
+                val entry = when (direction) {
+                    "إيجابي" -> candle.high
+                    "سلبي" -> candle.low
+                    else -> null
+                }
+                val stop = when (direction) {
+                    "إيجابي" -> candle.low
+                    "سلبي" -> candle.high
+                    else -> null
+                }
+                val patternRange = (candle.high - candle.low).coerceAtLeast(0.0)
+                val targets = if (isDirectional && entry != null) {
+                    val sign = if (direction == "إيجابي") 1.0 else -1.0
+                    listOf(1.0, 1.618, 2.618).map { entry + sign * patternRange * it }
+                } else emptyList()
+                found.add(
+                    CandlestickPattern(
+                        name = name,
+                        date = candle.date,
+                        direction = direction,
+                        confirmation = confirmation,
+                        explanation = explanation,
+                        patternOpen = candle.open,
+                        patternHigh = candle.high,
+                        patternLow = candle.low,
+                        patternClose = candle.close,
+                        confirmationDate = next?.date,
+                        confirmationPrice = next?.close,
+                        entryPrice = entry,
+                        stopPrice = stop,
+                        targets = targets
+                    )
+                )
             }
         }
         return found.sortedByDescending { dateSortKey(it.date) }
