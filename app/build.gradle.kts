@@ -26,7 +26,7 @@ android {
     if (hasReleaseSigning) {
         signingConfigs {
             create("release") {
-                storeFile = file(requireNotNull(keystorePath))
+                storeFile = rootProject.file(requireNotNull(keystorePath))
                 storePassword = requireNotNull(keystorePassword)
                 keyAlias = requireNotNull(keyAliasValue)
                 keyPassword = requireNotNull(keyPasswordValue)
