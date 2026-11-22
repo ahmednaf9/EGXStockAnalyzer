@@ -52,7 +52,7 @@ object MetaStockImporter {
   val exponent=b[o+3].toInt() and 255
   if(exponent==0)return 0.0
   val negative=(b[o+2].toInt() and 128)!=0
-  val mantissa=((b[o+2].toInt() and 127) shl 16)|((b[o+1].toInt() and 255) shl 8)|(b[o].toInt() and 255)
+  val mantissa=((b[o+2].toInt() and 127) shl 16) or ((b[o+1].toInt() and 255) shl 8) or (b[o].toInt() and 255)
   val value=(1.0+mantissa/8388608.0)*Math.pow(2.0,exponent-129.0)
   return if(negative)-value else value
  }
