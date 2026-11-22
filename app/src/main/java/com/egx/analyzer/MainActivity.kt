@@ -363,7 +363,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     ) {
                         Text("Excel/CSV تحميل ملف السهم", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                     }
-                    Spacer(Modifier.height(14.dp))
+                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("استيراد مجلد MetaStock مباشرة", fontSize = 18.sp, fontWeight = FontWeight.Bold) }\n                    Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
                             symbol = ""
