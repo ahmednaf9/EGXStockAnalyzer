@@ -29,7 +29,8 @@ object MetaStockImporter {
    val sym=rec.copyOfRange(symbolOffset,symbolOffset+symbolLength).toString(Charsets.US_ASCII).trim('\u0000',' ')
    if(sym.isNotBlank()&&fileNum>0&&fields>=6)entries.add(Entry(sym,fileNum,fields))
   }
-  if(requestedSymbol.isBlank())error("اكتب رمز السهم أولاً مثل ABUK أو BINV ثم اختر مجلد MetaStock")\n  val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("السهم ${requestedSymbol.trim()} غير موجود في ملف الفهرس")
+  if(requestedSymbol.isBlank())error("اكتب رمز السهم أولاً مثل ABUK أو BINV ثم اختر مجلد MetaStock")
+  val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("السهم ${requestedSymbol.trim()} غير موجود في ملف الفهرس")
   val dataUri=children["F${selected.fileNum}.DAT"]?:children["F${selected.fileNum}.MWD"]?:error("لم أجد ملف أسعار F${selected.fileNum}.DAT أو .MWD للسهم ${selected.symbol}")
   val data=resolver.openInputStream(dataUri)?.use{it.readBytes()}?:error("تعذر قراءة ملف الأسعار")
   val recordBytes=selected.fields*4
@@ -40,7 +41,7 @@ object MetaStockImporter {
    val date=formatDate(mbf(data,off))?:continue
    val o=mbf(data,off+4);val h=mbf(data,off+8);val l=mbf(data,off+12);val c=mbf(data,off+16);val v=mbf(data,off+20)
    val candle=Candle(date,o,h,l,c,v.coerceAtLeast(0.0))
-   if(candle.isValidForAnalysis())candles.add(candle)
+   if(candle.date.isNotBlank() && candle.open.isFinite() && candle.high.isFinite() && candle.low.isFinite() && candle.close.isFinite() && candle.volume.isFinite() && candle.open>0 && candle.high>=maxOf(candle.open,candle.close,candle.low) && candle.low<=minOf(candle.open,candle.close) && candle.close>0 && candle.volume>=0)candles.add(candle)
   }
   val result=candles.sortedBy{it.date}.distinctBy{it.date}
   if(result.isEmpty())error("لم يتم فك بيانات السعر بصورة سليمة؛ لم تُستخرج سجلات صالحة")
@@ -57,7 +58,9 @@ object MetaStockImporter {
  }
  private fun formatDate(v:Double):String? {
   if(!v.isFinite()||v<=0)return null
-  val encoded=v.toLong()\n  val raw=if(encoded>=1000000L) encoded-1000000L else encoded\n  val s=raw.toString().padStart(6,'0')
+  val encoded=v.toLong()
+  val raw=if(encoded>=1000000L) encoded-1000000L else encoded
+  val s=raw.toString().padStart(6,'0')
   if(s.length!=6)return null
   val yy=s.substring(0,2).toIntOrNull()?:return null
   val mm=s.substring(2,4).toIntOrNull()?:return null
