@@ -31,21 +31,28 @@ object MetaStockImporter {
   }
   if(requestedSymbol.isBlank())error("اكتب رمز السهم أولاً مثل ABUK أو BINV ثم اختر مجلد MetaStock")
   val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("السهم ${requestedSymbol.trim()} غير موجود في ملف الفهرس")
-  val dataUri=children["F${selected.fileNum}.DAT"]?:children["F${selected.fileNum}.MWD"]?:error("لم أجد ملف أسعار F${selected.fileNum}.DAT أو .MWD للسهم ${selected.symbol}")
+  val dataFileName=if(children.containsKey("F${selected.fileNum}.DAT")) "F${selected.fileNum}.DAT" else "F${selected.fileNum}.MWD"
+  val dataUri=children[dataFileName]?:error("لم أجد ملف أسعار F${selected.fileNum}.DAT أو .MWD للسهم ${selected.symbol}")
   val data=resolver.openInputStream(dataUri)?.use{it.readBytes()}?:error("تعذر قراءة ملف الأسعار")
   val recordBytes=selected.fields*4
   if(data.size<recordBytes||data.size%recordBytes!=0)error("حجم ملف الأسعار لا يتوافق مع ${selected.fields} حقول")
   val candles=mutableListOf<Candle>()
+  var scannedRecords=0
+  var rejectedRecords=0
   for(off in recordBytes until data.size step recordBytes){
    if(off+recordBytes>data.size)break
-   val date=formatDate(mbf(data,off))?:continue
+   scannedRecords++
+   val date=formatDate(mbf(data,off))
+   if(date==null){rejectedRecords++;continue}
    val o=mbf(data,off+4);val h=mbf(data,off+8);val l=mbf(data,off+12);val c=mbf(data,off+16);val v=mbf(data,off+20)
    val candle=Candle(date,o,h,l,c,v.coerceAtLeast(0.0))
-   if(candle.date.isNotBlank() && candle.open.isFinite() && candle.high.isFinite() && candle.low.isFinite() && candle.close.isFinite() && candle.volume.isFinite() && candle.open>0 && candle.high>=maxOf(candle.open,candle.close,candle.low) && candle.low<=minOf(candle.open,candle.close) && candle.close>0 && candle.volume>=0)candles.add(candle)
+   if(candle.date.isNotBlank() && candle.open.isFinite() && candle.high.isFinite() && candle.low.isFinite() && candle.close.isFinite() && candle.volume.isFinite() && candle.open>0 && candle.high>=maxOf(candle.open,candle.close,candle.low) && candle.low<=minOf(candle.open,candle.close) && candle.close>0 && candle.volume>=0)candles.add(candle) else rejectedRecords++
   }
   val result=candles.sortedBy{it.date}.distinctBy{it.date}
   if(result.isEmpty())error("لم يتم فك بيانات السعر بصورة سليمة؛ لم تُستخرج سجلات صالحة")
-  return Result(selected.symbol,result,"MetaStock: تم استيراد ${result.size} جلسة للسهم ${selected.symbol}.")
+  val duplicateRecords=candles.size-result.size
+  val note="MetaStock: ${selected.symbol} | ملف الفهرس: ${if(isExtended) "EMASTER" else if(children.containsKey("XMASTER")) "XMASTER" else "MASTER"} | عدد الرموز المفهرسة: ${entries.size} | ملف الأسعار: $dataFileName | السجلات المفحوصة: $scannedRecords | السجلات المقبولة: ${candles.size} | المكررة بالتاريخ: $duplicateRecords | المرفوضة: $rejectedRecords | الجلسات النهائية: ${result.size}."
+  return Result(selected.symbol,result,note)
  }
  private data class Entry(val symbol:String,val fileNum:Int,val fields:Int)
  private fun mbf(b:ByteArray,o:Int):Double {
