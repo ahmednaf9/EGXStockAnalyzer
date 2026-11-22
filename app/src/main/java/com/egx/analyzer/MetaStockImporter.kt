@@ -29,7 +29,7 @@ object MetaStockImporter {
    val sym=rec.copyOfRange(symbolOffset,symbolOffset+symbolLength).toString(Charsets.US_ASCII).trim('\u0000',' ')
    if(sym.isNotBlank()&&fileNum>0&&fields>=6)entries.add(Entry(sym,fileNum,fields))
   }
-  val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:entries.firstOrNull()?:error("لم يتم العثور على رموز صالحة في الفهرس")
+  if(requestedSymbol.isBlank())error("اكتب رمز السهم أولاً مثل ABUK أو BINV ثم اختر مجلد MetaStock")\n  val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("السهم ${requestedSymbol.trim()} غير موجود في ملف الفهرس")
   val dataUri=children["F${selected.fileNum}.DAT"]?:children["F${selected.fileNum}.MWD"]?:error("لم أجد ملف أسعار F${selected.fileNum}.DAT أو .MWD للسهم ${selected.symbol}")
   val data=resolver.openInputStream(dataUri)?.use{it.readBytes()}?:error("تعذر قراءة ملف الأسعار")
   val recordBytes=selected.fields*4
