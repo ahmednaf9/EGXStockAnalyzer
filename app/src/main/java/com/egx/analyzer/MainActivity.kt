@@ -267,7 +267,26 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
-    val context = androidx.compose.ui.platform.LocalContext.current\n    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->\n        if (tree != null) {\n            try {\n                val loaded = MetaStockImporter.importFolder(context.contentResolver, tree, symbol)\n                candles = loaded.candles; symbol = loaded.symbol; message = loaded.note\n                period = detectDataPeriod(candles); val grouped = aggregateCandles(candles, period)\n                result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null\n                if (grouped.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."\n            } catch (e: Exception) { message = "MetaStock: ${e.message ?: \\"خطأ في قراءة المجلد\\"}"; result = null; candles = emptyList() }\n        }\n    }\n    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+        if (tree != null) {
+            try {
+                val loaded = MetaStockImporter.importFolder(context.contentResolver, tree, symbol)
+                candles = loaded.candles
+                symbol = loaded.symbol
+                message = loaded.note
+                period = detectDataPeriod(candles)
+                val grouped = aggregateCandles(candles, period)
+                result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+                if (grouped.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."
+            } catch (e: Exception) {
+                message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
+                result = null
+                candles = emptyList()
+            }
+        }
+    }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
             candles = loaded.candles
