@@ -57,7 +57,7 @@ object MetaStockImporter {
  }
  private fun formatDate(v:Double):String? {
   if(!v.isFinite()||v<=0)return null
-  val s=v.toLong().toString().padStart(6,'0')
+  val encoded=v.toLong()\n  val raw=if(encoded>=1000000L) encoded-1000000L else encoded\n  val s=raw.toString().padStart(6,'0')
   if(s.length!=6)return null
   val yy=s.substring(0,2).toIntOrNull()?:return null
   val mm=s.substring(2,4).toIntOrNull()?:return null
