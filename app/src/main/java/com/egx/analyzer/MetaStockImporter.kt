@@ -39,19 +39,26 @@ object MetaStockImporter {
   val candles=mutableListOf<Candle>()
   var scannedRecords=0
   var rejectedRecords=0
+  var invalidDateRecords=0
+  var invalidPriceRecords=0
+  var invalidVolumeRecords=0
   for(off in recordBytes until data.size step recordBytes){
    if(off+recordBytes>data.size)break
    scannedRecords++
    val date=formatDate(mbf(data,off))
-   if(date==null){rejectedRecords++;continue}
+   if(date==null){rejectedRecords++;invalidDateRecords++;continue}
    val o=mbf(data,off+4);val h=mbf(data,off+8);val l=mbf(data,off+12);val c=mbf(data,off+16);val v=mbf(data,off+20)
-   val candle=Candle(date,o,h,l,c,v.coerceAtLeast(0.0))
-   if(candle.date.isNotBlank() && candle.open.isFinite() && candle.high.isFinite() && candle.low.isFinite() && candle.close.isFinite() && candle.volume.isFinite() && candle.open>0 && candle.high>=maxOf(candle.open,candle.close,candle.low) && candle.low<=minOf(candle.open,candle.close) && candle.close>0 && candle.volume>=0)candles.add(candle) else rejectedRecords++
+   val pricesValid=o.isFinite() && h.isFinite() && l.isFinite() && c.isFinite() &&
+    o>0.0 && h>0.0 && l>0.0 && c>0.0 &&
+    h>=maxOf(o,c,l) && l<=minOf(o,c)
+   if(!pricesValid){rejectedRecords++;invalidPriceRecords++;continue}
+   if(!v.isFinite() || v<0.0){rejectedRecords++;invalidVolumeRecords++;continue}
+   candles.add(Candle(date,o,h,l,c,v))
   }
   val result=candles.sortedBy{it.date}.distinctBy{it.date}
   if(result.isEmpty())error("لم يتم فك بيانات السعر بصورة سليمة؛ لم تُستخرج سجلات صالحة")
   val duplicateRecords=candles.size-result.size
-  val note="MetaStock: ${selected.symbol} | ملف الفهرس: ${if(isExtended) "EMASTER" else if(children.containsKey("XMASTER")) "XMASTER" else "MASTER"} | عدد الرموز المفهرسة: ${entries.size} | ملف الأسعار: $dataFileName | السجلات المفحوصة: $scannedRecords | السجلات المقبولة: ${candles.size} | المكررة بالتاريخ: $duplicateRecords | المرفوضة: $rejectedRecords | الجلسات النهائية: ${result.size}."
+  val note="MetaStock: ${selected.symbol} | ملف الفهرس: ${if(isExtended) "EMASTER" else if(children.containsKey("XMASTER")) "XMASTER" else "MASTER"} | عدد الرموز المفهرسة: ${entries.size} | ملف الأسعار: $dataFileName | السجلات المفحوصة: $scannedRecords | المقبولة: ${candles.size} | المكررة: $duplicateRecords | المرفوضة: $rejectedRecords (تاريخ غير صالح: $invalidDateRecords، أسعار غير منطقية: $invalidPriceRecords، حجم غير صالح: $invalidVolumeRecords) | الجلسات النهائية: ${result.size}."
   return Result(selected.symbol,result,note)
  }
  private data class Entry(val symbol:String,val fileNum:Int,val fields:Int)
