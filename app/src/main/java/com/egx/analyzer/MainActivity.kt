@@ -1232,8 +1232,6 @@ private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> 
 }
 
 @Composable
-
-@Composable
 private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResult) {
     if (data.size < 3) return
     val levels = listOf("تفعيل" to pattern.trigger, "هدف" to pattern.targetSuccess, "مقابل" to pattern.targetFailure)
