@@ -1011,11 +1011,19 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = Navy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 val readiness = when {
-                                    p.bias == "محايد" -> "الاتجاه لم يتحدد — ينتظر الاختراق"
-                                    p.status.contains("تأكيد") -> "النموذج تجاوز مستوى التفعيل مبدئيًا"
-                                    distancePct <= 2.0 -> "قريب من التفعيل"
-                                    else -> "ما زال في مرحلة التكوين"
+                                    p.bias == "محايد" -> "محايد — ينتظر تحديد الاتجاه"
+                                    p.status.contains("تأكيد") -> "مؤكد مبدئيًا — تحقق من حجم التداول"
+                                    distancePct <= 2.0 -> "قريب من مستوى التفعيل"
+                                    else -> "قيد التكوين — لم يتأكد بعد"
                                 }
+                                val patternStage = when {
+                                    p.bias == "محايد" -> "انتظار اختراق أحد الحدود"
+                                    p.status.contains("تأكيد") -> "تفعيل مبدئي"
+                                    p.bias == "صاعد" && closeNow <= p.invalidation -> "سيناريو صاعد مُبطَل مبدئيًا"
+                                    p.bias == "هابط" && closeNow >= p.invalidation -> "سيناريو هابط مُبطَل مبدئيًا"
+                                    else -> "نموذج غير مكتمل"
+                                }
+                                Text("تصنيف المرحلة: $patternStage", color = when { patternStage.contains("مُبطَل") -> Red; patternStage.contains("تفعيل") -> Green; else -> Amber }, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Text("جاهزية النموذج: $readiness", color = pc, fontSize = 10.sp)
                                 Text("حجم تداول آخر جلسة مقابل متوسط 20 جلسة: ${if (averageVolume > 0.0) String.format(Locale.US, "%.2f", currentVolumeRatio) + "×" else "غير متاح"}", color = if (currentVolumeRatio >= 1.2) Green else Muted, fontSize = 10.sp)
                                 Text("ترتيب مساعد يجمع الجودة والقرب من التفعيل والحجم، وليس احتمالًا إحصائيًا.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
