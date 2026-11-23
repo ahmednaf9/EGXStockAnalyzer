@@ -516,11 +516,26 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Column(Modifier.fillMaxWidth().padding(13.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("فهرس MetaStock مستقل", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("قائمة أسهم ميتاستوك", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             Text(if (indexedSymbols.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedSymbols.size} رمزًا متاحًا للاختيار والتحميل", color = Muted, fontSize = 12.sp)
                         }
-                        TextButton(onClick = { indexExpanded = !indexExpanded }) {
-                            Text(if (indexExpanded) "إغلاق الفهرس" else "فتح الفهرس", color = Green, fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { indexExpanded = !indexExpanded },
+                            modifier = Modifier.height(42.dp),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF16A34A),
+                                contentColor = Color.White
+                            ),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                            elevation = ButtonDefaults.buttonElevation(defaultElevation = 3.dp)
+                        ) {
+                            Text(
+                                if (indexExpanded) "إغلاق القائمة" else "فتح القائمة",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1
+                            )
                         }
                     }
                     if (indexExpanded && indexedSymbols.isNotEmpty()) {
