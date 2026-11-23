@@ -10,7 +10,8 @@ data class ClassicPatternResult(
     val targetSuccess: Double,
     val targetFailure: Double,
     val invalidation: Double,
-    val explanation: String
+    val explanation: String,
+    val confidence: Int
 )
 
 /**
@@ -160,6 +161,14 @@ object ClassicPatternScanner {
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
         val confirmed=when(bias) { "صاعد" -> last>trigger; "هابط" -> last<trigger; else -> false }
         val status=if (bias == "محايد") "قيد التشكّل — بانتظار الاختراق" else if (confirmed) "تأكيد مبدئي بالإغلاق" else "قيد التشكّل — غير مؤكد"
-        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation)
+        val distancePct = if (trigger > 0.0) abs(last-trigger)/trigger*100.0 else 100.0
+        val base = when {
+            bias == "محايد" -> 42
+            confirmed -> 72
+            else -> 54
+        }
+        val distancePenalty = (distancePct*2.0).toInt().coerceAtMost(22)
+        val confidence = (base-distancePenalty).coerceIn(25, 88)
+        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation,confidence)
     }
 }
