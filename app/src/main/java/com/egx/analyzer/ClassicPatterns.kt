@@ -387,22 +387,37 @@ object ClassicPatternScanner {
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
         val confirmed=when(bias) { "صاعد" -> last>trigger; "هابط" -> last<trigger; else -> false }
-        val status=if (bias == "محايد") "قيد التشكّل — بانتظار الاختراق" else if (confirmed) "تأكيد مبدئي بالإغلاق" else "قيد التشكّل — غير مؤكد"
         val distancePct = if (trigger > 0.0) abs(last-trigger)/trigger*100.0 else 100.0
         val base = when {
             bias == "محايد" -> 42
             confirmed -> 72
             else -> 54
         }
-        val distancePenalty = (distancePct*2.0).toInt().coerceAtMost(22)
-        val confidence = (base-distancePenalty).coerceIn(25, 88)
+        // Proximity-sensitive score: far-away unconfirmed setups are penalized,
+        // while a modest confirmed move is preferred to an excessively extended breakout.
+        val distancePenalty = (distancePct*1.6).toInt().coerceAtMost(24)
+        val extensionPenalty = if (confirmed && distancePct > 8.0) ((distancePct-8.0)*1.2).toInt().coerceAtMost(12) else 0
+        val confidence = (base-distancePenalty-extensionPenalty).coerceIn(20, 88)
+        val qualityLabel = when {
+            bias == "محايد" -> "محايد — يحتاج اتجاهًا"
+            confirmed && distancePct <= 3.0 -> "تأكيد قريب من مستوى التفعيل"
+            confirmed && distancePct <= 8.0 -> "تأكيد مبدئي — امتداد معتدل"
+            confirmed -> "تأكيد مبدئي — السعر ممتد"
+            distancePct <= 3.0 -> "قريب من مستوى التفعيل"
+            else -> "بعيد عن مستوى التفعيل"
+        }
+        val status = when {
+            bias == "محايد" -> "قيد التشكّل — بانتظار الاختراق"
+            confirmed -> qualityLabel
+            else -> "قيد التشكّل — غير مؤكد ($qualityLabel)"
+        }
         val baseReason = when {
             bias == "محايد" -> "النموذج محايد الاتجاه (أساس 42)"
-            confirmed -> "السعر تجاوز مستوى التفعيل مبدئيًا (أساس 72)"
+            confirmed -> "تجاوز السعر مستوى التفعيل مبدئيًا (أساس 72)"
             else -> "لم يتجاوز السعر مستوى التفعيل بعد (أساس 54)"
         }
-        val distanceReason = "ابتعاد السعر عن مستوى التفعيل ${String.format(java.util.Locale.US, "%.2f", distancePct)}%، خصم تقديري ${distancePenalty} نقطة"
-        val details = "$baseReason؛ $distanceReason. الدرجة ناتجة عن قاعدة مبسطة وليست احتمال نجاح إحصائيًا."
+        val distanceReason = "المسافة من مستوى التفعيل ${String.format(java.util.Locale.US, "%.2f", distancePct)}%، خصم المسافة ${distancePenalty} نقطة، وخصم الامتداد ${extensionPenalty} نقطة"
+        val details = "$baseReason؛ $distanceReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
         return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation,confidence,details)
     }
 }
