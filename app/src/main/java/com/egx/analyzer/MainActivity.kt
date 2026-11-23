@@ -428,6 +428,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     ) {
                         Text("Excel/CSV تحميل ملف السهم", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                     }
+                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("تحميل مجلد الميتاستوك", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
                     Button(
                         onClick = {
                             val code = symbol.trim().uppercase(Locale.ROOT)
@@ -463,8 +464,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Green)
-                    ) { Text("تحميل كود السهم من فهرس MetaStock", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
-                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("استيراد مجلد MetaStock مباشرة", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text("تحميل السهم من ملف الميتاستوك", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
@@ -488,7 +488,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             result = null
                             period = "يومي"
                         },
-                        modifier = Modifier.size(78.dp),
+                        modifier = Modifier.size(48.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFE50916),
@@ -498,8 +498,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Sync, null, modifier = Modifier.size(28.dp))
-                            Text("RESET", fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                            Icon(Icons.Default.Sync, null, modifier = Modifier.size(19.dp))
+                            Text("RESET", fontSize = 7.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }
@@ -514,11 +514,16 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             }
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
                 Column(Modifier.fillMaxWidth().padding(13.dp)) {
-                    Text("فهرس MetaStock مستقل", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                    Text(if (indexedSymbols.isEmpty()) "اختر مجلد MetaStock لقراءة الفهرس." else "${indexedSymbols.size} رمزًا متاحًا للاختيار والتحميل", color = Muted, fontSize = 12.sp)
-                    Spacer(Modifier.height(8.dp))
-                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Green)) { Text(if (metastockTree == null) "اختيار مجلد MetaStock" else "تحديث / تغيير مجلد MetaStock") }
-                    if (indexedSymbols.isNotEmpty()) {
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("فهرس MetaStock مستقل", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text(if (indexedSymbols.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedSymbols.size} رمزًا متاحًا للاختيار والتحميل", color = Muted, fontSize = 12.sp)
+                        }
+                        TextButton(onClick = { indexExpanded = !indexExpanded }) {
+                            Text(if (indexExpanded) "إغلاق الفهرس" else "فتح الفهرس", color = Green, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                    if (indexExpanded && indexedSymbols.isNotEmpty()) {
                         BasicTextField(value = indexSearch, onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
                             modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp), singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
