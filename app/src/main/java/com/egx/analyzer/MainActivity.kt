@@ -1026,6 +1026,11 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("المستهدف عند نجاح النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("المستهدف الافتراضي عند فشل/انعكاس السيناريو: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("مستهدف الاتجاه المقابل/منطقة إبطال مرجعية: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                                val closeNow = classicData.last().close
+                                val successMovePct = if (closeNow > 0.0) (p.targetSuccess / closeNow - 1.0) * 100.0 else 0.0
+                                val failureMovePct = if (closeNow > 0.0) (p.targetFailure / closeNow - 1.0) * 100.0 else 0.0
+                                Text("المسافة السعرية للمستهدف الناجح من آخر إغلاق: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المسافة السعرية للمستهدف المقابل من آخر إغلاق: ${String.format(Locale.US, "%+.2f", failureMovePct)}%", color = Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 ClassicPatternChart(aggregateCandles(candles, period).takeLast(55), p)
                             }
                         }
