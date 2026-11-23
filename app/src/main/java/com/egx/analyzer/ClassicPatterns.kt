@@ -112,7 +112,7 @@ object ClassicPatternScanner {
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
         val confirmed=when(bias) { "صاعد" -> last>trigger; "هابط" -> last<trigger; else -> false }
-        val status=if (bias == "محايد") "قيد التشكّل — بانتظار الاختراق" else if (confirmed) "تأكيد مبدئي بالإغلاق" else "قيد التشكّل — غير مؤكد
+        val status=if (bias == "محايد") "قيد التشكّل — بانتظار الاختراق" else if (confirmed) "تأكيد مبدئي بالإغلاق" else "قيد التشكّل — غير مؤكد"
         return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation)
     }
 }
