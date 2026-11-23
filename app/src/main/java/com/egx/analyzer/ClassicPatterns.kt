@@ -245,7 +245,51 @@ object ClassicPatternScanner {
                     "اتساع نطاق مع تحرك الحدود لأسفل؛ كسر أدنى الحد الأخير يحتاج تأكيد.")
             }
         }
-        return out.distinctBy{it.name}.take(24)
+        // Further classic formations: diamond reversals and measured-move structures.
+        if (data.size >= 50) {
+            val d = data.takeLast(50)
+            val first = d.take(20); val middle = d.drop(15).take(20); val lastPart = d.takeLast(15)
+            val firstRange = first.maxOf { it.high } - first.minOf { it.low }
+            val midRange = middle.maxOf { it.high } - middle.minOf { it.low }
+            val finalRange = lastPart.maxOf { it.high } - lastPart.minOf { it.low }
+            val earlyMid = (first.maxOf { it.high } + first.minOf { it.low }) / 2.0
+            val lateMid = (lastPart.maxOf { it.high } + lastPart.minOf { it.low }) / 2.0
+            if (firstRange > 0 && midRange > firstRange * 1.12 && finalRange < midRange * .88 &&
+                lateMid < earlyMid && lastPart.maxOf { it.high } < middle.maxOf { it.high }) {
+                val trigger = lastPart.minOf { it.low }
+                out += candidate("الماسية القمة (Diamond Top)", "هابط", trigger, trigger-(midRange*.7), lastPart.maxOf{it.high}, last,
+                    "اتساع تدريجي ثم تضييق مع انحياز هابط؛ كسر الحد السفلي هو إشارة التأكيد.")
+            }
+            if (firstRange > 0 && midRange > firstRange * 1.12 && finalRange < midRange * .88 &&
+                lateMid > earlyMid && lastPart.minOf { it.low } > middle.minOf { it.low }) {
+                val trigger = lastPart.maxOf { it.high }
+                out += candidate("الماسية القاع (Diamond Bottom)", "صاعد", trigger, trigger+(midRange*.7), lastPart.minOf{it.low}, last,
+                    "اتساع تدريجي ثم تضييق مع انحياز صاعد؛ اختراق الحد العلوي هو إشارة التأكيد.")
+            }
+        }
+        if (data.size >= 45) {
+            val w=data.takeLast(45); val first=w.take(22); val second=w.takeLast(23)
+            val move1=first.last().close-first.first().close
+            val move2=second.last().close-second.first().close
+            val firstVol=first.map{it.volume}.average(); val secondVol=second.map{it.volume}.average()
+            val high=w.maxOf{it.high}; val low=w.minOf{it.low}; val range=high-low
+            if (move1>last*.06 && abs(move2)<move1*.45 && second.last().close>second.first().close*.96 && range>0) {
+                out += candidate("الحركة المقاسة الصاعدة (Measured Move)", "صاعد", high, high+move1, low, last,
+                    "اندفاع صاعد أول ثم فترة تصحيح/تماسك؛ الهدف النظري إسقاط طول الحركة الأولى بعد الاختراق.")
+            } else if (move1< -last*.06 && abs(move2)<abs(move1)*.45 && second.last().close<second.first().close*1.04 && range>0) {
+                out += candidate("الحركة المقاسة الهابطة (Measured Move)", "هابط", low, low-abs(move1), high, last,
+                    "اندفاع هابط أول ثم فترة تصحيح/تماسك؛ الهدف النظري إسقاط طول الحركة الأولى بعد الكسر.")
+            }
+            // A quiet consolidation with a breakout-shaped range expansion candidate.
+            if (firstVol>0 && secondVol>0 && secondVol<firstVol*1.35 && range>last*.025) {
+                val localHigh=second.maxOf{it.high}; val localLow=second.minOf{it.low}
+                if (last>localHigh) out += candidate("اختراق نطاق التماسك","صاعد",localHigh,localHigh+range*.65,localLow,last,
+                    "تماسك نسبي ثم تجاوز سقف الجزء الأخير؛ يفضّل تأكيد الاختراق بالحجم.")
+                else if (last<localLow) out += candidate("كسر نطاق التماسك","هابط",localLow,localLow-range*.65,localHigh,last,
+                    "تماسك نسبي ثم كسر أرضية الجزء الأخير؛ يفضّل تأكيد الكسر بالحجم.")
+            }
+        }
+        return out.distinctBy{it.name}.take(30)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
