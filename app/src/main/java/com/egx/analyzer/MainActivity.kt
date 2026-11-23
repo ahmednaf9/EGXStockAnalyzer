@@ -1011,7 +1011,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("تجمع درجة النموذج الأساسية مع قرب السعر من التفعيل وحجم التداول؛ ليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val shownProximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
                                 val shownVolumeBonus = when { currentVolumeRatio >= 1.5 -> 8.0; currentVolumeRatio >= 1.2 -> 5.0; currentVolumeRatio >= 1.0 -> 2.0; else -> 0.0 }
-                                Text("تفصيل الإضافة: قرب التفعيل +${String.format(Locale.US, \"%.1f\", shownProximityBonus)} نقطة • الحجم +${String.format(Locale.US, \"%.1f\", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                                Text("تفصيل الإضافة: قرب التفعيل +${String.format(Locale.US, "%.1f", shownProximityBonus)} نقطة • الحجم +${String.format(Locale.US, "%.1f", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val priorityLabel = when {
