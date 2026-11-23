@@ -451,7 +451,31 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
                             decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث برمز السهم", color = Muted); inner() } })
                         Spacer(Modifier.height(8.dp))
-                        val filteredSymbols = indexedSymbols.filter { it.contains(indexSearch.trim(), ignoreCase = true) }
+                        val stockNames = mapOf(
+                            "COMI" to "البنك التجاري الدولي",
+                            "EFIH" to "إي فاينانس للاستثمارات المالية والرقمية",
+                            "TMGH" to "مجموعة طلعت مصطفى",
+                            "FWRY" to "فوري لتكنولوجيا البنوك والمدفوعات",
+                            "ETEL" to "المصرية للاتصالات",
+                            "EAST" to "الشرقية للدخان",
+                            "SWDY" to "السويدي إليكتريك",
+                            "HRHO" to "المجموعة المالية هيرميس",
+                            "ABUK" to "أبو قير للأسمدة",
+                            "AMOC" to "الإسكندرية للزيوت المعدنية",
+                            "ORAS" to "أوراسكوم للإنشاءات",
+                            "ORHD" to "أوراسكوم للتنمية مصر",
+                            "PHAR" to "إيبيكو",
+                            "JUFO" to "جهينة للصناعات الغذائية",
+                            "CLHO" to "كليوباترا للمستشفيات",
+                            "ESRS" to "حديد عز",
+                            "EMFD" to "إعمار مصر للتنمية",
+                            "MNHD" to "مدينة مصر للإسكان والتعمير",
+                            "ADIB" to "مصرف أبو ظبي الإسلامي مصر"
+                        )
+                        val filteredSymbols = indexedSymbols.filter { ticker ->
+                            ticker.contains(indexSearch.trim(), ignoreCase = true) ||
+                                stockNames[ticker]?.contains(indexSearch.trim(), ignoreCase = true) == true
+                        }
                         Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
                             filteredSymbols.forEach { ticker ->
                                 TextButton(onClick = {
@@ -468,7 +492,12 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                         if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة؛ يلزم 35 جلسة على الأقل."
                                         indexSearch = ticker
                                     } catch (e: Exception) { message = "تعذر تحميل ${ticker}: ${e.message ?: "خطأ"}" }
-                                }, modifier = Modifier.fillMaxWidth()) { Text(ticker, color = Green) }
+                                }, modifier = Modifier.fillMaxWidth()) {
+                                    Column(horizontalAlignment = Alignment.Start) {
+                                        Text(ticker, color = Green, fontWeight = FontWeight.Bold)
+                                        stockNames[ticker]?.let { Text(it, color = Muted, fontSize = 12.sp) }
+                                    }
+                                }
                                 Divider(color = Page)
                             }
                             if (filteredSymbols.isEmpty()) Text("لا توجد رموز مطابقة.", color = Muted, fontSize = 12.sp)
