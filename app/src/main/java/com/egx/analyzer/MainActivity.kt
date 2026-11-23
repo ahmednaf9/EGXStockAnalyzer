@@ -977,7 +977,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("مستوى التأكيد/التفعيل: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
                                 Text("المستهدف عند نجاح النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("المستهدف الافتراضي عند فشل/انعكاس السيناريو: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("مستوى إبطال مرجعي: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                                Text("مستهدف الاتجاه المقابل/منطقة إبطال مرجعية: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
                             }
                         }
                         Spacer(Modifier.height(7.dp))
