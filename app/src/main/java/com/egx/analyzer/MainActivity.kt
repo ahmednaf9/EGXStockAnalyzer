@@ -957,6 +957,34 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+                SectionTitle("النماذج الكلاسيكية")
+                val classicPatterns = ClassicPatternScanner.scan(aggregateCandles(candles, period))
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text("فحص آلي مرشح للنماذج الكلاسيكية، مع مستهدف الحركة في حال تأكيد الاختراق أو فشل السيناريو.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Spacer(Modifier.height(8.dp))
+                        if (classicPatterns.isEmpty()) {
+                            Text("لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+                        } else {
+                            classicPatterns.forEachIndexed { i, p ->
+                                if (i > 0) { Spacer(Modifier.height(8.dp)); Divider(color = Page); Spacer(Modifier.height(8.dp)) }
+                                val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
+                                Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Spacer(Modifier.height(3.dp))
+                                Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+                                Spacer(Modifier.height(4.dp))
+                                Text("مستوى التأكيد/التفعيل: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
+                                Text("المستهدف عند نجاح النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المستهدف الافتراضي عند فشل/انعكاس السيناريو: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("مستوى إبطال مرجعي: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                            }
+                        }
+                        Spacer(Modifier.height(7.dp))
+                        Text("تنبيه: هذه نتائج كشف تقريبي تعتمد على قمم وقيعان السعر؛ النموذج لا يتأكد إلا بالإغلاق خارج مستوى التفعيل. المستهدفات قياسات نظرية وليست توقعات مضمونة.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 SectionTitle("إشارات الشموع — آخر 10 جلسات")
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color.White),
