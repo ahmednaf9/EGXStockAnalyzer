@@ -545,13 +545,17 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                                 val loaded = withContext(Dispatchers.IO) {
                                                     MetaStockImporter.importFolder(context.contentResolver, treeUri, ticker)
                                                 }
+                                                val analysisData = withContext(Dispatchers.Default) {
+                                                    val detected = detectDataPeriod(loaded.candles)
+                                                    val grouped = aggregateCandles(loaded.candles, detected)
+                                                    val analysis = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+                                                    Triple(detected, grouped.size, analysis)
+                                                }
                                                 candles = loaded.candles
                                                 symbol = loaded.symbol
-                                                message = loaded.note
-                                                period = detectDataPeriod(candles)
-                                                val grouped = aggregateCandles(candles, period)
-                                                result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-                                                if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة؛ يلزم 35 جلسة على الأقل."
+                                                period = analysisData.first
+                                                result = analysisData.third
+                                                message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة؛ يلزم 35 جلسة على الأقل." else loaded.note
                                             } catch (e: Exception) {
                                                 message = "تعذر تحميل $ticker: ${e.message ?: "خطأ"}"
                                             }
