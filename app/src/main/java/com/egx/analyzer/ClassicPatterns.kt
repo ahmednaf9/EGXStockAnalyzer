@@ -29,17 +29,42 @@ object ClassicPatternScanner {
                 it.low <= minOf(it.open, it.close)
         }.takeLast(180)
         if (data.size < 40) return emptyList()
-        val pivots = mutableListOf<Pair<Int, Boolean>>() // index, high?
+        // Detect local pivots, then suppress nearby same-type noise using a minimum spacing.
+        val rawPivots = mutableListOf<Pair<Int, Boolean>>() // index, high?
         for (i in 2 until data.size - 2) {
             if (data[i].high >= data[i-1].high && data[i].high >= data[i-2].high &&
-                data[i].high > data[i+1].high && data[i].high > data[i+2].high) pivots += i to true
+                data[i].high > data[i+1].high && data[i].high > data[i+2].high) rawPivots += i to true
             if (data[i].low <= data[i-1].low && data[i].low <= data[i-2].low &&
-                data[i].low < data[i+1].low && data[i].low < data[i+2].low) pivots += i to false
+                data[i].low < data[i+1].low && data[i].low < data[i+2].low) rawPivots += i to false
+        }
+        val pivots = mutableListOf<Pair<Int, Boolean>>()
+        rawPivots.sortedBy { it.first }.forEach { pivot ->
+            val previousSame = pivots.lastOrNull { it.second == pivot.second }
+            if (previousSame == null || pivot.first - previousSame.first >= 4) {
+                pivots += pivot
+            } else {
+                val oldValue = if (previousSame.second) data[previousSame.first].high else data[previousSame.first].low
+                val newValue = if (pivot.second) data[pivot.first].high else data[pivot.first].low
+                val moreExtreme = if (pivot.second) newValue > oldValue else newValue < oldValue
+                if (moreExtreme) pivots[pivots.indexOf(previousSame)] = pivot
+            }
+        }
+        // Require pivots to alternate; if consecutive same-type pivots remain, retain the more extreme one.
+        val alternating = mutableListOf<Pair<Int, Boolean>>()
+        pivots.sortedBy { it.first }.forEach { pivot ->
+            val previous = alternating.lastOrNull()
+            if (previous == null || previous.second != pivot.second) alternating += pivot
+            else {
+                val oldValue = if (pivot.second) data[previous.first].high else data[previous.first].low
+                val newValue = if (pivot.second) data[pivot.first].high else data[pivot.first].low
+                if ((pivot.second && newValue > oldValue) || (!pivot.second && newValue < oldValue))
+                    alternating[alternating.lastIndex] = pivot
+            }
         }
         val out = mutableListOf<ClassicPatternResult>()
         val last = data.last().close
-        val highs = pivots.filter { it.second }.takeLast(5).map { data[it.first].high }
-        val lows = pivots.filter { !it.second }.takeLast(5).map { data[it.first].low }
+        val highs = alternating.filter { it.second }.takeLast(7).map { data[it.first].high }
+        val lows = alternating.filter { !it.second }.takeLast(7).map { data[it.first].low }
 
         // Double top / bottom: two similar pivots and a valley/peak between them.
         if (highs.size >= 2) {
