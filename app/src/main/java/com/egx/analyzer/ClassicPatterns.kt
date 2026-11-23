@@ -156,7 +156,71 @@ object ClassicPatternScanner {
                     "اندفاع هابط مع تماسك قصير؛ كسر أدنى التماسك يفعّل هدف طول السارية.")
             }
         }
-        return out.distinctBy{it.name}.take(10)
+        // Additional formations: channel, broadening, pennant and rounded bases.
+        if (data.size >= 40) {
+            val channel = data.takeLast(40)
+            val first = channel.take(20); val second = channel.takeLast(20)
+            val firstMid = (first.maxOf { it.high } + first.minOf { it.low }) / 2.0
+            val secondMid = (second.maxOf { it.high } + second.minOf { it.low }) / 2.0
+            val firstRange = first.maxOf { it.high } - first.minOf { it.low }
+            val secondRange = second.maxOf { it.high } - second.minOf { it.low }
+            val upper1 = first.maxOf { it.high }; val upper2 = second.maxOf { it.high }
+            val lower1 = first.minOf { it.low }; val lower2 = second.minOf { it.low }
+            if (firstRange > 0 && abs(upper2-upper1)/firstRange < .20 && abs(lower2-lower1)/firstRange < .20 && secondMid > firstMid) {
+                out += candidate("القناة الصاعدة","صاعد",upper2,upper2+firstRange,lower2,last,
+                    "نطاقان متوازيان تقريبًا وميل متوسط صاعد؛ تجاوز سقف القناة هو مستوى التفعيل المرجعي.")
+            } else if (firstRange > 0 && abs(upper2-upper1)/firstRange < .20 && abs(lower2-lower1)/firstRange < .20 && secondMid < firstMid) {
+                out += candidate("القناة الهابطة","هابط",lower2,lower2-firstRange,upper2,last,
+                    "نطاقان متوازيان تقريبًا وميل متوسط هابط؛ كسر أرضية القناة هو مستوى التفعيل المرجعي.")
+            }
+            if (secondRange > firstRange*1.15 && upper2>upper1 && lower2<lower1) {
+                out += candidate("التشكيل المتسع (Broadening)","محايد",upper2,upper2+secondRange,lower2-secondRange,last,
+                    "قمم أعلى وقيعان أدنى مع اتساع الحركة؛ اتجاه التأكيد يتحدد بكسر أحد الحدود.")
+            }
+        }
+        if (data.size >= 35) {
+            val window=data.takeLast(35); val pole=window.take(22); val pause=window.takeLast(13)
+            val poleRise=pole.last().close-pole.first().close
+            val pauseHigh=pause.maxOf{it.high}; val pauseLow=pause.minOf{it.low}
+            val pauseWidth=pauseHigh-pauseLow
+            val pHigh1=pause.take(6).maxOf{it.high}; val pHigh2=pause.takeLast(6).maxOf{it.high}
+            val pLow1=pause.take(6).minOf{it.low}; val pLow2=pause.takeLast(6).minOf{it.low}
+            if (poleRise>last*.08 && pauseWidth<poleRise*.55 && pHigh2<pHigh1 && pLow2>pLow1) {
+                out += candidate("الراية الصاعدة (Pennant)","صاعد",pauseHigh,pauseHigh+poleRise,pauseLow,last,
+                    "سارية صاعدة قوية يتبعها تضييق تقريبي؛ تأكيد محتمل باختراق قمة الراية.")
+            } else if (poleRise < -last*.08 && pauseWidth<abs(poleRise)*.55 && pHigh2<pHigh1 && pLow2>pLow1) {
+                out += candidate("الراية الهابطة (Pennant)","هابط",pauseLow,pauseLow-abs(poleRise),pauseHigh,last,
+                    "سارية هابطة قوية يتبعها تضييق تقريبي؛ تأكيد محتمل بكسر قاع الراية.")
+            }
+        }
+        if (data.size >= 60) {
+            val base=data.takeLast(60); val left=base.take(15); val mid=base.drop(15).take(30); val right=base.takeLast(15)
+            val leftHigh=left.maxOf{it.high}; val rightHigh=right.maxOf{it.high}; val bottom=mid.minOf{it.low}
+            val rim=(leftHigh+rightHigh)/2
+            val midClose=mid.map{it.close}.average()
+            if (rim>bottom && abs(leftHigh-rightHigh)/rim<.15 && midClose<rim*.92 && right.last().close>right.first().close) {
+                out += candidate("القاع المستدير (قاعدة صحن)","صاعد",rim,rim+(rim-bottom),bottom,last,
+                    "قاعدة طويلة بملامح تقوس وتعافٍ في الجزء الأخير؛ الاختراق فوق الحافة شرط التأكيد.")
+            }
+            val leftLow=left.minOf{it.low}; val rightLow=right.minOf{it.low}; val top=mid.maxOf{it.high}
+            val ceiling=(leftLow+rightLow)/2
+            if (top>ceiling && abs(leftLow-rightLow)/ceiling<.15 && midClose>ceiling*1.08 && right.last().close<right.first().close) {
+                out += candidate("القمة المستديرة","هابط",ceiling,ceiling-(top-ceiling),top,last,
+                    "تشكيل قمة طويلة بملامح تقوس وبدء ضعف في الجزء الأخير؛ كسر الدعم شرط التأكيد.")
+            }
+        }
+        if (data.size >= 30) {
+            val w=data.takeLast(30); val early=w.take(15); val late=w.takeLast(15)
+            val eH=early.maxOf{it.high}; val eL=early.minOf{it.low}; val lH=late.maxOf{it.high}; val lL=late.minOf{it.low}
+            if (eH>0 && eL>0 && lH>eH*1.02 && lL>eL*1.02 && (lH-lL)>(eH-eL)*1.10) {
+                out += candidate("التشكيل المتسع الصاعد","صاعد",lH,lH+(lH-lL),lL,last,
+                    "اتساع نطاق مع تحرك الحدود لأعلى؛ اختراق أعلى الحد الأخير يحتاج تأكيد.")
+            } else if (eH>0 && lH<eH*.98 && lL<eL*.98 && (lH-lL)>(eH-eL)*1.10) {
+                out += candidate("التشكيل المتسع الهابط","هابط",lL,lL-(lH-lL),lH,last,
+                    "اتساع نطاق مع تحرك الحدود لأسفل؛ كسر أدنى الحد الأخير يحتاج تأكيد.")
+            }
+        }
+        return out.distinctBy{it.name}.take(24)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
