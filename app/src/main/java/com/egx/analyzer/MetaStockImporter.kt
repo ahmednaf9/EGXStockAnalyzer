@@ -7,7 +7,7 @@ import java.util.Locale
 
 /** MetaStock folder importer for classic EMASTER files and Fxxx.DAT/MWD data. */
 object MetaStockImporter {
- data class Result(val symbol:String,val candles:List<Candle>,val note:String)
+ data class Result(val symbol:String,val candles:List<Candle>,val note:String,val indexedSymbols:List<String>)
 
  fun importFolder(resolver:ContentResolver, tree:Uri, requestedSymbol:String=""):Result {
   val children=mutableMapOf<String,Uri>()
@@ -59,7 +59,7 @@ object MetaStockImporter {
   if(result.isEmpty())error("لم يتم فك بيانات السعر بصورة سليمة؛ لم تُستخرج سجلات صالحة")
   val duplicateRecords=candles.size-result.size
   val note="MetaStock: ${selected.symbol} | ملف الفهرس: ${if(isExtended) "EMASTER" else if(children.containsKey("XMASTER")) "XMASTER" else "MASTER"} | عدد الرموز المفهرسة: ${entries.size} | ملف الأسعار: $dataFileName | السجلات المفحوصة: $scannedRecords | المقبولة: ${candles.size} | المكررة: $duplicateRecords | المرفوضة: $rejectedRecords (تاريخ غير صالح: $invalidDateRecords، أسعار غير منطقية: $invalidPriceRecords، حجم غير صالح: $invalidVolumeRecords) | الجلسات النهائية: ${result.size}."
-  return Result(selected.symbol,result,note)
+  return Result(selected.symbol,result,note,entries.map { it.symbol }.distinct().sorted())
  }
  private data class Entry(val symbol:String,val fileNum:Int,val fields:Int)
  private fun mbf(b:ByteArray,o:Int):Double {
