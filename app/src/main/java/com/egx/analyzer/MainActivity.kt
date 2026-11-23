@@ -1010,6 +1010,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = Navy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                val closeNow = classicData.last().close
                                 val readiness = when {
                                     p.bias == "محايد" -> "محايد — ينتظر تحديد الاتجاه"
                                     p.status.contains("تأكيد") -> "مؤكد مبدئيًا — تحقق من حجم التداول"
@@ -1034,7 +1035,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("المستهدف عند نجاح النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("المستهدف الافتراضي عند فشل/انعكاس السيناريو: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("مستهدف الاتجاه المقابل/منطقة إبطال مرجعية: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
-                                val closeNow = classicData.last().close
                                 val successMovePct = if (closeNow > 0.0) (p.targetSuccess / closeNow - 1.0) * 100.0 else 0.0
                                 val failureMovePct = if (closeNow > 0.0) (p.targetFailure / closeNow - 1.0) * 100.0 else 0.0
                                 Text("المسافة السعرية للمستهدف الناجح من آخر إغلاق: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
