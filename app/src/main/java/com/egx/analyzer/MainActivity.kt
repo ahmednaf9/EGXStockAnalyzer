@@ -1236,24 +1236,73 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
     if (data.size < 3) return
     val levels = listOf("تفعيل" to pattern.trigger, "هدف" to pattern.targetSuccess, "مقابل" to pattern.targetFailure)
     val prices = data.flatMap { listOf(it.high, it.low) } + levels.map { it.second }
-    val minPrice = prices.minOrNull() ?: return; val maxPrice = prices.maxOrNull() ?: return
+    val minPrice = prices.minOrNull() ?: return
+    val maxPrice = prices.maxOrNull() ?: return
     val pad = ((maxPrice-minPrice)*.08).coerceAtLeast(maxPrice*.002)
-    val low=(minPrice-pad).coerceAtLeast(0.000001); val high=maxPrice+pad; val range=(high-low).coerceAtLeast(0.000001)
+    val low=(minPrice-pad).coerceAtLeast(0.000001)
+    val high=maxPrice+pad
+    val range=(high-low).coerceAtLeast(0.000001)
+
+    // Shape anchors are selected from the actual displayed candles, by alternating
+    // segment extrema, to visualize the detected pattern's approximate structure.
+    val anchors: List<Pair<Int, Double>> = run {
+        val name=pattern.name
+        fun extrema(parts:Int, highFirst:Boolean): List<Pair<Int,Double>> {
+            val result=mutableListOf<Pair<Int,Double>>()
+            for (s in 0 until parts) {
+                val from=s*data.size/parts
+                val to=((s+1)*data.size/parts).coerceAtLeast(from+1).coerceAtMost(data.size)
+                if (from>=to) continue
+                val slice=data.subList(from,to)
+                val hi=highFirst || s%2==1
+                val local=if(hi) slice.indices.maxByOrNull{slice[it].high} else slice.indices.minByOrNull{slice[it].low}
+                if(local!=null) result += (from+local) to (if(hi) slice[local].high else slice[local].low)
+            }
+            return result
+        }
+        when {
+            name.contains("الرأس والكتفين المقلوب") -> extrema(5,false)
+            name.contains("الرأس والكتفين") -> extrema(5,true)
+            name.contains("القمة المزدوجة") -> extrema(3,true)
+            name.contains("القاع المزدوج") -> extrema(3,false)
+            name.contains("العلم") -> {
+                val poleEnd=(data.size*0.72).toInt().coerceAtLeast(2)
+                val pole=data.take(poleEnd)
+                val pause=data.drop(poleEnd.coerceAtMost(data.size-1))
+                if(pause.size>=2) listOf(
+                    pole.indices.minByOrNull{pole[it].low}?.let{it to pole[it].low},
+                    pole.indices.maxByOrNull{pole[it].high}?.let{it to pole[it].high},
+                    (poleEnd+pause.indices.minByOrNull{pause[it].low}!! to pause.minOf{it.low}),
+                    (poleEnd+pause.indices.maxByOrNull{pause[it].high}!! to pause.maxOf{it.high})
+                ).filterNotNull() else extrema(4,true)
+            }
+            name.contains("المثلث") || name.contains("المستطيل") -> extrema(4,true)
+            else -> extrema(4,true)
+        }
+    }
+
     Card(colors=CardDefaults.cardColors(containerColor=Color(0xFFFBFDFC)), shape=RoundedCornerShape(12.dp)) {
         Column(Modifier.fillMaxWidth().padding(8.dp)) {
             Text("رسم النموذج على حركة السهم (آخر ${data.size} شمعة)", color=Navy, fontSize=11.sp, fontWeight=FontWeight.Bold)
-            Canvas(Modifier.fillMaxWidth().height(185.dp)) {
-                val left=5f; val right=size.width-5f; val top=10f; val bottom=size.height-8f
+            Canvas(Modifier.fillMaxWidth().height(205.dp)) {
+                val left=8f; val right=size.width-8f; val top=10f; val bottom=size.height-8f
                 val plotH=bottom-top; val dx=(right-left)/data.size; val bw=(dx*.55f).coerceAtLeast(2f)
                 fun y(v:Double)=bottom-((v-low)/range).toFloat()*plotH
+                fun x(i:Int)=left+(i+.5f)*dx
                 data.forEachIndexed { i, candle ->
-                    val x=left+(i+.5f)*dx; val color=if(candle.close>=candle.open) Green else Red
-                    drawLine(color,Offset(x,y(candle.high)),Offset(x,y(candle.low)),strokeWidth=1.4f)
-                    drawRect(color,Offset(x-bw/2,minOf(y(candle.open),y(candle.close))),androidx.compose.ui.geometry.Size(bw,(abs(y(candle.open)-y(candle.close))).coerceAtLeast(2f)))
+                    val xx=x(i); val color=if(candle.close>=candle.open) Green else Red
+                    drawLine(color,Offset(xx,y(candle.high)),Offset(xx,y(candle.low)),strokeWidth=1.4f)
+                    drawRect(color,Offset(xx-bw/2,minOf(y(candle.open),y(candle.close))),androidx.compose.ui.geometry.Size(bw,(abs(y(candle.open)-y(candle.close))).coerceAtLeast(2f))
+                    )
                 }
+                // Pattern geometry over the real candle data.
+                anchors.zipWithNext().forEach { (a,b) ->
+                    drawLine(Color(0xFFB7791F),Offset(x(a.first),y(a.second)),Offset(x(b.first),y(b.second)),strokeWidth=3f)
+                }
+                anchors.forEach { (i,p) -> drawCircle(Color(0xFFB7791F),radius=4f,center=Offset(x(i),y(p))) }
                 levels.forEach { (label,price) ->
                     val yy=y(price); val color=when(label){"تفعيل"->Color(0xFF315E9B);"هدف"->Green;else->Red}
-                    var x=left; while(x<right){drawLine(color,Offset(x,yy),Offset((x+6f).coerceAtMost(right),yy),strokeWidth=1.3f);x+=10f}
+                    var xx=left; while(xx<right){drawLine(color,Offset(xx,yy),Offset((xx+6f).coerceAtMost(right),yy),strokeWidth=1.3f);xx+=10f}
                 }
             }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -1261,6 +1310,7 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
                 Text("هدف ${money(pattern.targetSuccess)}",color=Green,fontSize=9.sp)
                 Text("سيناريو مقابل ${money(pattern.targetFailure)}",color=Red,fontSize=9.sp)
             }
+            Text("الخط الذهبي يوضح الشكل التقريبي للنموذج على الشموع المعروضة.",color=Muted,fontSize=9.sp)
         }
     }
 }
