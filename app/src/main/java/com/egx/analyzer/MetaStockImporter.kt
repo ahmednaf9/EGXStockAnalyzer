@@ -29,7 +29,7 @@ object MetaStockImporter {
    val sym=rec.copyOfRange(symbolOffset,symbolOffset+symbolLength).toString(Charsets.US_ASCII).trim('\u0000',' ')
    if(sym.isNotBlank()&&fileNum>0&&fields>=6)entries.add(Entry(sym,fileNum,fields))
   }
-  if(requestedSymbol.isBlank())error("اكتب رمز السهم أولاً مثل ABUK أو BINV ثم اختر مجلد MetaStock")
+  if(requestedSymbol.isBlank()) return Result("", emptyList(), "تم قراءة فهرس MetaStock. ابحث عن رمز واختره لتحميل بياناته.", entries.map { it.symbol }.distinct().sorted())
   val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("السهم ${requestedSymbol.trim()} غير موجود في ملف الفهرس")
   val dataFileName=if(children.containsKey("F${selected.fileNum}.DAT")) "F${selected.fileNum}.DAT" else "F${selected.fileNum}.MWD"
   val dataUri=children[dataFileName]?:error("لم أجد ملف أسعار F${selected.fileNum}.DAT أو .MWD للسهم ${selected.symbol}")
