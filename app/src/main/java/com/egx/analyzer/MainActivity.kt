@@ -449,7 +449,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         BasicTextField(value = indexSearch, onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
                             modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp), singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
-                            decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث برمز السهم", color = Muted); inner() } })
+                            decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث بكود السهم أو اسم الشركة", color = Muted); inner() } })
                         Spacer(Modifier.height(8.dp))
                         val stockNames = mapOf(
                             "COMI" to "البنك التجاري الدولي",
