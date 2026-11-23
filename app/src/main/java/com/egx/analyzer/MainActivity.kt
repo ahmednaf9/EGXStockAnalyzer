@@ -1267,6 +1267,7 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
     }
 }
 
+@Composable
 private fun PatternPriceChart(data: List<Candle>, pattern: CandlestickPattern) {
     if (data.isEmpty()) return
     val levels = buildList {
