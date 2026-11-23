@@ -289,7 +289,100 @@ object ClassicPatternScanner {
                     "تماسك نسبي ثم كسر أرضية الجزء الأخير؛ يفضّل تأكيد الكسر بالحجم.")
             }
         }
-        return out.distinctBy{it.name}.take(30)
+        // Adam/Eve composite tops and bottoms: sharp vs rounded pivot approximations.
+        if (highs.size >= 2 && lows.size >= 2) {
+            val h1=highs[highs.size-2]; val h2=highs.last()
+            val low=lows.last()
+            val topTolerance=abs(h1-h2)/maxOf(h1,h2)
+            if (topTolerance<.06 && abs(h1-h2)>last*.002) {
+                val firstSharp = abs(h1-data.takeLast(35).take(17).maxOf{it.high})<last*.015
+                val name=if(firstSharp) "قمة آدم وحواء (Adam & Eve Top)" else "قمة حواء وآدم (Eve & Adam Top)"
+                val trigger=low; val height=((h1+h2)/2)-trigger
+                out += candidate(name,"هابط",trigger,trigger-height,trigger+height,last,
+                    "قمتان متقاربتان مع اختلاف تقريبي في شكل القمم؛ تأكيد بكسر الدعم الفاصل.")
+            }
+        }
+        if (lows.size >= 2 && highs.size >= 2) {
+            val l1=lows[lows.size-2]; val l2=lows.last()
+            val high=highs.last()
+            val bottomTolerance=abs(l1-l2)/minOf(l1,l2)
+            if (bottomTolerance<.06) {
+                val trigger=high; val height=trigger-((l1+l2)/2)
+                val sharpFirst = abs(l1-data.takeLast(35).take(17).minOf{it.low})<last*.015
+                val name=if(sharpFirst) "قاع آدم وحواء (Adam & Eve Bottom)" else "قاع حواء وآدم (Eve & Adam Bottom)"
+                out += candidate(name,"صاعد",trigger,trigger+height,trigger-height,last,
+                    "قاعان متقاربان مع اختلاف تقريبي في شكل القاع؛ تأكيد باختراق المقاومة الفاصلة.")
+            }
+        }
+        // V-shaped reversal approximations, validated by a strong turn from the extreme.
+        if (data.size >= 25) {
+            val v=data.takeLast(25); val mid=12
+            val lowIndex=v.indices.minByOrNull{v[it].low} ?: mid
+            val low=v[lowIndex].low; val leftHigh=v.take(lowIndex).maxOfOrNull{it.high} ?: low
+            val rightHigh=v.drop(lowIndex+1).maxOfOrNull{it.high} ?: low
+            if (lowIndex in 5..19 && leftHigh>low*1.08 && last>low*1.08 && last>v.takeLast(5).first().close) {
+                val trigger=maxOf(leftHigh,rightHigh); val height=trigger-low
+                out += candidate("القاع حرف V (V Bottom)","صاعد",trigger,trigger+height,low,last,
+                    "هبوط حاد ثم تعافٍ سريع من قاع محوري؛ تأكيد عند تجاوز المقاومة المحددة.")
+            }
+            val highIndex=v.indices.maxByOrNull{v[it].high} ?: mid
+            val top=v[highIndex].high; val leftLow=v.take(highIndex).minOfOrNull{it.low} ?: top
+            val rightLow=v.drop(highIndex+1).minOfOrNull{it.low} ?: top
+            if (highIndex in 5..19 && top>leftLow*1.08 && top>rightLow*1.08 && last<top*.92) {
+                val trigger=minOf(leftLow,rightLow); val height=top-trigger
+                out += candidate("القمة حرف V المقلوب (Inverted V)","هابط",trigger,trigger-height,top,last,
+                    "صعود حاد ثم انعكاس سريع من قمة محورية؛ تأكيد عند كسر الدعم المحدد.")
+            }
+        }
+        // Pipe bottom/top: two strong adjacent candles near a local extreme.
+        if (data.size >= 30) {
+            val p=data.takeLast(30); val a=p[p.size-2]; val b=p.last()
+            val bodyA=abs(a.close-a.open); val bodyB=abs(b.close-b.open)
+            val avgRange=p.map{it.high-it.low}.average().coerceAtLeast(last*.001)
+            val priorLow=p.dropLast(2).minOf{it.low}; val priorHigh=p.dropLast(2).maxOf{it.high}
+            if (a.close<a.open && b.close>b.open && bodyA>avgRange*1.4 && bodyB>avgRange*1.4 && minOf(a.low,b.low)<=priorLow*1.03) {
+                val trigger=maxOf(a.high,b.high); val height=trigger-minOf(a.low,b.low)
+                out += candidate("Pipe Bottom","صاعد",trigger,trigger+height,minOf(a.low,b.low),last,
+                    "شمعتان كبيرتان متعاكستان قرب قاع نطاق؛ الاختراق فوق قمتهما يؤكد بصورة أولية.")
+            }
+            if (a.close>a.open && b.close<b.open && bodyA>avgRange*1.4 && bodyB>avgRange*1.4 && maxOf(a.high,b.high)>=priorHigh*.97) {
+                val trigger=minOf(a.low,b.low); val height=maxOf(a.high,b.high)-trigger
+                out += candidate("Pipe Top","هابط",trigger,trigger-height,maxOf(a.high,b.high),last,
+                    "شمعتان كبيرتان متعاكستان قرب قمة نطاق؛ الكسر أسفل قاعهما يؤكد بصورة أولية.")
+            }
+        }
+        // Three Drives heuristic: three successively extended swings with exhaustion-style slowing.
+        if (alternating.size >= 6) {
+            val q=alternating.takeLast(6)
+            val vals=q.map{ if(it.second) data[it.first].high else data[it.first].low }
+            val drive1=abs(vals[1]-vals[0]); val drive2=abs(vals[3]-vals[2]); val drive3=abs(vals[5]-vals[4])
+            val highsDrive=q.last().second
+            if (drive1>last*.025 && drive2>last*.025 && drive3>last*.025 &&
+                maxOf(drive1,drive2,drive3)/minOf(drive1,drive2,drive3)<2.2 &&
+                (if(highsDrive) vals[5]>vals[3] && vals[3]>vals[1] else vals[5]<vals[3] && vals[3]<vals[1])) {
+                val trigger=if(highsDrive) vals[5] else vals[5]
+                val target=if(highsDrive) trigger-drive3 else trigger+drive3
+                out += candidate(if(highsDrive) "Three Drives — قمة" else "Three Drives — قاع",
+                    if(highsDrive) "هابط" else "صاعد",trigger,target,
+                    if(highsDrive) trigger+drive3 else trigger-drive3,last,
+                    "ثلاث دفعات ممتدة متقاربة نسبيًا؛ النموذج تقديري ويحتاج تحقق هندسي من نسب الارتداد.")
+            }
+        }
+        // ABCD geometric approximation: similar AB and CD legs after alternating swing points.
+        if (alternating.size >= 4) {
+            val q=alternating.takeLast(4)
+            val v=q.map{if(it.second)data[it.first].high else data[it.first].low}
+            val ab=abs(v[1]-v[0]); val cd=abs(v[3]-v[2])
+            val sameDirection=(v[1]-v[0])*(v[3]-v[2])>0
+            if (ab>last*.03 && cd>last*.025 && abs(ab-cd)/maxOf(ab,cd)<.35 && sameDirection) {
+                val bullish=v[0]>v[1] && v[2]<v[3]
+                val trigger=v[3]; val target=if(bullish) trigger+cd else trigger-cd
+                out += candidate("ABCD (تقريب هندسي)","محايد",trigger,target,
+                    if(bullish) trigger-cd else trigger+cd,last,
+                    "أطوال موجية متقاربة بصورة تقريبية؛ تأكيد الاتجاه يتطلب اختراق/كسر النقطة D.")
+            }
+        }
+        return out.distinctBy{it.name}.take(36)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
