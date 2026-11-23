@@ -269,21 +269,26 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var period by remember { mutableStateOf("يومي") }
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
     var indexSearch by remember { mutableStateOf("") }
-    var indexExpanded by remember { mutableStateOf(false) }
+    var indexExpanded by remember { mutableStateOf(false) }\n    var metastockTree by remember { mutableStateOf(androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         if (tree != null) {
             try {
+                context.contentResolver.takePersistableUriPermission(tree, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().putString("treeUri", tree.toString()).apply()
+                metastockTree = tree.toString()
                 val loaded = MetaStockImporter.importFolder(context.contentResolver, tree, symbol)
-                candles = loaded.candles
-                symbol = loaded.symbol
-                message = loaded.note
                 indexedSymbols = loaded.indexedSymbols
                 indexSearch = ""
-                period = detectDataPeriod(candles)
-                val grouped = aggregateCandles(candles, period)
-                result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-                if (grouped.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."
+                message = loaded.note
+                if (loaded.candles.isNotEmpty()) {
+                    candles = loaded.candles
+                    symbol = loaded.symbol
+                    period = detectDataPeriod(candles)
+                    val grouped = aggregateCandles(candles, period)
+                    result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+                    if (grouped.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."
+                }
             } catch (e: Exception) {
                 message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
                 result = null
@@ -372,29 +377,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             }
                         }
                     )
-                    if (indexedSymbols.isNotEmpty()) {
-                        Spacer(Modifier.height(10.dp))
-                        Text("فهرس أسهم MetaStock (" + indexedSymbols.size + " رمزًا)", color = Color(0xFF075C20), fontWeight = FontWeight.Bold)
-                        BasicTextField(
-                            value = indexSearch,
-                            onValueChange = { indexSearch = it.uppercase(Locale.ROOT); indexExpanded = true },
-                            modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Green, RoundedCornerShape(12.dp)).padding(12.dp),
-                            singleLine = true,
-                            textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 16.sp),
-                            decorationBox = { inner ->
-                                Box {
-                                    if (indexSearch.isBlank()) Text("ابحث أو اختر رمزًا من الفهرس", color = Muted)
-                                    inner()
-                                }
-                            }
-                        )
-                        DropdownMenu(expanded = indexExpanded, onDismissRequest = { indexExpanded = false }, modifier = Modifier.heightIn(max = 280.dp)) {
-                            indexedSymbols.filter { it.contains(indexSearch.trim(), true) }.take(150).forEach { ticker ->
-                                DropdownMenuItem(text = { Text(ticker) }, onClick = { symbol = ticker; indexSearch = ticker; indexExpanded = false })
-                            }
-                        }
-                        Text("اختر رمزًا ثم اضغط استيراد مجلد MetaStock لإعادة تحميل بياناته.", color = Muted, fontSize = 11.sp)
-                    }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
@@ -444,39 +426,44 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Text(message, color = Muted, fontSize = 12.sp)
                 }
             }
-            if (indexedSymbols.isNotEmpty()) {
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(13.dp)) {
-                        Text("فهرس مجلد MetaStock (${indexedSymbols.size} سهم)", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(8.dp))
-                        BasicTextField(
-                            value = indexSearch,
-                            onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
-                            modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp),
-                            singleLine = true,
+            Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+                Column(Modifier.fillMaxWidth().padding(13.dp)) {
+                    Text("فهرس MetaStock مستقل", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(if (indexedSymbols.isEmpty()) "اختر مجلد MetaStock لقراءة الفهرس." else "${indexedSymbols.size} رمزًا متاحًا للاختيار والتحميل", color = Muted, fontSize = 12.sp)
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Green)) { Text(if (metastockTree == null) "اختيار مجلد MetaStock" else "تحديث / تغيير مجلد MetaStock") }
+                    if (indexedSymbols.isNotEmpty()) {
+                        BasicTextField(value = indexSearch, onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
+                            modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp), singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
-                            decorationBox = { inner ->
-                                Box {
-                                    if (indexSearch.isBlank()) Text("بحث عن رمز في الفهرس", color = Muted, fontSize = 14.sp)
-                                    inner()
-                                }
-                            }
-                        )
+                            decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث برمز السهم", color = Muted); inner() } })
                         Spacer(Modifier.height(8.dp))
                         val filteredSymbols = indexedSymbols.filter { it.contains(indexSearch.trim(), ignoreCase = true) }
-                        Text("الرموز المعروضة: ${filteredSymbols.size}", color = Muted, fontSize = 11.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Column(Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
-                            filteredSymbols.forEach { indexedSymbol ->
-                                Text(indexedSymbol, color = Green, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
+                        Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
+                            filteredSymbols.forEach { ticker ->
+                                TextButton(onClick = {
+                                    val uriString = metastockTree
+                                    if (uriString != null) try {
+                                        val treeUri = Uri.parse(uriString)
+                                        val loaded = MetaStockImporter.importFolder(context.contentResolver, treeUri, ticker)
+                                        candles = loaded.candles
+                                        symbol = loaded.symbol
+                                        message = loaded.note
+                                        period = detectDataPeriod(candles)
+                                        val grouped = aggregateCandles(candles, period)
+                                        result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+                                        if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة؛ يلزم 35 جلسة على الأقل."
+                                        indexSearch = ticker
+                                    } catch (e: Exception) { message = "تعذر تحميل ${ticker}: ${e.message ?: "خطأ"}" }
+                                }, modifier = Modifier.fillMaxWidth()) { Text(ticker, color = Green) }
                                 Divider(color = Page)
                             }
-                            if (filteredSymbols.isEmpty()) Text("لا توجد رموز مطابقة.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
+                            if (filteredSymbols.isEmpty()) Text("لا توجد رموز مطابقة.", color = Muted, fontSize = 12.sp)
                         }
                     }
                 }
-                Spacer(Modifier.height(16.dp))
             }
+            Spacer(Modifier.height(16.dp))
             val a = result
             if (a == null) {
                 Text("ماذا يقدم لك المحلل الفني؟", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
