@@ -272,7 +272,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var indexExpanded by remember { mutableStateOf(false) }
     var metastockTree by remember { mutableStateOf(androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
     val context = androidx.compose.ui.platform.LocalContext.current
-    LaunchedEffect(metastockTree) {\n        val savedTree = metastockTree\n        if (savedTree != null && indexedSymbols.isEmpty()) {\n            try {\n                val loaded = MetaStockImporter.importFolder(context.contentResolver, Uri.parse(savedTree), "")\n                indexedSymbols = loaded.indexedSymbols\n                message = loaded.note\n            } catch (e: Exception) {\n                message = "تعذر إعادة قراءة فهرس MetaStock المحفوظ: ${e.message ?: "خطأ"}"\n            }\n        }\n    }\n    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+    LaunchedEffect(metastockTree) {
+        val savedTree = metastockTree\n        if (savedTree != null && indexedSymbols.isEmpty()) {\n            try {\n                val loaded = MetaStockImporter.importFolder(context.contentResolver, Uri.parse(savedTree), "")\n                indexedSymbols = loaded.indexedSymbols\n                message = loaded.note\n            } catch (e: Exception) {\n                message = "تعذر إعادة قراءة فهرس MetaStock المحفوظ: ${e.message ?: "خطأ"}"\n            }\n        }\n    }\n    val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         if (tree != null) {
             try {
                 context.contentResolver.takePersistableUriPermission(tree, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
