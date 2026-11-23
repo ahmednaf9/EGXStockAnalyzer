@@ -56,6 +56,25 @@ object ClassicPatternScanner {
                     "قاعان متقاربان؛ تأكيد صاعد بإغلاق أعلى القمة الفاصلة.")
             }
         }
+        // Triple top / bottom using three recent similar pivots.
+        if (highs.size >= 3 && lows.size >= 2) {
+            val a=highs[highs.size-3]; val b=highs[highs.size-2]; val d=highs.last()
+            if (maxOf(a,b,d)-minOf(a,b,d) < maxOf(a,b,d)*.05) {
+                val valley=lows.takeLast(2).minOrNull() ?: 0.0
+                val height=((a+b+d)/3)-valley
+                out += candidate("القمة الثلاثية","هابط",valley,valley-height,valley+height,last,
+                    "ثلاث قمم متقاربة؛ تأكيد النموذج بكسر الدعم الفاصل.")
+            }
+        }
+        if (lows.size >= 3 && highs.size >= 2) {
+            val a=lows[lows.size-3]; val b=lows[lows.size-2]; val d=lows.last()
+            if (maxOf(a,b,d)-minOf(a,b,d) < minOf(a,b,d)*.05) {
+                val peak=highs.takeLast(2).maxOrNull() ?: 0.0
+                val height=peak-((a+b+d)/3)
+                out += candidate("القاع الثلاثي","صاعد",peak,peak+height,peak-height,last,
+                    "ثلاثة قيعان متقاربة؛ تأكيد النموذج باختراق المقاومة الفاصلة.")
+            }
+        }
         // Head & shoulders / inverse: use the last three alternating same-type pivots.
         if (highs.size >= 3) {
             val l=highs[highs.size-3]; val h=highs[highs.size-2]; val r=highs.last()
@@ -71,6 +90,34 @@ object ClassicPatternScanner {
                 val neck=(highs[highs.size-2]+highs.last())/2; val height=neck-h
                 out += candidate("الرأس والكتفين المقلوب","صاعد",neck,neck+height,neck-height,last,
                     "رأس أدنى من الكتفين؛ التأكيد باختراق خط الرقبة.")
+            }
+        }
+        // Cup-and-handle approximation: rounded multi-week base, then a shallow handle.
+        if (data.size >= 55) {
+            val cup=data.takeLast(55).dropLast(10); val handle=data.takeLast(10)
+            val left=cup.take(10).maxOf{it.high}; val bottom=cup.drop(10).take(25).minOf{it.low}
+            val right=cup.takeLast(10).maxOf{it.high}; val handleLow=handle.minOf{it.low}
+            val rim=(left+right)/2
+            if (bottom<rim && abs(left-right)/rim<.12 && handleLow>rim*.82 && handleLow<rim*1.02) {
+                val depth=rim-bottom
+                out += candidate("الكوب والعروة","صاعد",rim,rim+depth,handleLow,last,
+                    "قاعدة مقوسة تقريبية مع عروة قصيرة؛ يتأكد باختراق حافة الكوب.")
+            }
+        }
+        // Wedge approximation from contracting recent range and sloping boundaries.
+        if (data.size >= 30) {
+            val w=data.takeLast(30); val first=w.take(15); val second=w.takeLast(15)
+            val firstH=first.maxOf{it.high}; val secondH=second.maxOf{it.high}
+            val firstL=first.minOf{it.low}; val secondL=second.minOf{it.low}
+            val contracting=(secondH-secondL)<(firstH-firstL)*.82
+            if (contracting && secondH<firstH && secondL>firstL) {
+                val trigger=secondH; val height=(firstH-firstL).coerceAtLeast(last*.03)
+                out += candidate("الوتد الهابط","صاعد",trigger,trigger+height,secondL,last,
+                    "حدود الحركة تتقارب مع ميل هابط؛ الاختراق أعلى الحد العلوي إشارة محتملة.")
+            } else if (contracting && secondH>firstH && secondL<firstL) {
+                val trigger=secondL; val height=(firstH-firstL).coerceAtLeast(last*.03)
+                out += candidate("الوتد الصاعد","هابط",trigger,trigger-height,secondH,last,
+                    "حدود الحركة تتقارب مع ميل صاعد؛ الكسر أسفل الحد السفلي إشارة محتملة.")
             }
         }
         // Range / triangle candidates based on recent 30-bar boundaries.
@@ -107,7 +154,7 @@ object ClassicPatternScanner {
                     "اندفاع هابط مع تماسك قصير؛ كسر أدنى التماسك يفعّل هدف طول السارية.")
             }
         }
-        return out.distinctBy{it.name}.take(6)
+        return out.distinctBy{it.name}.take(10)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
