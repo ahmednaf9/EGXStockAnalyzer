@@ -267,6 +267,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
+    var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
+    var indexSearch by remember { mutableStateOf("") }
     val context = androidx.compose.ui.platform.LocalContext.current
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         if (tree != null) {
@@ -275,6 +277,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 candles = loaded.candles
                 symbol = loaded.symbol
                 message = loaded.note
+                indexedSymbols = loaded.indexedSymbols
+                indexSearch = ""
                 period = detectDataPeriod(candles)
                 val grouped = aggregateCandles(candles, period)
                 result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
@@ -416,7 +420,39 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Text(message, color = Muted, fontSize = 12.sp)
                 }
             }
-            Spacer(Modifier.height(16.dp))
+            if (indexedSymbols.isNotEmpty()) {
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(13.dp)) {
+                        Text("فهرس مجلد MetaStock (${indexedSymbols.size} سهم)", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(8.dp))
+                        BasicTextField(
+                            value = indexSearch,
+                            onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
+                            modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp),
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (indexSearch.isBlank()) Text("بحث عن رمز في الفهرس", color = Muted, fontSize = 14.sp)
+                                    inner()
+                                }
+                            }
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        val filteredSymbols = indexedSymbols.filter { it.contains(indexSearch.trim(), ignoreCase = true) }
+                        Text("الرموز المعروضة: ${filteredSymbols.size}", color = Muted, fontSize = 11.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Column(Modifier.fillMaxWidth().heightIn(max = 260.dp).verticalScroll(rememberScrollState())) {
+                            filteredSymbols.forEach { indexedSymbol ->
+                                Text(indexedSymbol, color = Green, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(vertical = 5.dp))
+                                Divider(color = Page)
+                            }
+                            if (filteredSymbols.isEmpty()) Text("لا توجد رموز مطابقة.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(8.dp))
+                        }
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
             val a = result
             if (a == null) {
                 Text("ماذا يقدم لك المحلل الفني؟", color = Navy, fontSize = 17.sp, fontWeight = FontWeight.Bold)
