@@ -104,10 +104,9 @@ object ClassicPatternScanner {
         return out.distinctBy{it.name}.take(6)
     }
 
-    private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,invalidation:Double,last:Double,explanation:String):ClassicPatternResult {
+    private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
         val confirmed=when(bias) { "صاعد" -> last>trigger; "هابط" -> last<trigger; else -> last>trigger || last<trigger }
-        val failed=when(bias) { "صاعد" -> last<invalidation; "هابط" -> last>invalidation; else -> false }
-        val status=when { failed -> "فشل/إبطال محتمل"; confirmed -> "اختراق/كسر محتمل"; else -> "قيد التشكّل — غير مؤكد" }
-        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,invalidation,explanation)
+        val status=if (confirmed) "اختراق/كسر محتمل" else "قيد التشكّل — غير مؤكد"
+        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation)
     }
 }
