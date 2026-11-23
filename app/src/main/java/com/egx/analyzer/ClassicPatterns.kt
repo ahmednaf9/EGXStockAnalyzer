@@ -382,6 +382,80 @@ object ClassicPatternScanner {
                     "أطوال موجية متقاربة بصورة تقريبية؛ تأكيد الاتجاه يتطلب اختراق/كسر النقطة D.")
             }
         }
+
+        // Island reversals: a compact cluster isolated by gaps (approximation).
+        if (data.size >= 15) {
+            val w=data.takeLast(15)
+            for (i in 5 until w.size-4) {
+                val island=w.subList(i-2,i+2)
+                val islandHigh=island.maxOf{it.high}; val islandLow=island.minOf{it.low}
+                val leftGapDown=w[i-2].low > w[i-3].high
+                val rightGapDown=w[i+2].high < w[i+1].low
+                val leftGapUp=w[i-2].high < w[i-3].low
+                val rightGapUp=w[i+2].low > w[i+1].high
+                if (leftGapUp && rightGapDown) {
+                    val trigger=islandLow; val height=islandHigh-islandLow
+                    out += candidate("الجزيرة الانعكاسية الهابطة (Island)","هابط",trigger,trigger-height,islandHigh,last,
+                        "مجموعة شموع معزولة بفجوتين؛ كسر قاع الجزيرة شرط التأكيد.")
+                }
+                if (leftGapDown && rightGapUp) {
+                    val trigger=islandHigh; val height=islandHigh-islandLow
+                    out += candidate("الجزيرة الانعكاسية الصاعدة (Island)","صاعد",trigger,trigger+height,islandLow,last,
+                        "مجموعة شموع معزولة بفجوتين؛ اختراق قمة الجزيرة شرط التأكيد.")
+                }
+            }
+        }
+        // Spring / Upthrust: false break of a recent range boundary followed by a close back inside.
+        if (data.size >= 25) {
+            val w=data.takeLast(25); val prior=w.dropLast(3); val tail=w.takeLast(3)
+            val support=prior.minOf{it.low}; val resistance=prior.maxOf{it.high}
+            val spring=tail.minOf{it.low}<support*.995 && tail.last().close>support
+            val upthrust=tail.maxOf{it.high}>resistance*1.005 && tail.last().close<resistance
+            val range= resistance-support
+            if (spring && range>0) out += candidate("Spring (اختراق دعم وهمي)","صاعد",support,support+range*.65,tail.minOf{it.low},last,
+                "اختراق مؤقت أسفل دعم نطاق ثم إغلاق عائد فوقه؛ يظل الحجم والسياق مهمين.")
+            if (upthrust && range>0) out += candidate("Upthrust (اختراق مقاومة وهمي)","هابط",resistance,resistance-range*.65,tail.maxOf{it.high},last,
+                "اختراق مؤقت أعلى المقاومة ثم عودة وإغلاق أسفلها؛ يظل الحجم والسياق مهمين.")
+        }
+        // Inverted cup-and-handle: rounded overhead arc and a small consolidation near its rim.
+        if (data.size >= 55) {
+            val w=data.takeLast(55); val cup=w.dropLast(10); val handle=w.takeLast(10)
+            val left=cup.take(10).maxOf{it.high}; val bottom=cup.drop(10).take(25).minOf{it.low}
+            val right=cup.takeLast(10).maxOf{it.high}; val rim=(left+right)/2
+            val handleHigh=handle.maxOf{it.high}
+            if (bottom<rim && abs(left-right)/rim<.12 && handleHigh<rim*1.02 && handleHigh>rim*.82) {
+                val depth=rim-bottom
+                out += candidate("الكوب والعروة المقلوب","هابط",bottom,bottom-depth,handleHigh,last,
+                    "تقوس علوي تقريبي ثم تماسك؛ كسر قاع العروة يفعّل الهدف النظري.")
+            }
+        }
+        // Bump-and-run reversal approximation: steep run-up, hump and sharp breakdown.
+        if (data.size >= 60) {
+            val w=data.takeLast(60); val lead=w.take(25); val bump=w.drop(25).take(15); val decline=w.takeLast(20)
+            val leadRise=lead.last().close-lead.first().close
+            val bumpRise=bump.maxOf{it.high}-bump.minOf{it.low}
+            val support=decline.minOf{it.low}; val peak=w.maxOf{it.high}
+            if (leadRise>last*.12 && bumpRise>leadRise*.45 && decline.last().close<decline.first().close &&
+                decline.last().close<support*1.08) {
+                val trigger=support; val height=peak-support
+                out += candidate("Bump-and-Run (انعكاس هابط)","هابط",trigger,trigger-height,peak,last,
+                    "ارتفاع حاد وتشكيل قمة ثم ضعف؛ الكسر أسفل الدعم المحلي هو التأكيد.")
+            }
+        }
+        // Broadening wedge approximation (sloped expansion), directional bias inferred from midpoints.
+        if (data.size >= 35) {
+            val w=data.takeLast(35); val a=w.take(17); val b=w.takeLast(18)
+            val aH=a.maxOf{it.high}; val aL=a.minOf{it.low}; val bH=b.maxOf{it.high}; val bL=b.minOf{it.low}
+            val aMid=(aH+aL)/2; val bMid=(bH+bL)/2
+            if (bH>aH*1.02 && bL<aL*.98 && bMid>aMid) {
+                out += candidate("الوتد المتسع الصاعد (Broadening Wedge)","صاعد",bH,bH+(bH-bL),bL,last,
+                    "اتساع الحدود مع ميل عام صاعد؛ الاختراق فوق الحد الأعلى شرط تأكيد إضافي.")
+            } else if (bH>aH*1.02 && bL<aL*.98 && bMid<aMid) {
+                out += candidate("الوتد المتسع الهابط (Broadening Wedge)","هابط",bL,bL-(bH-bL),bH,last,
+                    "اتساع الحدود مع ميل عام هابط؛ الكسر أسفل الحد الأدنى شرط تأكيد إضافي.")
+            }
+        }
+
         return out.distinctBy { it.name }.sortedWith(
             compareByDescending<ClassicPatternResult> { it.confidence }
                 .thenByDescending { it.bias != "محايد" }
