@@ -959,13 +959,26 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج الكلاسيكية")
-                val classicPatterns = ClassicPatternScanner.scan(aggregateCandles(candles, period))
-                    .sortedByDescending { it.confidence }
-                val filteredClassicPatterns = classicPatterns.filter { p ->
+                val classicData = aggregateCandles(candles, period)
+                val volumeBaseline = classicData.takeLast(21).dropLast(1).map { it.volume }.filter { it > 0.0 }
+                val averageVolume = volumeBaseline.average().takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+                val currentVolumeRatio = if (averageVolume > 0.0) classicData.last().volume / averageVolume else 0.0
+                val classicPatterns = ClassicPatternScanner.scan(classicData).map { p ->
+                    val distancePct = if (p.trigger > 0.0) abs(classicData.last().close - p.trigger) / p.trigger * 100.0 else 100.0
+                    val proximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
+                    val volumeBonus = when {
+                        currentVolumeRatio >= 1.5 -> 8.0
+                        currentVolumeRatio >= 1.2 -> 5.0
+                        currentVolumeRatio >= 1.0 -> 2.0
+                        else -> 0.0
+                    }
+                    Triple(p, distancePct, p.confidence + proximityBonus + volumeBonus)
+                }.sortedByDescending { it.third }
+                val filteredClassicPatterns = classicPatterns.filter { item ->
                     when (classicFilter) {
-                        "قوي" -> p.confidence >= 70
-                        "متوسط" -> p.confidence in 50..69
-                        "ضعيف" -> p.confidence < 50
+                        "قوي" -> item.first.confidence >= 70
+                        "متوسط" -> item.first.confidence in 50..69
+                        "ضعيف" -> item.first.confidence < 50
                         else -> true
                     }
                 }
@@ -985,7 +998,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         if (filteredClassicPatterns.isEmpty()) {
                             Text(if (classicPatterns.isEmpty()) "لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                         } else {
-                            filteredClassicPatterns.forEachIndexed { i, p ->
+                            filteredClassicPatterns.forEachIndexed { i, item ->\n                                val p = item.first\n                                val distancePct = item.second\n                                val priority = item.third
                                 if (i > 0) { Spacer(Modifier.height(8.dp)); Divider(color = Page); Spacer(Modifier.height(8.dp)) }
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
@@ -993,6 +1006,16 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("درجة جودة المرشح (تقديرية): ${p.confidence}%", color = if (p.confidence >= 70) Green else if (p.confidence >= 50) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                                Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = Navy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                val readiness = when {
+                                    p.bias == "محايد" -> "الاتجاه لم يتحدد — ينتظر الاختراق"
+                                    p.status.contains("تأكيد") -> "النموذج تجاوز مستوى التفعيل مبدئيًا"
+                                    distancePct <= 2.0 -> "قريب من التفعيل"
+                                    else -> "ما زال في مرحلة التكوين"
+                                }
+                                Text("جاهزية النموذج: $readiness", color = pc, fontSize = 10.sp)
+                                Text("حجم تداول آخر جلسة مقابل متوسط 20 جلسة: ${if (averageVolume > 0.0) String.format(Locale.US, "%.2f", currentVolumeRatio) + "×" else "غير متاح"}", color = if (currentVolumeRatio >= 1.2) Green else Muted, fontSize = 10.sp)
+                                Text("ترتيب مساعد يجمع الجودة والقرب من التفعيل والحجم، وليس احتمالًا إحصائيًا.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                                 Spacer(Modifier.height(4.dp))
