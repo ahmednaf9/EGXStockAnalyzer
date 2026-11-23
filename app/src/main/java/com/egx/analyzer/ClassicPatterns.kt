@@ -459,7 +459,7 @@ object ClassicPatternScanner {
         return out.distinctBy { it.name }.sortedWith(
             compareByDescending<ClassicPatternResult> { it.confidence }
                 .thenByDescending { it.bias != "محايد" }
-        ).take(36)
+        ).take(50)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
