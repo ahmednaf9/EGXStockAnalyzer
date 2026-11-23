@@ -1009,7 +1009,19 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("درجة جودة المرشح (تقديرية): ${p.confidence}%", color = if (p.confidence >= 70) Green else if (p.confidence >= 50) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
-                                Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = Navy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                val priorityLabel = when {
+                                    p.bias == "محايد" -> "انتظار اتجاه"
+                                    priority >= 80.0 -> "متابعة بأولوية مرتفعة"
+                                    priority >= 65.0 -> "متابعة متوسطة"
+                                    else -> "متابعة منخفضة"
+                                }
+                                val priorityColor = when {
+                                    p.bias == "محايد" -> Amber
+                                    priority >= 80.0 -> Green
+                                    priority >= 65.0 -> Amber
+                                    else -> Muted
+                                }
+                                Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • $priorityLabel • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = priorityColor, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 val closeNow = classicData.last().close
                                 val isInvalidated = (p.bias == "صاعد" && closeNow <= p.invalidation) ||
                                     (p.bias == "هابط" && closeNow >= p.invalidation)
