@@ -43,7 +43,7 @@ import androidx.compose.ui.unit.sp
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
-import kotlin.math.abs
+import kotlin.math.abs\nimport kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.withContext
 
 private val Navy = Color(0xFF10243A)
 private val Green = Color(0xFF14966C)
@@ -534,20 +534,30 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             filteredSymbols.forEach { ticker ->
                                 TextButton(onClick = {
                                     val uriString = metastockTree
-                                    if (uriString != null) try {
-                                        val treeUri = Uri.parse(uriString)
-                                        val loaded = MetaStockImporter.importFolder(context.contentResolver, treeUri, ticker)
-                                        candles = loaded.candles
-                                        symbol = loaded.symbol
-                                        message = loaded.note
-                                        period = detectDataPeriod(candles)
-                                        val grouped = aggregateCandles(candles, period)
-                                        result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-                                        if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة؛ يلزم 35 جلسة على الأقل."
+                                    if (uriString != null) {
                                         indexSearch = ticker
-                                    } catch (e: Exception) { message = "تعذر تحميل ${ticker}: ${e.message ?: "خطأ"}" }
+                                        message = "جارٍ تحميل بيانات $ticker..."
+                                        result = null
+                                        scope.launch {
+                                            try {
+                                                val treeUri = Uri.parse(uriString)
+                                                val loaded = withContext(Dispatchers.IO) {
+                                                    MetaStockImporter.importFolder(context.contentResolver, treeUri, ticker)
+                                                }
+                                                candles = loaded.candles
+                                                symbol = loaded.symbol
+                                                message = loaded.note
+                                                period = detectDataPeriod(candles)
+                                                val grouped = aggregateCandles(candles, period)
+                                                result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+                                                if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة؛ يلزم 35 جلسة على الأقل."
+                                            } catch (e: Exception) {
+                                                message = "تعذر تحميل $ticker: ${e.message ?: "خطأ"}"
+                                            }
+                                        }
+                                    } else message = "اختر مجلد MetaStock أولاً."
                                 }, modifier = Modifier.fillMaxWidth()) {
-                                    Column(horizontalAlignment = Alignment.Start) {
+                        Column(horizontalAlignment = Alignment.Start) {
                                         Text(ticker, color = Green, fontWeight = FontWeight.Bold)
                                         stockNames[ticker]?.let { Text(it, color = Muted, fontSize = 12.sp) }
                                     }
