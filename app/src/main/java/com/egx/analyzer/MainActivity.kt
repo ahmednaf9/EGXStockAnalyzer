@@ -972,13 +972,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         currentVolumeRatio >= 1.0 -> 2.0
                         else -> 0.0
                     }
-                    Triple(p, distancePct, p.confidence + proximityBonus + volumeBonus)
+                    val adjustedScore = (p.confidence + proximityBonus + volumeBonus).coerceIn(0.0, 100.0)
+                    Triple(p, distancePct, adjustedScore)
                 }.sortedByDescending { it.third }
                 val filteredClassicPatterns = classicPatterns.filter { item ->
                     when (classicFilter) {
-                        "قوي" -> item.first.confidence >= 70
-                        "متوسط" -> item.first.confidence in 50..69
-                        "ضعيف" -> item.first.confidence < 50
+                        "قوي" -> item.third >= 70.0
+                        "متوسط" -> item.third >= 50.0 && item.third < 70.0
+                        "ضعيف" -> item.third < 50.0
                         else -> true
                     }
                 }
@@ -1006,7 +1007,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("درجة جودة المرشح (تقديرية): ${p.confidence}%", color = if (p.confidence >= 70) Green else if (p.confidence >= 50) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("درجة التقييم المركبة (تقديرية): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("تجمع درجة النموذج الأساسية مع قرب السعر من التفعيل وحجم التداول؛ ليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val priorityLabel = when {
