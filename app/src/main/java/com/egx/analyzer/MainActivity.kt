@@ -43,7 +43,10 @@ import androidx.compose.ui.unit.sp
 import java.io.BufferedReader
 import java.io.InputStreamReader
 import java.util.Locale
-import kotlin.math.abs\nimport kotlinx.coroutines.Dispatchers\nimport kotlinx.coroutines.launch\nimport kotlinx.coroutines.withContext
+import kotlin.math.abs
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val Navy = Color(0xFF10243A)
 private val Green = Color(0xFF14966C)
