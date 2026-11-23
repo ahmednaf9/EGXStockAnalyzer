@@ -170,15 +170,16 @@ object ClassicPatternScanner {
         if (data.size >= 35) {
             val pole=data.takeLast(35).take(25); val pause=data.takeLast(10)
             val poleLow=pole.minOf{it.low}; val poleHigh=pole.maxOf{it.high}; val poleMove=poleHigh-poleLow
+            val poleNetMove=pole.last().close-pole.first().close
             val pauseRange=pause.maxOf{it.high}-pause.minOf{it.low}
-            if (poleMove/ poleLow > .12 && pauseRange/poleMove < .55 && pause.last().close >= pause.first().close*.94) {
+            if (poleNetMove>0 && poleMove/poleLow > .12 && pauseRange/poleMove < .55 && pause.last().close >= pause.first().close*.94) {
                 val trigger=pause.maxOf{it.high}
                 out += candidate("العلم الصاعد","صاعد",trigger,trigger+poleMove,pause.minOf{it.low}-poleMove,last,
-                    "اندفاع صاعد مع تماسك قصير؛ اختراق أعلى التماسك يفعّل هدف طول السارية.")
-            } else if (poleMove/poleHigh > .12 && pauseRange/poleMove < .55 && pause.last().close <= pause.first().close*1.06) {
+                    "اندفاع صاعد فعلي مع تماسك قصير؛ اختراق أعلى التماسك يفعّل هدف طول السارية.")
+            } else if (poleNetMove<0 && poleMove/poleHigh > .12 && pauseRange/poleMove < .55 && pause.last().close <= pause.first().close*1.06) {
                 val trigger=pause.minOf{it.low}
                 out += candidate("العلم الهابط","هابط",trigger,trigger-poleMove,pause.maxOf{it.high}+poleMove,last,
-                    "اندفاع هابط مع تماسك قصير؛ كسر أدنى التماسك يفعّل هدف طول السارية.")
+                    "اندفاع هابط فعلي مع تماسك قصير؛ كسر أدنى التماسك يفعّل هدف طول السارية.")
             }
         }
         // Additional formations: channel, broadening, pennant and rounded bases.
