@@ -269,6 +269,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var period by remember { mutableStateOf("يومي") }
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
     var indexSearch by remember { mutableStateOf("") }
+    var indexExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val folderPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
         if (tree != null) {
@@ -371,6 +372,29 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             }
                         }
                     )
+                    if (indexedSymbols.isNotEmpty()) {
+                        Spacer(Modifier.height(10.dp))
+                        Text("فهرس أسهم MetaStock (" + indexedSymbols.size + " رمزًا)", color = Color(0xFF075C20), fontWeight = FontWeight.Bold)
+                        BasicTextField(
+                            value = indexSearch,
+                            onValueChange = { indexSearch = it.uppercase(Locale.ROOT); indexExpanded = true },
+                            modifier = Modifier.fillMaxWidth().background(Color.White, RoundedCornerShape(12.dp)).border(1.dp, Green, RoundedCornerShape(12.dp)).padding(12.dp),
+                            singleLine = true,
+                            textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 16.sp),
+                            decorationBox = { inner ->
+                                Box {
+                                    if (indexSearch.isBlank()) Text("ابحث أو اختر رمزًا من الفهرس", color = Muted)
+                                    inner()
+                                }
+                            }
+                        )
+                        DropdownMenu(expanded = indexExpanded, onDismissRequest = { indexExpanded = false }, modifier = Modifier.heightIn(max = 280.dp)) {
+                            indexedSymbols.filter { it.contains(indexSearch.trim(), true) }.take(150).forEach { ticker ->
+                                DropdownMenuItem(text = { Text(ticker) }, onClick = { symbol = ticker; indexSearch = ticker; indexExpanded = false })
+                            }
+                        }
+                        Text("اختر رمزًا ثم اضغط استيراد مجلد MetaStock لإعادة تحميل بياناته.", color = Muted, fontSize = 11.sp)
+                    }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
