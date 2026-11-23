@@ -488,7 +488,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             result = null
                             period = "يومي"
                         },
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(60.dp),
                         shape = CircleShape,
                         colors = ButtonDefaults.buttonColors(
                             containerColor = Color(0xFFE50916),
@@ -498,8 +498,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         contentPadding = PaddingValues(8.dp)
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Icon(Icons.Default.Sync, null, modifier = Modifier.size(19.dp))
-                            Text("RESET", fontSize = 7.sp, fontWeight = FontWeight.ExtraBold)
+                            Icon(Icons.Default.Sync, null, modifier = Modifier.size(18.dp))
+                            Text("RESET", fontSize = 8.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
                         }
                     }
                 }
