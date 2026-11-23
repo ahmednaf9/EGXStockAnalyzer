@@ -428,13 +428,63 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     ) {
                         Text("Excel/CSV تحميل ملف السهم", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
                     }
+                    Button(
+                        onClick = {
+                            val code = symbol.trim().uppercase(Locale.ROOT)
+                            val treeString = metastockTree
+                            if (code.isBlank()) message = "اكتب كود السهم أولاً."
+                            else if (treeString == null) message = "اختر مجلد MetaStock أولاً."
+                            else {
+                                message = "جارٍ تحميل $code من MetaStock..."
+                                result = null
+                                scope.launch {
+                                    try {
+                                        val loaded = withContext(Dispatchers.IO) {
+                                            MetaStockImporter.importFolder(context.contentResolver, Uri.parse(treeString), code)
+                                        }
+                                        val prep = withContext(Dispatchers.Default) {
+                                            val detected = detectDataPeriod(loaded.candles)
+                                            val grouped = aggregateCandles(loaded.candles, detected)
+                                            Triple(detected, grouped.size, if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null)
+                                        }
+                                        candles = loaded.candles
+                                        symbol = loaded.symbol.ifBlank { code }
+                                        period = prep.first
+                                        result = prep.third
+                                        message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة؛ يلزم 35 جلسة على الأقل." else loaded.note
+                                    } catch (e: Exception) {
+                                        message = "تعذر تحميل $code: ${e.message ?: "خطأ"}"
+                                        candles = emptyList()
+                                        result = null
+                                    }
+                                }
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(28.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Green)
+                    ) { Text("تحميل كود السهم من فهرس MetaStock", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
                     Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("استيراد مجلد MetaStock مباشرة", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
+                            val oldTree = metastockTree
+                            if (oldTree != null) {
+                                try {
+                                    context.contentResolver.releasePersistableUriPermission(
+                                        Uri.parse(oldTree), android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                                    )
+                                } catch (_: Exception) { }
+                            }
+                            context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE)
+                                .edit().remove("treeUri").apply()
+                            metastockTree = null
+                            indexedSymbols = emptyList()
+                            indexSearch = ""
+                            indexExpanded = false
                             symbol = ""
                             candles = emptyList()
-                            message = "لم يتم تحميل أي ملف. يمكنك تحميل ملف سهم جديد."
+                            message = "تمت إعادة ضبط البرنامج وإلغاء فهرس MetaStock."
                             result = null
                             period = "يومي"
                         },
