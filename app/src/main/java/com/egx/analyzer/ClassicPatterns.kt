@@ -11,7 +11,8 @@ data class ClassicPatternResult(
     val targetFailure: Double,
     val invalidation: Double,
     val explanation: String,
-    val confidence: Int
+    val confidence: Int,
+    val confidenceDetails: String
 )
 
 /**
@@ -169,6 +170,13 @@ object ClassicPatternScanner {
         }
         val distancePenalty = (distancePct*2.0).toInt().coerceAtMost(22)
         val confidence = (base-distancePenalty).coerceIn(25, 88)
-        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation,confidence)
+        val baseReason = when {
+            bias == "محايد" -> "النموذج محايد الاتجاه (أساس 42)"
+            confirmed -> "السعر تجاوز مستوى التفعيل مبدئيًا (أساس 72)"
+            else -> "لم يتجاوز السعر مستوى التفعيل بعد (أساس 54)"
+        }
+        val distanceReason = "ابتعاد السعر عن مستوى التفعيل ${String.format(java.util.Locale.US, "%.2f", distancePct)}%، خصم تقديري ${distancePenalty} نقطة"
+        val details = "$baseReason؛ $distanceReason. الدرجة ناتجة عن قاعدة مبسطة وليست احتمال نجاح إحصائيًا."
+        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation,confidence,details)
     }
 }
