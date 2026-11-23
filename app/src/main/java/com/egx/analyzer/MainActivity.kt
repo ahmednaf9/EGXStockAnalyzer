@@ -1011,17 +1011,22 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = Navy, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 val closeNow = classicData.last().close
+                                val isInvalidated = (p.bias == "صاعد" && closeNow <= p.invalidation) ||
+                                    (p.bias == "هابط" && closeNow >= p.invalidation)
+                                val isTriggered = p.status.contains("تأكيد")
+                                val volumeQualified = currentVolumeRatio >= 1.2
                                 val readiness = when {
                                     p.bias == "محايد" -> "محايد — ينتظر تحديد الاتجاه"
-                                    p.status.contains("تأكيد") -> "مؤكد مبدئيًا — تحقق من حجم التداول"
+                                    isInvalidated -> "المستوى المرجعي للإبطال تم تجاوزه — راجع النموذج"
+                                    isTriggered && volumeQualified -> "تفعيل مبدئي مع حجم تداول داعم"
+                                    isTriggered -> "تفعيل مبدئي — الحجم أقل من معيار الدعم"
                                     distancePct <= 2.0 -> "قريب من مستوى التفعيل"
                                     else -> "قيد التكوين — لم يتأكد بعد"
                                 }
                                 val patternStage = when {
                                     p.bias == "محايد" -> "انتظار اختراق أحد الحدود"
-                                    p.status.contains("تأكيد") -> "تفعيل مبدئي"
-                                    p.bias == "صاعد" && closeNow <= p.invalidation -> "سيناريو صاعد مُبطَل مبدئيًا"
-                                    p.bias == "هابط" && closeNow >= p.invalidation -> "سيناريو هابط مُبطَل مبدئيًا"
+                                    isInvalidated -> if (p.bias == "صاعد") "سيناريو صاعد مُبطَل مبدئيًا" else "سيناريو هابط مُبطَل مبدئيًا"
+                                    isTriggered -> "تفعيل مبدئي"
                                     else -> "نموذج غير مكتمل"
                                 }
                                 Text("تصنيف المرحلة: $patternStage", color = when { patternStage.contains("مُبطَل") -> Red; patternStage.contains("تفعيل") -> Green; else -> Amber }, fontSize = 11.sp, fontWeight = FontWeight.Bold)
