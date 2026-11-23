@@ -270,8 +270,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
     var indexSearch by remember { mutableStateOf("") }
     var indexExpanded by remember { mutableStateOf(false) }
-    var metastockTree by remember { mutableStateOf(androidx.compose.ui.platform.LocalContext.current.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
     LaunchedEffect(metastockTree) {
         val savedTree = metastockTree
         if (savedTree != null && indexedSymbols.isEmpty()) {
