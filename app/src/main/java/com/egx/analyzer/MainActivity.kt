@@ -273,6 +273,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
     var indexSearch by remember { mutableStateOf("") }
     var indexExpanded by remember { mutableStateOf(false) }
+    var classicFilter by remember { mutableStateOf("الكل") }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
@@ -960,14 +961,31 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 SectionTitle("النماذج الكلاسيكية")
                 val classicPatterns = ClassicPatternScanner.scan(aggregateCandles(candles, period))
                     .sortedByDescending { it.confidence }
+                val filteredClassicPatterns = classicPatterns.filter { p ->
+                    when (classicFilter) {
+                        "قوي" -> p.confidence >= 70
+                        "متوسط" -> p.confidence in 50..69
+                        "ضعيف" -> p.confidence < 50
+                        else -> true
+                    }
+                }
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Text("فحص آلي مرشح للنماذج الكلاسيكية، مع مستهدف الحركة في حال تأكيد الاختراق أو فشل السيناريو.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(8.dp))
-                        if (classicPatterns.isEmpty()) {
-                            Text("لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            listOf("الكل", "قوي", "متوسط", "ضعيف").forEach { option ->
+                                FilterChip(selected = classicFilter == option, onClick = { classicFilter = option },
+                                    label = { Text(option, fontSize = 11.sp) })
+                            }
+                        }
+                        Spacer(Modifier.height(5.dp))
+                        Text("قوي: 70% فأكثر • متوسط: 50–69% • ضعيف: أقل من 50% — تصنيف تقديري.", color = Muted, fontSize = 10.sp)
+                        Spacer(Modifier.height(8.dp))
+                        if (filteredClassicPatterns.isEmpty()) {
+                            Text(if (classicPatterns.isEmpty()) "لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                         } else {
-                            classicPatterns.forEachIndexed { i, p ->
+                            filteredClassicPatterns.forEachIndexed { i, p ->
                                 if (i > 0) { Spacer(Modifier.height(8.dp)); Divider(color = Page); Spacer(Modifier.height(8.dp)) }
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
