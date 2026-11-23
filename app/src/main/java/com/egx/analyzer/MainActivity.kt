@@ -971,6 +971,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("درجة جودة المرشح (تقديرية): ${p.confidence}%", color = if (p.confidence >= 70) Green else if (p.confidence >= 50) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Spacer(Modifier.height(3.dp))
                                 Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                                 Spacer(Modifier.height(4.dp))
