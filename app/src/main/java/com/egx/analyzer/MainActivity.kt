@@ -279,12 +279,16 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     LaunchedEffect(metastockTree) {
         val savedTree = metastockTree
         if (savedTree != null && indexedSymbols.isEmpty()) {
-            try {
-                val loaded = MetaStockImporter.importFolder(context.contentResolver, Uri.parse(savedTree), "")
-                indexedSymbols = loaded.indexedSymbols
-                message = loaded.note
-            } catch (e: Exception) {
-                message = "تعذر إعادة قراءة فهرس MetaStock المحفوظ: ${e.message ?: "خطأ"}"
+            scope.launch {
+                try {
+                    val loaded = withContext(Dispatchers.IO) {
+                        MetaStockImporter.importFolder(context.contentResolver, Uri.parse(savedTree), "")
+                    }
+                    indexedSymbols = loaded.indexedSymbols
+                    message = loaded.note
+                } catch (e: Exception) {
+                    message = "تعذر إعادة قراءة فهرس MetaStock المحفوظ: ${e.message ?: "خطأ"}"
+                }
             }
         }
     }
@@ -294,17 +298,32 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 context.contentResolver.takePersistableUriPermission(tree, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().putString("treeUri", tree.toString()).apply()
                 metastockTree = tree.toString()
-                val loaded = MetaStockImporter.importFolder(context.contentResolver, tree, symbol)
-                indexedSymbols = loaded.indexedSymbols
                 indexSearch = ""
-                message = loaded.note
-                if (loaded.candles.isNotEmpty()) {
-                    candles = loaded.candles
-                    symbol = loaded.symbol
-                    period = detectDataPeriod(candles)
-                    val grouped = aggregateCandles(candles, period)
-                    result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-                    if (grouped.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."
+                message = "جارٍ قراءة فهرس MetaStock..."
+                scope.launch {
+                    try {
+                        val loaded = withContext(Dispatchers.IO) {
+                            MetaStockImporter.importFolder(context.contentResolver, tree, symbol)
+                        }
+                        indexedSymbols = loaded.indexedSymbols
+                        message = loaded.note
+                        if (loaded.candles.isNotEmpty()) {
+                            val prepared = withContext(Dispatchers.Default) {
+                                val detected = detectDataPeriod(loaded.candles)
+                                val grouped = aggregateCandles(loaded.candles, detected)
+                                Triple(detected, grouped, if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null)
+                            }
+                            candles = loaded.candles
+                            symbol = loaded.symbol
+                            period = prepared.first
+                            result = prepared.third
+                            if (prepared.second.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."
+                        }
+                    } catch (e: Exception) {
+                        message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
+                        result = null
+                        candles = emptyList()
+                    }
                 }
             } catch (e: Exception) {
                 message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
