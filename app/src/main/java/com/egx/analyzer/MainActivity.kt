@@ -958,7 +958,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج الكلاسيكية")
-                val classicPatterns = ClassicPatternScanner.scan(aggregateCandles(candles, period))\n                    .sortedByDescending { it.confidence }
+                val classicPatterns = ClassicPatternScanner.scan(aggregateCandles(candles, period))
+                    .sortedByDescending { it.confidence }
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Text("فحص آلي مرشح للنماذج الكلاسيكية، مع مستهدف الحركة في حال تأكيد الاختراق أو فشل السيناريو.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
