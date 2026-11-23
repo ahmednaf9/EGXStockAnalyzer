@@ -978,6 +978,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("المستهدف عند نجاح النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("المستهدف الافتراضي عند فشل/انعكاس السيناريو: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("مستهدف الاتجاه المقابل/منطقة إبطال مرجعية: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                                ClassicPatternChart(aggregateCandles(candles, period).takeLast(55), p)
                             }
                         }
                         Spacer(Modifier.height(7.dp))
@@ -1231,6 +1232,41 @@ private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> 
 }
 
 @Composable
+
+@Composable
+private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResult) {
+    if (data.size < 3) return
+    val levels = listOf("تفعيل" to pattern.trigger, "هدف" to pattern.targetSuccess, "مقابل" to pattern.targetFailure)
+    val prices = data.flatMap { listOf(it.high, it.low) } + levels.map { it.second }
+    val minPrice = prices.minOrNull() ?: return; val maxPrice = prices.maxOrNull() ?: return
+    val pad = ((maxPrice-minPrice)*.08).coerceAtLeast(maxPrice*.002)
+    val low=(minPrice-pad).coerceAtLeast(0.000001); val high=maxPrice+pad; val range=(high-low).coerceAtLeast(0.000001)
+    Card(colors=CardDefaults.cardColors(containerColor=Color(0xFFFBFDFC)), shape=RoundedCornerShape(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(8.dp)) {
+            Text("رسم النموذج على حركة السهم (آخر ${data.size} شمعة)", color=Navy, fontSize=11.sp, fontWeight=FontWeight.Bold)
+            Canvas(Modifier.fillMaxWidth().height(185.dp)) {
+                val left=5f; val right=size.width-5f; val top=10f; val bottom=size.height-8f
+                val plotH=bottom-top; val dx=(right-left)/data.size; val bw=(dx*.55f).coerceAtLeast(2f)
+                fun y(v:Double)=bottom-((v-low)/range).toFloat()*plotH
+                data.forEachIndexed { i, candle ->
+                    val x=left+(i+.5f)*dx; val color=if(candle.close>=candle.open) Green else Red
+                    drawLine(color,Offset(x,y(candle.high)),Offset(x,y(candle.low)),strokeWidth=1.4f)
+                    drawRect(color,Offset(x-bw/2,minOf(y(candle.open),y(candle.close))),androidx.compose.ui.geometry.Size(bw,(abs(y(candle.open)-y(candle.close))).coerceAtLeast(2f)))
+                }
+                levels.forEach { (label,price) ->
+                    val yy=y(price); val color=when(label){"تفعيل"->Color(0xFF315E9B);"هدف"->Green;else->Red}
+                    var x=left; while(x<right){drawLine(color,Offset(x,yy),Offset((x+6f).coerceAtMost(right),yy),strokeWidth=1.3f);x+=10f}
+                }
+            }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                Text("تفعيل ${money(pattern.trigger)}",color=Color(0xFF315E9B),fontSize=9.sp)
+                Text("هدف ${money(pattern.targetSuccess)}",color=Green,fontSize=9.sp)
+                Text("سيناريو مقابل ${money(pattern.targetFailure)}",color=Red,fontSize=9.sp)
+            }
+        }
+    }
+}
+
 private fun PatternPriceChart(data: List<Candle>, pattern: CandlestickPattern) {
     if (data.isEmpty()) return
     val levels = buildList {
