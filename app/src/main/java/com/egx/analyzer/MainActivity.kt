@@ -998,7 +998,10 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         if (filteredClassicPatterns.isEmpty()) {
                             Text(if (classicPatterns.isEmpty()) "لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                         } else {
-                            filteredClassicPatterns.forEachIndexed { i, item ->\n                                val p = item.first\n                                val distancePct = item.second\n                                val priority = item.third
+                            filteredClassicPatterns.forEachIndexed { i, item ->
+                                val p = item.first
+                                val distancePct = item.second
+                                val priority = item.third
                                 if (i > 0) { Spacer(Modifier.height(8.dp)); Divider(color = Page); Spacer(Modifier.height(8.dp)) }
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
