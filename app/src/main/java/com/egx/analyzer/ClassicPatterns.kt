@@ -382,7 +382,10 @@ object ClassicPatternScanner {
                     "أطوال موجية متقاربة بصورة تقريبية؛ تأكيد الاتجاه يتطلب اختراق/كسر النقطة D.")
             }
         }
-        return out.distinctBy{it.name}.take(36)
+        return out.distinctBy { it.name }.sortedWith(
+            compareByDescending<ClassicPatternResult> { it.confidence }
+                .thenByDescending { it.bias != "محايد" }
+        ).take(36)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
