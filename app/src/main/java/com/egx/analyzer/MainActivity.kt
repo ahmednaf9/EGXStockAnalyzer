@@ -1009,6 +1009,9 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
                                 Text("درجة التقييم المركبة (تقديرية): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Text("تجمع درجة النموذج الأساسية مع قرب السعر من التفعيل وحجم التداول؛ ليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                                val shownProximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
+                                val shownVolumeBonus = when { currentVolumeRatio >= 1.5 -> 8.0; currentVolumeRatio >= 1.2 -> 5.0; currentVolumeRatio >= 1.0 -> 2.0; else -> 0.0 }
+                                Text("تفصيل الإضافة: قرب التفعيل +${String.format(Locale.US, \"%.1f\", shownProximityBonus)} نقطة • الحجم +${String.format(Locale.US, \"%.1f\", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val priorityLabel = when {
