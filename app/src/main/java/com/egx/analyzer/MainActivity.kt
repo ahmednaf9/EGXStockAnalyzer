@@ -1254,7 +1254,7 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
                 val to=((s+1)*data.size/parts).coerceAtLeast(from+1).coerceAtMost(data.size)
                 if (from>=to) continue
                 val slice=data.subList(from,to)
-                val hi=highFirst || s%2==1
+                val hi=if(highFirst) s%2==0 else s%2==1
                 val local=if(hi) slice.indices.maxByOrNull{slice[it].high} else slice.indices.minByOrNull{slice[it].low}
                 if(local!=null) result += (from+local) to (if(hi) slice[local].high else slice[local].low)
             }
