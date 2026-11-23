@@ -271,6 +271,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var indexSearch by remember { mutableStateOf("") }
     var indexExpanded by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
     var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
     LaunchedEffect(metastockTree) {
         val savedTree = metastockTree
