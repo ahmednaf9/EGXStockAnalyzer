@@ -495,6 +495,16 @@ object ClassicPatternScanner {
         }
         val distanceReason = "المسافة من مستوى التفعيل ${String.format(java.util.Locale.US, "%.2f", distancePct)}%، خصم المسافة ${distancePenalty} نقطة، وخصم الامتداد ${extensionPenalty} نقطة"
         val details = "$baseReason؛ $distanceReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
-        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,targetFailure,explanation,confidence,details)
+        // Keep invalidation separate from the opposite measured-move projection.
+        // Use a directionally valid reference and limit extreme projection distances
+        // so the invalidation marker remains a nearby reference, not a remote target.
+        val invalidation = when (bias) {
+            "صاعد" -> if (targetFailure > 0.0 && targetFailure < trigger)
+                maxOf(targetFailure, trigger * 0.85) else trigger * 0.92
+            "هابط" -> if (targetFailure > trigger)
+                minOf(targetFailure, trigger * 1.15) else trigger * 1.08
+            else -> targetFailure
+        }
+        return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,invalidation,explanation,confidence,details)
     }
 }
