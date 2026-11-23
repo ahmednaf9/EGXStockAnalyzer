@@ -19,7 +19,13 @@ data class ClassicPatternResult(
  */
 object ClassicPatternScanner {
     fun scan(input: List<Candle>): List<ClassicPatternResult> {
-        val data = input.filter { it.isValidForAnalysis() }.takeLast(180)
+        val data = input.filter {
+            it.date.isNotBlank() && it.open.isFinite() && it.high.isFinite() &&
+                it.low.isFinite() && it.close.isFinite() && it.volume.isFinite() &&
+                it.open > 0.0 && it.high > 0.0 && it.low > 0.0 && it.close > 0.0 &&
+                it.volume >= 0.0 && it.high >= maxOf(it.open, it.close, it.low) &&
+                it.low <= minOf(it.open, it.close)
+        }.takeLast(180)
         if (data.size < 40) return emptyList()
         val pivots = mutableListOf<Pair<Int, Boolean>>() // index, high?
         for (i in 2 until data.size - 2) {
