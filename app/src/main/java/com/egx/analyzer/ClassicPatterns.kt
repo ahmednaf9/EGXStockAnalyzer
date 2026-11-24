@@ -247,20 +247,34 @@ object ClassicPatternScanner {
                     "حركة عرضية بين دعم ومقاومة؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
             }
         }
-        // Flag-like pause after a strong directional impulse followed by a compact pullback.
+        // Flags: require a strong directional pole and a compact, counter-trend or sideways pause.
         if (data.size >= 35) {
-            val pole=data.takeLast(35).take(25); val pause=data.takeLast(10)
-            val poleLow=pole.minOf{it.low}; val poleHigh=pole.maxOf{it.high}; val poleMove=poleHigh-poleLow
-            val poleNetMove=pole.last().close-pole.first().close
-            val pauseRange=pause.maxOf{it.high}-pause.minOf{it.low}
-            if (poleNetMove>0 && poleMove/poleLow > .12 && pauseRange/poleMove < .55 && pause.last().close >= pause.first().close*.94) {
-                val trigger=pause.maxOf{it.high}
-                out += candidate("العلم الصاعد","صاعد",trigger,trigger+poleMove,pause.minOf{it.low}-poleMove,last,
-                    "اندفاع صاعد فعلي مع تماسك قصير؛ اختراق أعلى التماسك يفعّل هدف طول السارية.")
-            } else if (poleNetMove<0 && poleMove/poleHigh > .12 && pauseRange/poleMove < .55 && pause.last().close <= pause.first().close*1.06) {
-                val trigger=pause.minOf{it.low}
-                out += candidate("العلم الهابط","هابط",trigger,trigger-poleMove,pause.maxOf{it.high}+poleMove,last,
-                    "اندفاع هابط فعلي مع تماسك قصير؛ كسر أدنى التماسك يفعّل هدف طول السارية.")
+            val window = data.takeLast(35)
+            val pole = window.take(25)
+            val pause = window.takeLast(10)
+            val poleStart = pole.first().close
+            val poleEnd = pole.last().close
+            val poleMove = abs(poleEnd - poleStart)
+            val poleRange = pole.maxOf { it.high } - pole.minOf { it.low }
+            val pauseHigh = pause.maxOf { it.high }
+            val pauseLow = pause.minOf { it.low }
+            val pauseRange = pauseHigh - pauseLow
+            val pauseFirstMid = (pause.take(5).maxOf { it.high } + pause.take(5).minOf { it.low }) / 2.0
+            val pauseLastMid = (pause.takeLast(5).maxOf { it.high } + pause.takeLast(5).minOf { it.low }) / 2.0
+            val pauseSlope = pauseLastMid - pauseFirstMid
+            val poleStrong = poleStart > 0.0 && poleMove / poleStart >= 0.08 &&
+                poleRange > 0.0 && poleMove / poleRange >= 0.55
+            val compactPause = poleRange > 0.0 && pauseRange / poleRange <= 0.55
+            if (poleStrong && compactPause && poleEnd > poleStart &&
+                pauseSlope <= pauseRange * 0.35 && pause.last().close > poleStart) {
+                val trigger = pauseHigh
+                out += candidate("العلم الصاعد", "صاعد", trigger, trigger + poleMove, pauseLow, last,
+                    "سارية صاعدة قوية يتبعها تماسك ضيق مائل عرضيًا أو هابطًا؛ الاختراق أعلى التماسك يفعّل هدفًا يساوي طول السارية.")
+            } else if (poleStrong && compactPause && poleEnd < poleStart &&
+                pauseSlope >= -pauseRange * 0.35 && pause.last().close < poleStart) {
+                val trigger = pauseLow
+                out += candidate("العلم الهابط", "هابط", trigger, trigger - poleMove, pauseHigh, last,
+                    "سارية هابطة قوية يتبعها تماسك ضيق مائل عرضيًا أو صاعدًا؛ الكسر أسفل التماسك يفعّل هدفًا يساوي طول السارية.")
             }
         }
         // Additional formations: channel, broadening, pennant and rounded bases.
@@ -292,18 +306,34 @@ object ClassicPatternScanner {
             }
         }
         if (data.size >= 35) {
-            val window=data.takeLast(35); val pole=window.take(22); val pause=window.takeLast(13)
-            val poleRise=pole.last().close-pole.first().close
-            val pauseHigh=pause.maxOf{it.high}; val pauseLow=pause.minOf{it.low}
-            val pauseWidth=pauseHigh-pauseLow
-            val pHigh1=pause.take(6).maxOf{it.high}; val pHigh2=pause.takeLast(6).maxOf{it.high}
-            val pLow1=pause.take(6).minOf{it.low}; val pLow2=pause.takeLast(6).minOf{it.low}
-            if (poleRise>last*.08 && pauseWidth<poleRise*.55 && pHigh2<pHigh1 && pLow2>pLow1) {
-                out += candidate("الراية الصاعدة (Pennant)","صاعد",pauseHigh,pauseHigh+poleRise,pauseLow,last,
-                    "سارية صاعدة قوية يتبعها تضييق تقريبي؛ تأكيد محتمل باختراق قمة الراية.")
-            } else if (poleRise < -last*.08 && pauseWidth<abs(poleRise)*.55 && pHigh2<pHigh1 && pLow2>pLow1) {
-                out += candidate("الراية الهابطة (Pennant)","هابط",pauseLow,pauseLow-abs(poleRise),pauseHigh,last,
-                    "سارية هابطة قوية يتبعها تضييق تقريبي؛ تأكيد محتمل بكسر قاع الراية.")
+            val window = data.takeLast(35)
+            val pole = window.take(22)
+            val pause = window.takeLast(13)
+            val poleStart = pole.first().close
+            val poleEnd = pole.last().close
+            val poleMove = abs(poleEnd - poleStart)
+            val pauseHigh = pause.maxOf { it.high }
+            val pauseLow = pause.minOf { it.low }
+            val pauseWidth = pauseHigh - pauseLow
+            val firstHigh = pause.take(6).maxOf { it.high }
+            val lastHigh = pause.takeLast(6).maxOf { it.high }
+            val firstLow = pause.take(6).minOf { it.low }
+            val lastLow = pause.takeLast(6).minOf { it.low }
+            val upperConverges = lastHigh < firstHigh - pauseWidth * 0.04
+            val lowerConverges = lastLow > firstLow + pauseWidth * 0.04
+            val poleStrong = poleStart > 0.0 && poleMove / poleStart >= 0.08
+            val pennantCompact = poleMove > 0.0 && pauseWidth / poleMove <= 0.55
+            val pennantShape = upperConverges && lowerConverges
+            if (poleStrong && pennantCompact && pennantShape && poleEnd > poleStart &&
+                pause.last().close > poleStart) {
+                out += candidate("الراية الصاعدة (Pennant)", "صاعد", pauseHigh,
+                    pauseHigh + poleMove, pauseLow, last,
+                    "سارية صاعدة قوية يعقبها تقارب واضح للحدين العلوي والسفلي؛ الاختراق أعلى الراية يفعّل هدف طول السارية.")
+            } else if (poleStrong && pennantCompact && pennantShape && poleEnd < poleStart &&
+                pause.last().close < poleStart) {
+                out += candidate("الراية الهابطة (Pennant)", "هابط", pauseLow,
+                    pauseLow - poleMove, pauseHigh, last,
+                    "سارية هابطة قوية يعقبها تقارب واضح للحدين العلوي والسفلي؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
             }
         }
         if (data.size >= 60) {
