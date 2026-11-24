@@ -731,7 +731,7 @@ object ClassicPatternScanner {
                 }
             }
         }
-        // Three Drives: validate both the three impulse extremes and the intervening reaction pivots.
+        // Three Drives: require progressive geometry, balanced reaction legs and comparable timing.
         if (alternating.size >= 6) {
             val q = alternating.takeLast(6)
             val vals = q.map { if (it.second) data[it.first].high else data[it.first].low }
@@ -740,22 +740,37 @@ object ClassicPatternScanner {
             val drive3 = abs(vals[5] - vals[4])
             val isTop = q.map { it.second } == listOf(false, true, false, true, false, true)
             val isBottom = q.map { it.second } == listOf(true, false, true, false, true, false)
-            val similarDrives = minOf(drive1, drive2, drive3) > last * .025 &&
-                maxOf(drive1, drive2, drive3) / minOf(drive1, drive2, drive3) < 2.2
+            val driveMin = minOf(drive1, drive2, drive3)
+            val driveMax = maxOf(drive1, drive2, drive3)
+            val similarDrives = driveMin > last * 0.025 && driveMax / driveMin < 1.85
+            val leg1Bars = q[1].first - q[0].first
+            val leg2Bars = q[3].first - q[2].first
+            val leg3Bars = q[5].first - q[4].first
+            val reaction1Bars = q[2].first - q[1].first
+            val reaction2Bars = q[4].first - q[3].first
+            val timingValues = listOf(leg1Bars, leg2Bars, leg3Bars, reaction1Bars, reaction2Bars)
+            val timingValid = timingValues.all { it in 2..18 } &&
+                maxOf(leg1Bars, leg2Bars, leg3Bars).toDouble() /
+                minOf(leg1Bars, leg2Bars, leg3Bars).coerceAtLeast(1) < 2.5 &&
+                abs(reaction1Bars - reaction2Bars) <= maxOf(reaction1Bars, reaction2Bars) * 0.8
             val validTop = isTop && vals[3] > vals[1] && vals[5] > vals[3] &&
                 vals[2] > vals[0] && vals[4] > vals[2]
             val validBottom = isBottom && vals[1] < vals[3] && vals[3] < vals[5] &&
                 vals[2] < vals[0] && vals[4] < vals[2]
-            if (similarDrives && validTop) {
+            val topExhaustion = drive3 <= drive1 * 1.35 && drive3 >= drive1 * 0.55
+            val bottomExhaustion = drive3 <= drive1 * 1.35 && drive3 >= drive1 * 0.55
+            if (similarDrives && timingValid && validTop && topExhaustion) {
                 val trigger = vals[4]
-                out += candidate("Three Drives — قمة", "هابط", trigger, trigger - drive3,
-                    vals[5] + drive3 * .25, last,
-                    "ثلاث دفعات صاعدة مع قيعان ارتداد أعلى؛ كسر قاع الارتداد الأخير يؤكد النموذج بصورة أولية.")
-            } else if (similarDrives && validBottom) {
+                val target = trigger - drive3
+                out += candidate("Three Drives — قمة", "هابط", trigger, target,
+                    vals[5] + drive3 * 0.25, last,
+                    "ثلاث دفعات صاعدة متدرجة تفصلها ارتدادات أعلى، مع تقارب أطوال الدفعات وتوقيتها؛ كسر قاع الارتداد الأخير يؤكد النموذج.")
+            } else if (similarDrives && timingValid && validBottom && bottomExhaustion) {
                 val trigger = vals[3]
-                out += candidate("Three Drives — قاع", "صاعد", trigger, trigger + drive3,
-                    vals[4] - drive3 * .25, last,
-                    "ثلاث دفعات هابطة مع قمم ارتداد أدنى؛ اختراق قمة الارتداد الأخيرة يؤكد النموذج بصورة أولية.")
+                val target = trigger + drive3
+                out += candidate("Three Drives — قاع", "صاعد", trigger, target,
+                    vals[4] - drive3 * 0.25, last,
+                    "ثلاث دفعات هابطة متدرجة تفصلها ارتدادات أدنى، مع تقارب أطوال الدفعات وتوقيتها؛ اختراق قمة الارتداد الأخيرة يؤكد النموذج.")
             }
         }
         // ABCD geometric approximation: similar AB and CD legs after alternating swing points.
