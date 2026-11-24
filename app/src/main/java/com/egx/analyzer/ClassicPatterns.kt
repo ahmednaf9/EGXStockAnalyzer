@@ -102,7 +102,10 @@ object ClassicPatternScanner {
             val neck = (firstNeck + secondNeck) / 2.0
             val height = head - neck
             val shouldersSimilar = abs(leftShoulder - rightShoulder) / maxOf(leftShoulder, rightShoulder) < 0.08
-            if (head > leftShoulder && head > rightShoulder && shouldersSimilar && height > 0.0) {
+            val necklineBalanced = abs(firstNeck - secondNeck) / maxOf(firstNeck, secondNeck) < 0.07
+            val headDominant = head > maxOf(leftShoulder, rightShoulder) * 1.025
+            val swingSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
+            if (headDominant && shouldersSimilar && necklineBalanced && swingSpacingValid && height > 0.0) {
                 out += candidate("الرأس والكتفين", "هابط", neck, neck - height, neck + height, last,
                     "قمم مرتبة زمنيًا: كتف أيسر ثم رأس أعلى ثم كتف أيمن متقارب؛ التأكيد بكسر خط الرقبة.")
             }
@@ -116,7 +119,10 @@ object ClassicPatternScanner {
             val neck = (firstNeck + secondNeck) / 2.0
             val height = neck - head
             val shouldersSimilar = abs(leftShoulder - rightShoulder) / maxOf(leftShoulder, rightShoulder) < 0.08
-            if (head < leftShoulder && head < rightShoulder && shouldersSimilar && height > 0.0) {
+            val necklineBalanced = abs(firstNeck - secondNeck) / maxOf(firstNeck, secondNeck) < 0.07
+            val headDominant = head < minOf(leftShoulder, rightShoulder) * 0.975
+            val swingSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
+            if (headDominant && shouldersSimilar && necklineBalanced && swingSpacingValid && height > 0.0) {
                 out += candidate("الرأس والكتفين المقلوب", "صاعد", neck, neck + height, neck - height, last,
                     "قيعان مرتبة زمنيًا: كتف أيسر ثم رأس أدنى ثم كتف أيمن متقارب؛ التأكيد باختراق خط الرقبة.")
             }
@@ -132,7 +138,9 @@ object ClassicPatternScanner {
             val averageTop = (top1 + top2 + top3) / 3.0
             val valley = minOf(valley1, valley2)
             val height = averageTop - valley
-            if (height > 0.0 && (maxOf(top1, top2, top3) - minOf(top1, top2, top3)) / averageTop < 0.05) {
+            val topSpreadPct = (maxOf(top1, top2, top3) - minOf(top1, top2, top3)) / averageTop * 100.0
+            val topSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
+            if (height > 0.0 && topSpreadPct < 4.0 && topSpacingValid) {
                 out += candidate("القمة الثلاثية", "هابط", valley, valley - height, valley + height, last,
                     "ثلاث قمم متقاربة يفصل بينها قاعان؛ التأكيد بكسر منطقة الدعم بين القمم.")
             }
@@ -146,7 +154,9 @@ object ClassicPatternScanner {
             val averageBottom = (bottom1 + bottom2 + bottom3) / 3.0
             val peak = maxOf(peak1, peak2)
             val height = peak - averageBottom
-            if (height > 0.0 && (maxOf(bottom1, bottom2, bottom3) - minOf(bottom1, bottom2, bottom3)) / averageBottom < 0.05) {
+            val bottomSpreadPct = (maxOf(bottom1, bottom2, bottom3) - minOf(bottom1, bottom2, bottom3)) / averageBottom * 100.0
+            val bottomSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
+            if (height > 0.0 && bottomSpreadPct < 4.0 && bottomSpacingValid) {
                 out += candidate("القاع الثلاثي", "صاعد", peak, peak + height, peak - height, last,
                     "ثلاثة قيعان متقاربة تفصل بينها قمتان؛ التأكيد باختراق منطقة المقاومة بين القيعان.")
             }
