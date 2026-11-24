@@ -253,28 +253,45 @@ object ClassicPatternScanner {
             val higherLows = secondLow > firstLow + range * 0.04
             val lowerHighs = secondHigh < firstHigh - range * 0.04
             val rangePivots = alternating.filter { it.first >= data.size - 30 }
-            val ceilingTouches = rangePivots.filter {
-                it.second && data[it.first].high >= ceiling * 0.985
+            val pivotHighs = rangePivots.filter { it.second }
+            val pivotLows = rangePivots.filter { !it.second }
+            val ceilingTouches = pivotHighs.filter {
+                data[it.first].high >= ceiling * 0.985
             }.map { it.first }
-            val floorTouches = rangePivots.filter {
-                !it.second && data[it.first].low <= floor * 1.015
+            val floorTouches = pivotLows.filter {
+                data[it.first].low <= floor * 1.015
             }.map { it.first }
             val repeatedCeilingTests = ceilingTouches.size >= 2 &&
                 ceilingTouches.zipWithNext().any { (a, b) -> b - a >= 4 }
             val repeatedFloorTests = floorTouches.size >= 2 &&
                 floorTouches.zipWithNext().any { (a, b) -> b - a >= 4 }
             val enoughSwings = repeatedCeilingTests && repeatedFloorTests
-            if (upperFlat && higherLows && enoughSwings) {
+            val pivotSlopesAvailable = pivotHighs.size >= 2 && pivotLows.size >= 2 &&
+                pivotHighs.last().first > pivotHighs.first().first &&
+                pivotLows.last().first > pivotLows.first().first
+            val upperPivotSlope = if (pivotSlopesAvailable) {
+                (data[pivotHighs.last().first].high - data[pivotHighs.first().first].high) /
+                    (pivotHighs.last().first - pivotHighs.first().first).toDouble()
+            } else 0.0
+            val lowerPivotSlope = if (pivotSlopesAvailable) {
+                (data[pivotLows.last().first].low - data[pivotLows.first().first].low) /
+                    (pivotLows.last().first - pivotLows.first().first).toDouble()
+            } else 0.0
+            val upperPivotFlat = pivotSlopesAvailable && abs(upperPivotSlope) * 15.0 < range * 0.08
+            val lowerPivotFlat = pivotSlopesAvailable && abs(lowerPivotSlope) * 15.0 < range * 0.08
+            val ascendingLowerBoundary = pivotSlopesAvailable && lowerPivotSlope * 15.0 > range * 0.08
+            val descendingUpperBoundary = pivotSlopesAvailable && upperPivotSlope * 15.0 < -range * 0.08
+            if (upperPivotFlat && ascendingLowerBoundary && enoughSwings) {
                 out += candidate("المثلث الصاعد", "صاعد", ceiling, ceiling + range, floor - range, last,
                     "مقاومة شبه أفقية اختُبرت بقمم محورية منفصلة، مع قيعان صاعدة متتابعة؛ الاختراق والإغلاق فوق المقاومة يؤكد النموذج.")
-            } else if (lowerFlat && lowerHighs && enoughSwings) {
+            } else if (lowerPivotFlat && descendingUpperBoundary && enoughSwings) {
                 out += candidate("المثلث الهابط", "هابط", floor, floor - range, ceiling + range, last,
                     "دعم شبه أفقي اختُبر بقمم محورية منفصلة، مع قمم هابطة متتابعة؛ الكسر والإغلاق أسفل الدعم يؤكد النموذج.")
-            } else if (contracting) {
+            } else if (pivotSlopesAvailable && upperPivotSlope < 0.0 && lowerPivotSlope > 0.0 && contracting) {
                 out += candidate("المثلث المتماثل", "محايد", (ceiling + floor) / 2.0,
                     ceiling + range, floor - range, last,
                     "الحد العلوي يهبط والسفلي يصعد مع تقلص النطاق؛ اتجاه النموذج لا يتحدد إلا بالاختراق.")
-            } else if (upperFlat && lowerFlat && enoughSwings) {
+            } else if (upperPivotFlat && lowerPivotFlat && enoughSwings) {
                 out += candidate("المستطيل (النطاق)", "محايد", ceiling, ceiling + range, floor - range, last,
                     "حد علوي وحد سفلي شبه أفقيين، مع اختبارين محوريين منفصلين لكل حد على الأقل؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
             }
