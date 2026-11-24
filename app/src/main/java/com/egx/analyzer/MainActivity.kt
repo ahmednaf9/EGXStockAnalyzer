@@ -777,6 +777,40 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
 
 
                 Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(9.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("التقييم الفني العام (من 100) — مجموع نقاط عدة عوامل فنية", color = Muted, fontSize = 12.sp)
+                                Text("${a.score} / 100", color = scoreColor(a.scoreLabel), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                            Text(a.scoreLabel, color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold)
+                        }
+                        LinearProgressIndicator(
+                            progress = { a.score / 100f },
+                            modifier = Modifier.fillMaxWidth().height(8.dp),
+                            color = scoreColor(a.scoreLabel),
+                            trackColor = Page
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        Text(
+                            if (a.sessions < 50) "عدد الجلسات: ${a.sessions}. أقل من 50 جلسة؛ لذلك لا يتوفر SMA 50 (متوسط آخر 50 جلسة)، ويظل التقييم الفني مبدئيًا." else "عدد الجلسات: ${a.sessions} جلسة${if (a.volumeAvailable) " • بيانات حجم التداول متاحة" else " • بيانات حجم التداول غير مكتملة؛ لذلك لا يمكن الاعتماد عليها لتأكيد الإشارات"}",
+                            color = Amber, fontSize = 11.sp, lineHeight = 16.sp
+                        )
+                        Spacer(Modifier.height(6.dp))
+                        Text(a.scoreInterpretation, color = scoreColor(a.scoreLabel), fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
+                        Spacer(Modifier.height(7.dp))
+                        a.scoreParts.forEach { part ->
+                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                                Text(part.name, Modifier.weight(1f), color = Navy, fontSize = 11.sp)
+                                Text("${part.points}/${part.maxPoints}", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
                 SectionTitle("ملخص حالة السهم")
                 val nearestSupport = a.supports.firstOrNull()
                 val nearestResistance = a.resistances.firstOrNull()
@@ -857,38 +891,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
 
                                 PriceTrendChart(aggregateCandles(candles, period))
 
-                Spacer(Modifier.height(9.dp))
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Column(Modifier.weight(1f)) {
-                                Text("التقييم الفني العام (من 100) — مجموع نقاط عدة عوامل فنية", color = Muted, fontSize = 12.sp)
-                                Text("${a.score} / 100", color = scoreColor(a.scoreLabel), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
-                            }
-                            Text(a.scoreLabel, color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold)
-                        }
-                        LinearProgressIndicator(
-                            progress = { a.score / 100f },
-                            modifier = Modifier.fillMaxWidth().height(8.dp),
-                            color = scoreColor(a.scoreLabel),
-                            trackColor = Page
-                        )
-                        Spacer(Modifier.height(9.dp))
-                        Text(
-                            if (a.sessions < 50) "عدد الجلسات: ${a.sessions}. أقل من 50 جلسة؛ لذلك لا يتوفر SMA 50 (متوسط آخر 50 جلسة)، ويظل التقييم الفني مبدئيًا." else "عدد الجلسات: ${a.sessions} جلسة${if (a.volumeAvailable) " • بيانات حجم التداول متاحة" else " • بيانات حجم التداول غير مكتملة؛ لذلك لا يمكن الاعتماد عليها لتأكيد الإشارات"}",
-                            color = Amber, fontSize = 11.sp, lineHeight = 16.sp
-                        )
-                        Spacer(Modifier.height(6.dp))
-                        Text(a.scoreInterpretation, color = scoreColor(a.scoreLabel), fontSize = 12.sp, lineHeight = 18.sp, fontWeight = FontWeight.Medium)
-                        Spacer(Modifier.height(7.dp))
-                        a.scoreParts.forEach { part ->
-                            Row(Modifier.fillMaxWidth().padding(vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
-                                Text(part.name, Modifier.weight(1f), color = Navy, fontSize = 11.sp)
-                                Text("${part.points}/${part.maxPoints}", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                            }
-                        }
-                    }
-                }
                 SectionTitle("ملخص التحليل الفني")
                 ResultCard(
                     "الحالة: ${a.scoreLabel}\n" +
