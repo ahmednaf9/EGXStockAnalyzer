@@ -691,14 +691,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     "أدوات تساعدك على فهم حركة السهم من خلال تحليل بيانات الأسعار التاريخية ومجموعة من المؤشرات الفنية.",
                     color = Muted, fontSize = 12.sp, lineHeight = 18.sp
                 )
-                Feature("ملخص وتحليل السهم", "ملخص لأهم الإشارات الفنية ونقاط القوة والضعف وتقييم عام لحالة السهم.")
-                Feature("الاتجاه والزخم", "يوضح اتجاه السعر صعودًا أو هبوطًا أو عرضيًا، ويقيس قوة الحركة باستخدام RSI وMACD والمتوسطات.")
-                Feature("الدعم والمقاومة", "يعرض مستويات سعرية قد يرتد منها السعر أو يواجه عندها ضغطًا، اعتمادًا على القمم والقيعان السابقة.")
-                Feature("النماذج الفنية", "يرصد نماذج شموع أساسية قد تشير إلى استمرار الاتجاه أو احتمال انعكاسه.")
-                Feature("إدارة المخاطر", "يعرض سيناريوهات سعرية ومستوى إبطال ووقفًا افتراضيًا ونسبة عائد إلى مخاطرة.")
-                Feature("السيولة", "يقارن حجم تداول آخر جلسة بمتوسط أحجام الجلسات السابقة لتقدير نشاط التداول.")
+                Feature("ملخص حالة السهم", "يعرض أهم الإشارات الإيجابية والسلبية، ويوضح الصورة العامة لحركة السهم.")
+                Feature("اتجاه السهم وقوة حركته", "يوضح هل السهم صاعد أم هابط أم يتحرك في نطاق، ويستخدم مؤشرات RSI وMACD والمتوسطات المتحركة لقياس قوة الحركة.")
+                Feature("مناطق الدعم والمقاومة", "يعرض أسعارًا قد يجد السهم عندها دعمًا يساعده على الارتداد، أو مقاومة يصعب عليه تجاوزها.")
+                Feature("النماذج الفنية", "يرصد أشكالًا تتكون على الرسم البياني، وقد تساعد في فهم احتمال استمرار الحركة أو انعكاسها.")
+                Feature("متابعة المخاطر", "يعرض مستويات سعرية افتراضية للمتابعة، والسعر الذي يفقد عنده السيناريو صلاحيته، مع مقارنة العائد المحتمل بالمخاطرة.")
+                Feature("حجم التداول والسيولة", "يقارن حجم تداول آخر جلسة بمتوسط الجلسات السابقة لمعرفة ما إذا كان النشاط أعلى أم أقل من المعتاد.")
                 Feature("الرسوم البيانية", "رسوم توضح حركة السعر والشموع اليابانية والمؤشرات لتسهيل متابعة الاتجاه.")
-                Feature("التقييم الفني المتعدد", "يجمع نتائج المؤشرات المختلفة في تقييم فني متكامل بدلًا من الاعتماد على مؤشر واحد.")
+                Feature("التقييم الفني الشامل", "يجمع إشارات عدة مؤشرات معًا حتى لا يعتمد التقييم على مؤشر واحد فقط.")
                 Spacer(Modifier.height(8.dp))
                 Text("الأعمدة المطلوبة: Date, Open, High, Low, Close, Volume", color = Muted, fontSize = 11.sp)
                 Spacer(Modifier.height(4.dp))
@@ -739,7 +739,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
 
                 Spacer(Modifier.height(14.dp))
-                SectionTitle("حالة السهم")
+                SectionTitle("ملخص حالة السهم")
                 val nearestSupport = a.supports.firstOrNull()
                 val nearestResistance = a.resistances.firstOrNull()
                 val secondResistance = a.resistances.getOrNull(1)
@@ -753,7 +753,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("قراءة التجميع والتصريف", color = Muted, fontSize = 11.sp)
+                        Text("هل تميل حركة السهم للشراء أم للبيع؟", color = Muted, fontSize = 11.sp)
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(
                                 a.marketState,
@@ -824,7 +824,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Column(Modifier.fillMaxWidth().padding(15.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("التقييم الفني التجميعي", color = Muted, fontSize = 12.sp)
+                                Text("التقييم الفني العام (من 100)", color = Muted, fontSize = 12.sp)
                                 Text("${a.score} / 100", color = scoreColor(a.scoreLabel), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                             }
                             Text(a.scoreLabel, color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold)
@@ -858,7 +858,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.fillMaxWidth().padding(15.dp)) {
-                        Text("التصنيف الفني للسهم", color = Muted, fontSize = 12.sp)
+                        Text("مستوى قوة الإشارات الفنية", color = Muted, fontSize = 12.sp)
                         val classificationColor = when (a.technicalClassification) {
                             "قوي جداً", "قوي", "إيجابي" -> Green
                             "ضعيف", "ضعيف جداً" -> Red
@@ -868,7 +868,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         Spacer(Modifier.height(4.dp))
                         Text(a.technicalClassificationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(9.dp))
-                        Text("التوصية التنفيذية", color = Muted, fontSize = 12.sp)
+                        Text("الخلاصة العملية للتحليل", color = Muted, fontSize = 12.sp)
                         val recommendationColor = when (a.executionRecommendation) {
                             "شراء", "شراء تدريجي" -> Green
                             "تجنب" -> Red
@@ -884,7 +884,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("الخلاصة الفنية")
+                SectionTitle("ملخص التحليل الفني")
                 ResultCard(
                     "الحالة: ${a.scoreLabel}\n" +
                     "الاتجاه الحالي: ${a.trend}\n" +
@@ -903,13 +903,13 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(8.dp))
                 Text("هذه قراءة تعليمية آلية للبيانات التاريخية وليست توصية شراء أو بيع أو ضمانًا للربح.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("الدعوم والمقاومات")
+                SectionTitle("مناطق الدعم والمقاومة")
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Metric("الدعوم الأقرب", a.supports.joinToString("\n") { money(it) }.ifBlank { "غير متاح" }, Modifier.weight(1f))
                     Metric("المقاومات الأقرب", a.resistances.joinToString("\n") { money(it) }.ifBlank { "غير متاح" }, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("المؤشرات الفنية")
+                SectionTitle("المؤشرات الفنية وما توضحه")
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
                     Metric("RSI 14", one(a.rsi), Modifier.weight(1f),
                         if (a.rsi < 45.0) Red else if (a.rsi >= 55.0) Green else Amber)
@@ -927,7 +927,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Metric("ATR 14", money(a.atr), Modifier.weight(1f), Muted)
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("السيولة وحركة السعر")
+                SectionTitle("حجم التداول وحركة السعر")
                 val liquidityText = when {
                     !a.volumeAvailable -> "بيانات التداول غير كافية"
                     a.volumeRatio >= 1.3 -> "التداول مرتفع"
@@ -980,10 +980,10 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 val egxReport = remember(egxReportCandles, a, egxClassicPatterns, egxDiagnostics) {
                     EgyptMarketAnalyzer.buildReport(egxReportCandles, a, egxClassicPatterns, egxDiagnostics)
                 }
-                SectionTitle("التقرير الاحترافي للسهم — EGX")
+                SectionTitle("التقرير التفصيلي للسهم — EGX")
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("الملخص التنفيذي", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Text("ملخص التحليل", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(5.dp))
                         Text(egxReport.summary, color = Navy, fontSize = 12.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(8.dp))
@@ -993,22 +993,22 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             Metric("توافق الإشارات", egxReport.alignment, Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text("توافق المؤشرات", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("مدى اتفاق المؤشرات الفنية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         egxReport.indicatorReasons.forEach { reason ->
                             Text("• " + reason, color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                         }
                         Spacer(Modifier.height(7.dp))
-                        Text("النماذج المكتشفة", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("النماذج السعرية التي رصدها البرنامج", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         Text(egxReport.patternSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
                         Spacer(Modifier.height(7.dp))
-                        Text("مستويات المتابعة الفنية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("مستوى التفعيل/المراقبة: " + egxReport.triggerText, color = Color(0xFF315E9B), fontSize = 11.sp)
-                        Text("الأهداف النظرية: " + egxReport.targetsText, color = Green, fontSize = 11.sp)
-                        Text("مستوى الإلغاء/الإبطال: " + money(a.invalidation), color = Red, fontSize = 11.sp)
+                        Text("مستويات الأسعار المهمة للمتابعة", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("سعر تأكيد الإشارة أو مستوى المتابعة: " + egxReport.triggerText, color = Color(0xFF315E9B), fontSize = 11.sp)
+                        Text("الأهداف السعرية المحتملة (حسابات نظرية): " + egxReport.targetsText, color = Green, fontSize = 11.sp)
+                        Text("مستوى إبطال السيناريو: " + money(a.invalidation), color = Red, fontSize = 11.sp)
                         Text("مناطق الدعم: " + egxReport.supportText, color = Muted, fontSize = 10.sp)
                         Text("مناطق المقاومة: " + egxReport.resistanceText, color = Muted, fontSize = 10.sp)
                         Spacer(Modifier.height(7.dp))
-                        Text("أسباب التقييم: " + egxReport.reasonSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
+                        Text("لماذا حصل السهم على هذا التقييم؟ " + egxReport.reasonSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -1047,7 +1047,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        Text("فحص آلي مرشح للنماذج الكلاسيكية، مع مستهدف الحركة في حال تأكيد الاختراق أو فشل السيناريو.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Text("يفحص البرنامج أشكالًا سعرية معروفة. وتظهر المستويات المحتملة إذا أكد السعر النموذج أو فشل في تأكيده؛ وهي مستويات تقديرية وليست نتائج مضمونة.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                             listOf("الكل", "قوي", "متوسط", "ضعيف").forEach { option ->
@@ -1056,7 +1056,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             }
                         }
                         Spacer(Modifier.height(5.dp))
-                        Text("قوي: 70% فأكثر • متوسط: 50–69% • ضعيف: أقل من 50% — تصنيف تقديري.", color = Muted, fontSize = 10.sp)
+                        Text("درجة الثقة الوصفية: مرتفعة من 70%، متوسطة من 50% إلى أقل من 70%، ومنخفضة أقل من 50%. هذه درجة تقديرية وليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp)
                         Spacer(Modifier.height(8.dp))
                         if (filteredClassicPatterns.isEmpty()) {
                             Text(if (classicPatterns.isEmpty()) "لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
@@ -1069,8 +1069,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("درجة التقييم المركبة (تقديرية): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("تجمع درجة النموذج الأساسية مع قرب السعر من التفعيل وحجم التداول؛ ليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                                Text("درجة أولوية متابعة النموذج (تقديرية): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("تجمع هذه الدرجة تقييم شكل النموذج مع قرب السعر من مستوى تأكيده وحجم التداول. وهي لترتيب أولوية المتابعة، وليست نسبة لاحتمال نجاح النموذج.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val shownProximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
                                 val shownVolumeBonus = when { currentVolumeRatio >= 1.5 -> 8.0; currentVolumeRatio >= 1.2 -> 5.0; currentVolumeRatio >= 1.0 -> 2.0; else -> 0.0 }
                                 Text("تفصيل الإضافة: قرب التفعيل +${String.format(Locale.US, "%.1f", shownProximityBonus)} نقطة • الحجم +${String.format(Locale.US, "%.1f", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
@@ -1111,14 +1111,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Text("تصنيف المرحلة: $patternStage", color = when { patternStage.contains("مُبطَل") -> Red; patternStage.contains("تفعيل") -> Green; else -> Amber }, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                 Text("جاهزية النموذج: $readiness", color = pc, fontSize = 10.sp)
                                 Text("حجم تداول آخر جلسة مقابل متوسط 20 جلسة: ${if (averageVolume > 0.0) String.format(Locale.US, "%.2f", currentVolumeRatio) + "×" else "غير متاح"}", color = if (currentVolumeRatio >= 1.2) Green else Muted, fontSize = 10.sp)
-                                Text("ترتيب مساعد يجمع الجودة والقرب من التفعيل والحجم، وليس احتمالًا إحصائيًا.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
+                                Text("ترتيب مساعد يوضح أي النماذج أولى بالمتابعة، بناءً على جودة الشكل وقرب السعر من التأكيد وحجم التداول؛ وليس احتمال نجاح إحصائيًا.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                                 Spacer(Modifier.height(4.dp))
-                                Text("مستوى التأكيد/التفعيل: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
-                                Text("المستهدف عند نجاح النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("المستهدف الافتراضي عند فشل/انعكاس السيناريو: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("مستهدف الاتجاه المقابل/منطقة إبطال مرجعية: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                                Text("سعر تأكيد النموذج: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
+                                Text("الهدف النظري إذا تأكد النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المستوى النظري في حالة فشل السيناريو أو انعكاسه: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("مستوى مرجعي لإبطال النموذج: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
                                 val successMovePct = if (closeNow > 0.0) (p.targetSuccess / closeNow - 1.0) * 100.0 else 0.0
                                 val failureMovePct = if (closeNow > 0.0) (p.targetFailure / closeNow - 1.0) * 100.0 else 0.0
                                 Text("المسافة السعرية للمستهدف الناجح من آخر إغلاق: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
@@ -1218,14 +1218,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                         Text("ماذا يعني هذا النموذج؟ ببساطة", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.height(6.dp))
-                                        Text("1. ماذا حدث؟  ${pattern.explanation}", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Text("1. كيف تكوّن النموذج؟  ${pattern.explanation}", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
                                         Spacer(Modifier.height(4.dp))
                                         val meaning = when (pattern.direction) {
                                             "إيجابي" -> "قد يشير إلى تحسن قوة المشترين ومحاولة السعر الارتداد لأعلى."
                                             "سلبي" -> "قد يشير إلى زيادة ضغط البائعين واحتمال تعرض السعر لهبوط."
                                             else -> "يعكس ترددًا بين المشترين والبائعين؛ والاتجاه لم يُحسم بعد."
                                         }
-                                        Text("2. ماذا يعني؟  $meaning", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Text("2. ماذا قد يعني ذلك؟  $meaning", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
                                         Spacer(Modifier.height(4.dp))
                                         val expectation = when {
                                             pattern.confirmation.startsWith("تأكدت") -> "الإشارة اجتازت شرط التأكيد المبدئي؛ راقب استمرار الحركة نحو المستهدفات."
@@ -1235,7 +1235,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                             pattern.direction == "سلبي" -> "ننتظر إغلاقًا أسفل قاع النموذج قبل اعتبار الهبوط مؤكدًا."
                                             else -> "ننتظر إغلاقًا خارج قمة أو قاع النموذج لتحديد الاتجاه."
                                         }
-                                        Text("3. ماذا نتوقع؟  $expectation", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Text("3. ما الحركة التي نتابعها؟  $expectation", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
                                         Spacer(Modifier.height(4.dp))
                                         val action = when {
                                             pattern.confirmation.startsWith("أُبطلت") -> "القرار: تجنب تنفيذ هذا السيناريو، وأعد تقييم السهم."
@@ -1243,7 +1243,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                             pattern.confirmation.startsWith("تحول إلى") -> "القرار: انتظر ثبات الاختراق ولا تتسرع قبل وضوح الحركة."
                                             else -> "القرار: انتظار التأكيد، وعدم الدخول اعتمادًا على شكل الشمعة وحده."
                                         }
-                                        Text("4. ماذا أفعل؟  $action", color = patternColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
+                                        Text("4. ما الذي يستحق المتابعة؟  $action", color = patternColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
                                     }
                                 }
                                 Spacer(Modifier.height(5.dp))
@@ -1256,7 +1256,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                SectionTitle("سيناريوهات سعرية افتراضية")
+                SectionTitle("سيناريوهات محتملة لحركة السعر")
                 ResultCard(
                     "قصير المدى: ${money(a.targets[0])}\n" +
                     "متوسط المدى: ${money(a.targets[1])}\n" +
@@ -1267,7 +1267,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(8.dp))
                 Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
             Spacer(Modifier.height(14.dp))
-            SectionTitle("التقييم الفني النهائي")
+            SectionTitle("التقييم الفني النهائي وأسبابه")
             Card(
                 colors = CardDefaults.cardColors(containerColor = Color.White),
                 shape = RoundedCornerShape(16.dp)
@@ -1275,7 +1275,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Column(Modifier.fillMaxWidth().padding(15.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("نتيجة توافق المؤشرات", color = Muted, fontSize = 11.sp)
+                            Text("مدى اتفاق المؤشرات الفنية", color = Muted, fontSize = 11.sp)
                             Text(
                                 a.finalRating,
                                 color = finalRatingColor(a.finalRating),
