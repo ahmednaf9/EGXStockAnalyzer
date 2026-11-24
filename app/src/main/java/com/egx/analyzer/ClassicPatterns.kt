@@ -1115,9 +1115,12 @@ object ClassicPatternScanner {
         fun candleRange(c: Candle) = (c.high - c.low).coerceAtLeast(0.0000001)
         fun upperShadow(c: Candle) = c.high - maxOf(c.open, c.close)
         fun lowerShadow(c: Candle) = minOf(c.open, c.close) - c.low
+        // Measure the preceding trend before the reversal candle(s), not including
+        // the current signal candle; otherwise the reversal itself can weaken its context.
         val trendReference = data.getOrNull((data.size - 11).coerceAtLeast(0))?.close ?: last
-        val priorTrendUp = last > trendReference * 1.025
-        val priorTrendDown = last < trendReference * 0.975
+        val priorTrendClose = data[data.lastIndex - 1].close
+        val priorTrendUp = priorTrendClose > trendReference * 1.025
+        val priorTrendDown = priorTrendClose < trendReference * 0.975
         val currentCandle = data.last()
         val currentBody = candleBody(currentCandle)
         val currentRange = candleRange(currentCandle)
