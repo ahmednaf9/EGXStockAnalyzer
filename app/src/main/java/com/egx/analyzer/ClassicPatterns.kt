@@ -328,34 +328,41 @@ object ClassicPatternScanner {
             }
         }
         if (data.size >= 35) {
+            val windowStart = data.size - 35
             val window = data.takeLast(35)
             val pole = window.take(22)
             val pause = window.takeLast(13)
+            val pauseStart = windowStart + 22
             val poleStart = pole.first().close
             val poleEnd = pole.last().close
             val poleMove = abs(poleEnd - poleStart)
             val pauseHigh = pause.maxOf { it.high }
             val pauseLow = pause.minOf { it.low }
             val pauseWidth = pauseHigh - pauseLow
-            val firstHigh = pause.take(6).maxOf { it.high }
-            val lastHigh = pause.takeLast(6).maxOf { it.high }
-            val firstLow = pause.take(6).minOf { it.low }
-            val lastLow = pause.takeLast(6).minOf { it.low }
-            val upperConverges = lastHigh < firstHigh - pauseWidth * 0.04
-            val lowerConverges = lastLow > firstLow + pauseWidth * 0.04
-            val poleStrong = poleStart > 0.0 && poleMove / poleStart >= 0.08
-            val pennantCompact = poleMove > 0.0 && pauseWidth / poleMove <= 0.55
-            val pennantShape = upperConverges && lowerConverges
+            val pauseHighPivots = alternating.filter { it.first >= pauseStart && it.second }
+            val pauseLowPivots = alternating.filter { it.first >= pauseStart && !it.second }
+            val upperConverges = pauseHighPivots.size >= 2 &&
+                data[pauseHighPivots.last().first].high < data[pauseHighPivots.first().first].high
+            val lowerConverges = pauseLowPivots.size >= 2 &&
+                data[pauseLowPivots.last().first].low > data[pauseLowPivots.first().first].low
+            val pivotSpacingValid = pauseHighPivots.size >= 2 && pauseLowPivots.size >= 2 &&
+                pauseHighPivots.last().first - pauseHighPivots.first().first >= 3 &&
+                pauseLowPivots.last().first - pauseLowPivots.first().first >= 3
+            val poleStrong = poleStart > 0.0 && poleMove / poleStart >= 0.08 &&
+                poleMove / (pole.maxOf { it.high } - pole.minOf { it.low }).coerceAtLeast(poleStart * 0.001) >= 0.50
+            val pennantCompact = poleMove > 0.0 && pauseWidth / poleMove in 0.08..0.55
+            val pennantShape = upperConverges && lowerConverges && pivotSpacingValid &&
+                pauseWidth > 0.0
             if (poleStrong && pennantCompact && pennantShape && poleEnd > poleStart &&
                 pause.last().close > poleStart) {
                 out += candidate("الراية الصاعدة (Pennant)", "صاعد", pauseHigh,
                     pauseHigh + poleMove, pauseLow, last,
-                    "سارية صاعدة قوية يعقبها تقارب واضح للحدين العلوي والسفلي؛ الاختراق أعلى الراية يفعّل هدف طول السارية.")
+                    "سارية صاعدة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الاختراق أعلى الراية يفعّل هدف طول السارية.")
             } else if (poleStrong && pennantCompact && pennantShape && poleEnd < poleStart &&
                 pause.last().close < poleStart) {
                 out += candidate("الراية الهابطة (Pennant)", "هابط", pauseLow,
                     pauseLow - poleMove, pauseHigh, last,
-                    "سارية هابطة قوية يعقبها تقارب واضح للحدين العلوي والسفلي؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
+                    "سارية هابطة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
             }
         }
         if (data.size >= 60) {
