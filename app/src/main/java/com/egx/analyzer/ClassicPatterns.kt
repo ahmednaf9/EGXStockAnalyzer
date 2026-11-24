@@ -878,12 +878,14 @@ object ClassicPatternScanner {
             val upthrust = range > 0.0 && upthrustBreakPrecedesReclaim && upthrustDepthValid &&
                 upthrustRejectionControlled && reclaim.close < resistance &&
                 reclaim.close < reclaim.open && closePosition <= 0.35
+            val springDepthText = String.format(java.util.Locale.US, "%.2f", springDepthPct)
+            val upthrustDepthText = String.format(java.util.Locale.US, "%.2f", upthrustDepthPct)
             if (spring) out += candidate("Spring (اختراق دعم وهمي)", "صاعد",
                 support, support + range * 0.65, springBreak.low, last,
-                "اختراق هابط محدود للدعم بنسبة \${String.format(java.util.Locale.US, "%.2f", springDepthPct)}%، أعقبه استرداد خلال ثلاث شموع بشمعة صاعدة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+                "اختراق هابط محدود للدعم بنسبة $springDepthText%، أعقبه استرداد خلال ثلاث شموع بشمعة صاعدة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
             if (upthrust) out += candidate("Upthrust (اختراق مقاومة وهمي)", "هابط",
                 resistance, resistance - range * 0.65, upthrustBreak.high, last,
-                "اختراق صاعد محدود للمقاومة بنسبة \${String.format(java.util.Locale.US, "%.2f", upthrustDepthPct)}%، أعقبه رفض خلال ثلاث شموع بشمعة هابطة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+                "اختراق صاعد محدود للمقاومة بنسبة $upthrustDepthText%، أعقبه رفض خلال ثلاث شموع بشمعة هابطة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
         }
         // Inverted cup-and-handle: broad rounded ceiling, balanced support rims and a shallow rebound handle.
         if (data.size >= 55) {
