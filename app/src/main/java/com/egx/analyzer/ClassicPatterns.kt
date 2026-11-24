@@ -986,7 +986,7 @@ object ClassicPatternScanner {
             val leadSlope = leadPct / 25.0
             val bumpSlope = bumpPct / 15.0
             val postPeak = if (peakIndex < bump.lastIndex) bump.drop(peakIndex + 1) + decline else decline
-            val support = (bump.takeLast(5) + decline.take(10)).minOf { it.low }
+            val support = bump.takeLast(5).minOf { it.low }
             val drawdownPct = if (peak > 0.0) (peak - decline.last().close) / peak * 100.0 else 0.0
             val breakdown = decline.last().close < support
             val accelerated = bumpSlope > leadSlope * 1.35 && bumpPct > 5.0
