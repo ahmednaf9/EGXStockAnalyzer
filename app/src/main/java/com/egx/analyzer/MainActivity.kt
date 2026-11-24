@@ -268,7 +268,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
-    var dataSource by remember { mutableStateOf("") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
@@ -301,7 +300,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().putString("treeUri", tree.toString()).apply()
                 metastockTree = tree.toString()
                 indexSearch = ""
-                dataSource = ""
                 message = "جارٍ قراءة فهرس MetaStock..."
                 scope.launch {
                     try {
@@ -311,7 +309,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         indexedSymbols = loaded.indexedSymbols
                         message = loaded.note
                         if (loaded.candles.isNotEmpty()) {
-                            dataSource = "MetaStock"
                             val prepared = withContext(Dispatchers.Default) {
                                 val detected = detectDataPeriod(loaded.candles)
                                 val grouped = aggregateCandles(loaded.candles, detected)
@@ -339,7 +336,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val loaded = importFile(uri)
-            dataSource = if (loaded.candles.isNotEmpty()) "Excel/CSV" else ""
             candles = loaded.candles
             message = loaded.message
             symbol = loaded.symbol
@@ -389,7 +385,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(22.dp)); Spacer(Modifier.width(8.dp)); Text("تحميل مجلد الميتاستوك", fontSize = 18.sp, fontWeight = FontWeight.Bold) } }
+                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("تحميل مجلد الميتاستوك", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     BasicTextField(
                         value = symbol,
@@ -429,7 +425,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             if (code.isBlank()) message = "اكتب كود السهم أولاً."
                             else if (treeString == null) message = "اختر مجلد MetaStock أولاً."
                             else {
-                                dataSource = ""
                                 message = "جارٍ تحميل $code من MetaStock..."
                                 result = null
                                 scope.launch {
@@ -443,7 +438,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                             Triple(detected, grouped.size, if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null)
                                         }
                                         candles = loaded.candles
-                                        dataSource = if (loaded.candles.isNotEmpty()) "MetaStock" else ""
                                         symbol = loaded.symbol.ifBlank { code }
                                         period = prep.first
                                         result = prep.third
@@ -459,7 +453,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Green)
-                    ) { Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.FolderOpen, null, modifier = Modifier.size(21.dp)); Spacer(Modifier.width(7.dp)); Text("تحميل السهم من مجلد الميتاستوك", fontSize = 17.sp, fontWeight = FontWeight.Bold) } }
+                    ) { Text("تحميل السهم من مجلد الميتاستوك", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
@@ -473,7 +467,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
                     ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) { Icon(Icons.Default.Description, null, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(6.dp)); Text("تحميل السهم من ملف Excel/CSV", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false) }
+                        Text("تحميل السهم من ملف Excel/CSV", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
                     }
                     Spacer(Modifier.height(14.dp))
                     Button(
@@ -489,7 +483,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE)
                                 .edit().remove("treeUri").apply()
                             metastockTree = null
-                            dataSource = ""
                             indexedSymbols = emptyList()
                             indexSearch = ""
                             indexExpanded = false
@@ -517,16 +510,10 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             }
             Spacer(Modifier.height(12.dp))
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
-                Column(Modifier.fillMaxWidth().padding(13.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, null, tint = Green)
-                        Spacer(Modifier.width(8.dp))
-                        Text(message, color = Muted, fontSize = 12.sp)
-                    }
-                    if (dataSource.isNotBlank()) {
-                        Spacer(Modifier.height(6.dp))
-                        Text("مصدر البيانات: $dataSource", color = Color(0xFF087A22), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                Row(Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, null, tint = Green)
+                    Spacer(Modifier.width(8.dp))
+                    Text(message, color = Muted, fontSize = 12.sp)
                 }
             }
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
