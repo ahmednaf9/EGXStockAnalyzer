@@ -1005,14 +1005,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         Text("مناطق الدعم: " + egxReport.supportText, color = Muted, fontSize = 10.sp)
                         Text("مناطق المقاومة: " + egxReport.resistanceText, color = Muted, fontSize = 10.sp)
                         Spacer(Modifier.height(7.dp))
-                        Text("ملاءمة بيانات السوق المصري", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text(egxDiagnostics.liquiditySummary, color = if (egxDiagnostics.lowLiquidity) Amber else Muted, fontSize = 10.sp, lineHeight = 15.sp)
-                        egxDiagnostics.warnings.forEach { warning ->
-                            Text("⚠ " + warning, color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
-                        }
-                        Spacer(Modifier.height(7.dp))
                         Text("أسباب التقييم: " + egxReport.reasonSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
-                        Text("التقرير وصفي مبني على الأسعار المستوردة؛ لا ينفذ تعديلات تلقائية على التجزئة أو التوزيعات أو زيادات رأس المال دون بيانات أحداث موثقة.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
