@@ -958,6 +958,49 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
+                val egxReportCandles = aggregateCandles(candles, period)
+                val egxDiagnostics = EgyptMarketAnalyzer.inspect(egxReportCandles)
+                val egxClassicPatterns = ClassicPatternScanner.scan(egxReportCandles)
+                val egxReport = EgyptMarketAnalyzer.buildReport(egxReportCandles, a, egxClassicPatterns, egxDiagnostics)
+                SectionTitle("التقرير الاحترافي للسهم — EGX")
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text("الملخص التنفيذي", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(5.dp))
+                        Text(egxReport.summary, color = Navy, fontSize = 12.sp, lineHeight = 18.sp)
+                        Spacer(Modifier.height(8.dp))
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            Metric("الاتجاه العام", egxReport.trend, Modifier.weight(1f))
+                            Metric("قوة التقييم", a.score.toString() + "/100", Modifier.weight(1f))
+                            Metric("توافق الإشارات", egxReport.alignment, Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(8.dp))
+                        Text("توافق المؤشرات", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        egxReport.indicatorReasons.forEach { reason ->
+                            Text("• " + reason, color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        }
+                        Spacer(Modifier.height(7.dp))
+                        Text("النماذج المكتشفة", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(egxReport.patternSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
+                        Spacer(Modifier.height(7.dp))
+                        Text("مستويات المتابعة الفنية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("مستوى التفعيل/المراقبة: " + egxReport.triggerText, color = Color(0xFF315E9B), fontSize = 11.sp)
+                        Text("الأهداف النظرية: " + egxReport.targetsText, color = Green, fontSize = 11.sp)
+                        Text("مستوى الإلغاء/الإبطال: " + money(a.invalidation), color = Red, fontSize = 11.sp)
+                        Text("مناطق الدعم: " + egxReport.supportText, color = Muted, fontSize = 10.sp)
+                        Text("مناطق المقاومة: " + egxReport.resistanceText, color = Muted, fontSize = 10.sp)
+                        Spacer(Modifier.height(7.dp))
+                        Text("ملاءمة بيانات السوق المصري", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text(egxDiagnostics.liquiditySummary, color = if (egxDiagnostics.lowLiquidity) Amber else Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        egxDiagnostics.warnings.forEach { warning ->
+                            Text("⚠ " + warning, color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
+                        }
+                        Spacer(Modifier.height(7.dp))
+                        Text("أسباب التقييم: " + egxReport.reasonSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
+                        Text("التقرير وصفي مبني على الأسعار المستوردة؛ لا ينفذ تعديلات تلقائية على التجزئة أو التوزيعات أو زيادات رأس المال دون بيانات أحداث موثقة.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج الكلاسيكية")
                 val classicData = aggregateCandles(candles, period)
                 val volumeBaseline = classicData.takeLast(21).dropLast(1).map { it.volume }.filter { it > 0.0 }
