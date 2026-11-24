@@ -487,16 +487,38 @@ object ClassicPatternScanner {
             if (upthrust && range>0) out += candidate("Upthrust (اختراق مقاومة وهمي)","هابط",resistance,resistance-range*.65,tail.maxOf{it.high},last,
                 "اختراق مؤقت أعلى المقاومة ثم عودة وإغلاق أسفلها؛ يظل الحجم والسياق مهمين.")
         }
-        // Inverted cup-and-handle: rounded overhead arc and a small consolidation near its rim.
+        // Inverted cup-and-handle: broad rounded ceiling, balanced support rims and a shallow rebound handle.
         if (data.size >= 55) {
-            val w=data.takeLast(55); val cup=w.dropLast(10); val handle=w.takeLast(10)
-            val left=cup.take(10).maxOf{it.high}; val bottom=cup.drop(10).take(25).minOf{it.low}
-            val right=cup.takeLast(10).maxOf{it.high}; val rim=(left+right)/2
-            val handleHigh=handle.maxOf{it.high}
-            if (bottom<rim && abs(left-right)/rim<.12 && handleHigh<rim*1.02 && handleHigh>rim*.82) {
-                val depth=rim-bottom
-                out += candidate("الكوب والعروة المقلوب","هابط",bottom,bottom-depth,handleHigh,last,
-                    "تقوس علوي تقريبي ثم تماسك؛ كسر قاع العروة يفعّل الهدف النظري.")
+            val window = data.takeLast(55)
+            val cup = window.dropLast(10)
+            val handle = window.takeLast(10)
+            val leftSection = cup.take(12)
+            val middleSection = cup.drop(12).take(21)
+            val rightSection = cup.takeLast(12)
+            val leftSupport = leftSection.minOf { it.low }
+            val rightSupport = rightSection.minOf { it.low }
+            val support = (leftSupport + rightSupport) / 2.0
+            val top = middleSection.maxOf { it.high }
+            val topIndex = middleSection.indices.maxByOrNull { middleSection[it].high } ?: 10
+            val depth = top - support
+            val leftCloseAvg = leftSection.map { it.close }.average()
+            val centerCloseAvg = middleSection.map { it.close }.average()
+            val rightCloseAvg = rightSection.map { it.close }.average()
+            val handleHigh = handle.maxOf { it.high }
+            val handleLow = handle.minOf { it.low }
+            val handleRange = handleHigh - handleLow
+            val supportsBalanced = support > 0.0 && abs(leftSupport - rightSupport) / support < 0.07
+            val cupDepthValid = depth > support * 0.08 && depth < support * 0.40
+            val topIsCentral = topIndex in 4..16
+            val roundedShape = centerCloseAvg > leftCloseAvg && centerCloseAvg > rightCloseAvg &&
+                centerCloseAvg > support * 1.06
+            val handleInLowerHalf = handleHigh < support + depth * 0.50 && handleHigh > support * 1.01
+            val handleCompact = handleRange < depth * 0.45 && handleLow > support * 0.97
+            val handleNotFallingSharply = handle.last().close >= handle.first().close * 0.96
+            if (supportsBalanced && cupDepthValid && topIsCentral && roundedShape &&
+                handleInLowerHalf && handleCompact && handleNotFallingSharply) {
+                out += candidate("الكوب والعروة المقلوب", "هابط", support, support - depth, handleHigh, last,
+                    "قمة مقوسة عريضة بقاعين جانبيين متقاربين، تعقبها عروة ارتدادية ضحلة في النصف السفلي؛ التأكيد بكسر دعم حافتي النموذج.")
             }
         }
         // Bump-and-run reversal approximation: steep run-up, hump and sharp breakdown.
