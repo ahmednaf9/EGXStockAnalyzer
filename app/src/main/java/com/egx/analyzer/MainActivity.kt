@@ -1014,11 +1014,15 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج الكلاسيكية")
                 val classicData = egxReportCandles
-                val classicPatterns = remember(classicData) {
+                val averageVolume = remember(classicData) {
                     val volumeBaseline = classicData.takeLast(21).dropLast(1).map { it.volume }.filter { it > 0.0 }
-                    val averageVolume = volumeBaseline.average().takeIf { it.isFinite() && it > 0.0 } ?: 0.0
-                    val currentVolumeRatio = if (averageVolume > 0.0 && classicData.isNotEmpty()) classicData.last().volume / averageVolume else 0.0
-                    ClassicPatternScanner.scan(classicData).map { p ->
+                    volumeBaseline.average().takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+                }
+                val currentVolumeRatio = remember(classicData, averageVolume) {
+                    if (averageVolume > 0.0 && classicData.isNotEmpty()) classicData.last().volume / averageVolume else 0.0
+                }
+                val classicPatterns = remember(classicData, currentVolumeRatio, egxClassicPatterns) {
+                    egxClassicPatterns.map { p ->
                         val distancePct = if (p.trigger > 0.0 && classicData.isNotEmpty()) abs(classicData.last().close - p.trigger) / p.trigger * 100.0 else 100.0
                         val proximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
                         val volumeBonus = when {
