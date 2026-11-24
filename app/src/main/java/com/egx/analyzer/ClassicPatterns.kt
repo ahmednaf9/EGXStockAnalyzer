@@ -252,21 +252,31 @@ object ClassicPatternScanner {
             val contracting = upperContraction > range * 0.04 && lowerContraction > range * 0.04
             val higherLows = secondLow > firstLow + range * 0.04
             val lowerHighs = secondHigh < firstHigh - range * 0.04
-            val enoughSwings = recent.count { it.high >= ceiling * 0.985 } >= 2 &&
-                recent.count { it.low <= floor * 1.015 } >= 2
+            val rangePivots = alternating.filter { it.first >= data.size - 30 }
+            val ceilingTouches = rangePivots.filter {
+                it.second && data[it.first].high >= ceiling * 0.985
+            }.map { it.first }
+            val floorTouches = rangePivots.filter {
+                !it.second && data[it.first].low <= floor * 1.015
+            }.map { it.first }
+            val repeatedCeilingTests = ceilingTouches.size >= 2 &&
+                ceilingTouches.zipWithNext().any { (a, b) -> b - a >= 4 }
+            val repeatedFloorTests = floorTouches.size >= 2 &&
+                floorTouches.zipWithNext().any { (a, b) -> b - a >= 4 }
+            val enoughSwings = repeatedCeilingTests && repeatedFloorTests
             if (upperFlat && higherLows && enoughSwings) {
                 out += candidate("المثلث الصاعد", "صاعد", ceiling, ceiling + range, floor - range, last,
-                    "مقاومة شبه أفقية مع قيعان صاعدة متتابعة؛ الاختراق والإغلاق فوق المقاومة يؤكد النموذج.")
+                    "مقاومة شبه أفقية اختُبرت بقمم محورية منفصلة، مع قيعان صاعدة متتابعة؛ الاختراق والإغلاق فوق المقاومة يؤكد النموذج.")
             } else if (lowerFlat && lowerHighs && enoughSwings) {
                 out += candidate("المثلث الهابط", "هابط", floor, floor - range, ceiling + range, last,
-                    "دعم شبه أفقي مع قمم هابطة متتابعة؛ الكسر والإغلاق أسفل الدعم يؤكد النموذج.")
+                    "دعم شبه أفقي اختُبر بقمم محورية منفصلة، مع قمم هابطة متتابعة؛ الكسر والإغلاق أسفل الدعم يؤكد النموذج.")
             } else if (contracting) {
                 out += candidate("المثلث المتماثل", "محايد", (ceiling + floor) / 2.0,
                     ceiling + range, floor - range, last,
                     "الحد العلوي يهبط والسفلي يصعد مع تقلص النطاق؛ اتجاه النموذج لا يتحدد إلا بالاختراق.")
             } else if (!upperFlat && !lowerFlat) {
                 out += candidate("المستطيل (النطاق)", "محايد", ceiling, ceiling + range, floor - range, last,
-                    "حركة عرضية بين دعم ومقاومة؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
+                    "حركة عرضية بين دعم ومقاومة مع اختبارين محوريين منفصلين لكل حد على الأقل؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
             }
         }
         // Flags: require a strong directional pole and a compact, counter-trend or sideways pause.
