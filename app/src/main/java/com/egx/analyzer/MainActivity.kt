@@ -90,7 +90,7 @@ class MainActivity : ComponentActivity() {
             val input = contentResolver.openInputStream(uri)
                 ?: return emptyList<Candle>() to "تعذر فتح الملف."
             val lines = BufferedReader(InputStreamReader(input)).use { it.readLines() }
-            if (lines.size < 2) return emptyList<Candle>() to "الملف فارغ أو لا يحتوي على بيانات."
+            if (lines.size < 2) return emptyList<Candle>() to "الملف فارغ أو لا يحتوي على صف بيانات بعد عناوين الأعمدة. تأكد من اختيار ملف CSV الصحيح."
 
             val delimiter = when {
                 lines.first().count { it == ';' } > lines.first().count { it == ',' } -> ';'
@@ -125,13 +125,13 @@ class MainActivity : ComponentActivity() {
             }.sortedBy { dateSortKey(it.date) }.distinctBy { dateSortKey(it.date) }
 
             val note = when {
-                parsed.size < 35 -> "تم استيراد ${parsed.size} شمعة فقط؛ يلزم 35 شمعة على الأقل لحساب RSI وMACD بصورة أفضل."
-                parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. التحليل متاح، لكن SMA 50 والتقييم القوي يحتاجان 50 جلسة على الأقل."
+                parsed.size < 35 -> "تم استيراد ${parsed.size} جلسة فقط. يلزم 35 جلسة على الأقل لبدء التحليل وحساب RSI وMACD بصورة أفضل؛ أضف بيانات تاريخية أكثر."
+                parsed.size < 50 -> "تم استيراد ${parsed.size} جلسة. يمكنك الاطلاع على التحليل، لكن SMA 50 (متوسط آخر 50 جلسة) والتقييم الفني الكامل يحتاجان إلى 50 جلسة على الأقل."
                 else -> "تم استيراد ${parsed.size} جلسة والتحقق من سلامة الأسعار."
             }
             parsed to note
         } catch (e: Exception) {
-            emptyList<Candle>() to "تعذرت قراءة الملف: ${e.message ?: "صيغة غير صحيحة"}"
+            emptyList<Candle>() to "تعذرت قراءة الملف. تحقق من أنه CSV وأن الصف الأول يحتوي على عناوين الأعمدة، وبالترتيب: Date, Open, High, Low, Close, Volume. التفاصيل: ${e.message ?: "صيغة الملف غير صحيحة"}"
         }
     }
 
@@ -181,7 +181,7 @@ class MainActivity : ComponentActivity() {
                 row[col(ref)]=if(type=="s") shared.getOrNull(raw.toIntOrNull() ?: -1) ?: "" else raw
             }; row
         }.toList()
-        if(rows.size<2) error("لا توجد بيانات في ملف Excel")
+        if(rows.size<2) error("لا توجد صفوف بيانات بعد عناوين الأعمدة في ملف Excel. تأكد من اختيار ورقة العمل التي تحتوي على الأسعار.")
         val h=rows.first().mapValues{it.value.lowercase(Locale.ROOT).trim()}
         fun ix(vararg names:String,fallback:Int)=h.entries.firstOrNull{(_,v)->names.any{v==it || v.contains(it)}}?.key ?: fallback
         val d=ix("date","التاريخ",fallback=0); val o=ix("open","الفتح",fallback=1)
@@ -197,11 +197,11 @@ class MainActivity : ComponentActivity() {
             if(x.isValidForAnalysis()) x else null
         } catch(_:Exception){null} }.sortedBy{dateSortKey(it.date)}.distinctBy{dateSortKey(it.date)}
         data to when {
-            data.size < 35 -> "تم استيراد ${data.size} شمعة من Excel؛ يلزم 35 شمعة على الأقل لحساب RSI وMACD بصورة أفضل."
-            data.size < 50 -> "تم استيراد ${data.size} شمعة من Excel؛ SMA 50 والتقييم القوي يحتاجان 50 جلسة على الأقل."
+            data.size < 35 -> "تم استيراد ${data.size} جلسة من Excel. يلزم 35 جلسة على الأقل لبدء التحليل وحساب RSI وMACD بصورة أفضل؛ أضف بيانات تاريخية أكثر."
+            data.size < 50 -> "تم استيراد ${data.size} جلسة من Excel؛ SMA 50 (متوسط آخر 50 جلسة) والتقييم الفني الكامل يحتاجان إلى 50 جلسة على الأقل."
             else -> "تم استيراد ${data.size} شمعة من Excel بعد التحقق من سلامة الأسعار."
         }
-    } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة Excel: ${e.message ?: "تأكد من الملف."}" }
+    } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة ملف Excel. تحقق من وجود عناوين الأعمدة وترتيبها: Date, Open, High, Low, Close, Volume، ومن أن الملف بصيغة XLSX. التفاصيل: ${e.message ?: "تحقق من الملف."}" }
 
     private fun parseNumber(raw: String): Double {
         var cleaned = raw.trim()
