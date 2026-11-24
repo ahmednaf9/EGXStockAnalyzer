@@ -308,18 +308,22 @@ object ClassicPatternScanner {
             val pauseHigh = pause.maxOf { it.high }
             val pauseLow = pause.minOf { it.low }
             val pauseRange = pauseHigh - pauseLow
+            val poleAverageVolume = pole.map { it.volume }.average()
+            val pauseAverageVolume = pause.map { it.volume }.average()
+            val volumeContractionValid = poleAverageVolume <= 0.0 || pauseAverageVolume <= 0.0 ||
+                pauseAverageVolume <= poleAverageVolume * 0.95
             val pauseFirstMid = (pause.take(5).maxOf { it.high } + pause.take(5).minOf { it.low }) / 2.0
             val pauseLastMid = (pause.takeLast(5).maxOf { it.high } + pause.takeLast(5).minOf { it.low }) / 2.0
             val pauseSlope = pauseLastMid - pauseFirstMid
             val poleStrong = poleStart > 0.0 && poleMove / poleStart >= 0.08 &&
                 poleRange > 0.0 && poleMove / poleRange >= 0.55
             val compactPause = poleRange > 0.0 && pauseRange / poleRange <= 0.55
-            if (poleStrong && compactPause && poleEnd > poleStart &&
+            if (poleStrong && compactPause && volumeContractionValid && poleEnd > poleStart &&
                 pauseSlope <= pauseRange * 0.35 && pause.last().close > poleStart) {
                 val trigger = pauseHigh
                 out += candidate("العلم الصاعد", "صاعد", trigger, trigger + poleMove, pauseLow, last,
                     "سارية صاعدة قوية يتبعها تماسك ضيق مائل عرضيًا أو هابطًا؛ الاختراق أعلى التماسك يفعّل هدفًا يساوي طول السارية.")
-            } else if (poleStrong && compactPause && poleEnd < poleStart &&
+            } else if (poleStrong && compactPause && volumeContractionValid && poleEnd < poleStart &&
                 pauseSlope >= -pauseRange * 0.35 && pause.last().close < poleStart) {
                 val trigger = pauseLow
                 out += candidate("العلم الهابط", "هابط", trigger, trigger - poleMove, pauseHigh, last,
@@ -338,12 +342,16 @@ object ClassicPatternScanner {
             val pauseHigh = pause.maxOf { it.high }
             val pauseLow = pause.minOf { it.low }
             val pauseRange = pauseHigh - pauseLow
+            val poleAverageVolume = pole.map { it.volume }.average()
+            val pauseAverageVolume = pause.map { it.volume }.average()
+            val volumeContractionValid = poleAverageVolume <= 0.0 || pauseAverageVolume <= 0.0 ||
+                pauseAverageVolume <= poleAverageVolume * 0.95
             val retracement = if (poleMove > 0.0) (poleHigh - pauseLow) / poleMove else 1.0
             val advancePct = if (poleStart > 0.0) poleMove / poleStart else 0.0
             val pauseContained = pauseHigh <= poleHigh * 1.03 &&
                 pauseLow > poleStart + poleMove * 0.70
             val compactPause = poleMove > 0.0 && pauseRange <= poleMove * 0.35
-            if (advancePct >= 0.90 && poleEnd > poleStart &&
+            if (advancePct >= 0.90 && poleEnd > poleStart && volumeContractionValid &&
                 retracement in 0.0..0.30 && pauseContained && compactPause &&
                 pause.last().close > poleStart + poleMove * 0.65) {
                 val trigger = pauseHigh
