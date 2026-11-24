@@ -1347,7 +1347,7 @@ object ClassicPatternScanner {
         } else {
             "نسبة العائد إلى المخاطرة غير متاحة لهذا النموذج"
         }
-        val details = "$baseReason؛ $distanceReason؛ $targetRiskDistanceReason؛ $riskRewardReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
+        val details = "$baseReason؛ $distanceReason؛ $targetRiskDistanceReason؛ $riskRewardReason؛ الحالة: $qualityLabel. الدرجة ناتجة عن قواعد تقييم محددة، وليست احتمالًا إحصائيًا لنجاح النموذج."
         return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,invalidation,explanation,confidence,details)
     }
 }
