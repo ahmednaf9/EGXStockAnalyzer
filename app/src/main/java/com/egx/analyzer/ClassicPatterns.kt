@@ -812,7 +812,7 @@ object ClassicPatternScanner {
                 val trigger = pairHigh
                 val height = trigger - pairLow
                 if (height > 0.0) {
-                    out += candidate("Pipe Bottom", "صاعد", trigger, trigger + height, pairLow, last,
+                    out += candidate("القاع الأنبوبي (Pipe Bottom)", "صاعد", trigger, trigger + height, pairLow, last,
                         "اتجاه هابط سابق أعقبته شمعتان قويتان متعاكستان قرب القاع؛ إغلاق الشمعة الثانية قرب أعلاها. التأكيد باختراق أعلى الشمعتين.")
                 }
             }
@@ -823,7 +823,7 @@ object ClassicPatternScanner {
                 val trigger = pairLow
                 val height = pairHigh - trigger
                 if (height > 0.0) {
-                    out += candidate("Pipe Top", "هابط", trigger, trigger - height, pairHigh, last,
+                    out += candidate("القمة الأنبوبية (Pipe Top)", "هابط", trigger, trigger - height, pairHigh, last,
                         "اتجاه صاعد سابق أعقبته شمعتان قويتان متعاكستان قرب القمة؛ إغلاق الشمعة الثانية قرب أدناها. التأكيد بكسر أدنى الشمعتين.")
                 }
             }
@@ -859,15 +859,15 @@ object ClassicPatternScanner {
             if (similarDrives && timingValid && validTop && topExhaustion) {
                 val trigger = vals[4]
                 val target = trigger - drive3
-                out += candidate("Three Drives — قمة", "هابط", trigger, target,
+                out += candidate("نموذج ثلاث دفعات — قمة (Three Drives)", "هابط", trigger, target,
                     vals[5] + drive3 * 0.25, last,
-                    "ثلاث دفعات صاعدة متدرجة تفصلها ارتدادات أعلى، مع تقارب أطوال الدفعات وتوقيتها؛ كسر قاع الارتداد الأخير يؤكد النموذج.")
+                    "يتكوّن من ثلاث موجات صعود متتابعة، تفصل بينها تراجعات قصيرة؛ ويُفضّل تقارب أطوال الموجات والفترات الزمنية بينها. كسر قاع آخر تراجع يؤكد النموذج الهابط.")
             } else if (similarDrives && timingValid && validBottom && bottomExhaustion) {
                 val trigger = vals[3]
                 val target = trigger + drive3
-                out += candidate("Three Drives — قاع", "صاعد", trigger, target,
+                out += candidate("نموذج ثلاث دفعات — قاع (Three Drives)", "صاعد", trigger, target,
                     vals[4] - drive3 * 0.25, last,
-                    "ثلاث دفعات هابطة متدرجة تفصلها ارتدادات أدنى، مع تقارب أطوال الدفعات وتوقيتها؛ اختراق قمة الارتداد الأخيرة يؤكد النموذج.")
+                    "يتكوّن من ثلاث موجات هبوط متتابعة، تفصل بينها ارتدادات قصيرة؛ ويُفضّل تقارب أطوال الموجات والفترات الزمنية بينها. اختراق قمة آخر ارتداد يؤكد النموذج الصاعد.")
             }
         }
         // ABCD: validate the true A-B-C-D swing order, Fibonacci retracement and measured CD leg.
