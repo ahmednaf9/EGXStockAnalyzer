@@ -773,23 +773,38 @@ object ClassicPatternScanner {
                     "ثلاث دفعات هابطة متدرجة تفصلها ارتدادات أدنى، مع تقارب أطوال الدفعات وتوقيتها؛ اختراق قمة الارتداد الأخيرة يؤكد النموذج.")
             }
         }
-        // ABCD geometric approximation: similar AB and CD legs after alternating swing points.
+        // ABCD: validate the true A-B-C-D swing order, Fibonacci retracement and measured CD leg.
         if (alternating.size >= 4) {
-            val q=alternating.takeLast(4)
-            val v=q.map{if(it.second)data[it.first].high else data[it.first].low}
-            val ab=abs(v[1]-v[0]); val cd=abs(v[3]-v[2])
-            val sameDirection=(v[1]-v[0])*(v[3]-v[2])>0
-            val bullish = v[0] > v[1] && v[2] > v[3]
-            val bearish = v[0] < v[1] && v[2] < v[3]
-            if (ab>last*.03 && cd>last*.025 && abs(ab-cd)/maxOf(ab,cd)<.35 &&
-                sameDirection && (bullish || bearish)) {
-                // C is the structural confirmation level; D is the projected completion/reversal area.
-                val trigger = v[2]
-                val target = if (bullish) v[3] + ab else v[3] - ab
-                val failure = if (bullish) v[3] - cd*.35 else v[3] + cd*.35
-                out += candidate("ABCD (تقريب هندسي)",if (bullish) "صاعد" else "هابط",
-                    trigger,target,failure,last,
-                    "أربع نقاط متعاقبة بأطوال موجية متقاربة؛ الاتجاه يحدده ترتيب A-B-C-D، والتأكيد باختراق C في النموذج الصاعد أو كسره في الهابط.")
+            val q = alternating.takeLast(4)
+            val v = q.map { if (it.second) data[it.first].high else data[it.first].low }
+            val bullish = q.map { it.second } == listOf(false, true, false, true)
+            val bearish = q.map { it.second } == listOf(true, false, true, false)
+            val ab = abs(v[1] - v[0])
+            val bc = abs(v[2] - v[1])
+            val cd = abs(v[3] - v[2])
+            val abBars = q[1].first - q[0].first
+            val bcBars = q[2].first - q[1].first
+            val cdBars = q[3].first - q[2].first
+            val retracement = if (ab > 0.0) bc / ab else 0.0
+            val projection = if (ab > 0.0) cd / ab else 0.0
+            val spacingValid = abBars in 2..25 && bcBars in 2..25 && cdBars in 2..25 &&
+                cdBars.toDouble() / abBars.coerceAtLeast(1) in 0.40..2.50
+            val retracementValid = retracement in 0.382..0.886
+            val projectionValid = projection in 0.90..1.35
+            val bullishGeometry = bullish && v[2] > v[0] && v[2] < v[1] && v[3] > v[2]
+            val bearishGeometry = bearish && v[2] < v[0] && v[2] > v[1] && v[3] < v[2]
+            if (ab > last * 0.03 && bc > last * 0.01 && cd > last * 0.025 &&
+                spacingValid && retracementValid && projectionValid &&
+                (bullishGeometry || bearishGeometry)) {
+                // The completed D pivot is confirmed by the pivot scanner; breaking B activates the trade.
+                val trigger = v[1]
+                val target = if (bullish) trigger + ab else trigger - ab
+                val failure = if (bullish) v[2] - ab * 0.12 else v[2] + ab * 0.12
+                val ratioText = String.format(java.util.Locale.US, "%.2f", retracement)
+                val projectionText = String.format(java.util.Locale.US, "%.2f", projection)
+                out += candidate("ABCD (نموذج فيبوناتشي)", if (bullish) "صاعد" else "هابط",
+                    trigger, target, failure, last,
+                    "ترتيب A-B-C-D صحيح، وتصحيح BC يساوي $ratioText من AB وامتداد CD يساوي $projectionText من AB؛ يكتمل النموذج عند D ويتأكد باختراق B في الصاعد أو كسره في الهابط.")
             }
         }
 
