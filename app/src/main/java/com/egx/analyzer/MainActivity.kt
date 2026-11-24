@@ -467,7 +467,13 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
                     ) {
-                        Text("تحميل السهم من ملف Excel/CSV", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+                        CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text("Excel/CSV", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
+                                Spacer(Modifier.weight(1f))
+                                Text("تحميل السهم من ملف", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false, textAlign = TextAlign.End)
+                            }
+                        }
                     }
                     Spacer(Modifier.height(14.dp))
                     Button(
