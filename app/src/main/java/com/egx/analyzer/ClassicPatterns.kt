@@ -407,12 +407,17 @@ object ClassicPatternScanner {
             val v=q.map{if(it.second)data[it.first].high else data[it.first].low}
             val ab=abs(v[1]-v[0]); val cd=abs(v[3]-v[2])
             val sameDirection=(v[1]-v[0])*(v[3]-v[2])>0
-            if (ab>last*.03 && cd>last*.025 && abs(ab-cd)/maxOf(ab,cd)<.35 && sameDirection) {
-                val bullish=v[0]>v[1] && v[2]<v[3]
-                val trigger=v[3]; val target=if(bullish) trigger+cd else trigger-cd
-                out += candidate("ABCD (تقريب هندسي)","محايد",trigger,target,
-                    if(bullish) trigger-cd else trigger+cd,last,
-                    "أطوال موجية متقاربة بصورة تقريبية؛ تأكيد الاتجاه يتطلب اختراق/كسر النقطة D.")
+            val bullish = v[0] > v[1] && v[2] > v[3]
+            val bearish = v[0] < v[1] && v[2] < v[3]
+            if (ab>last*.03 && cd>last*.025 && abs(ab-cd)/maxOf(ab,cd)<.35 &&
+                sameDirection && (bullish || bearish)) {
+                // C is the structural confirmation level; D is the projected completion/reversal area.
+                val trigger = v[2]
+                val target = if (bullish) v[3] + ab else v[3] - ab
+                val failure = if (bullish) v[3] - cd*.35 else v[3] + cd*.35
+                out += candidate("ABCD (تقريب هندسي)",if (bullish) "صاعد" else "هابط",
+                    trigger,target,failure,last,
+                    "أربع نقاط متعاقبة بأطوال موجية متقاربة؛ الاتجاه يحدده ترتيب A-B-C-D، والتأكيد باختراق C في النموذج الصاعد أو كسره في الهابط.")
             }
         }
 
