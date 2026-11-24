@@ -556,7 +556,7 @@ object ClassicPatternScanner {
                     "تماسك نسبي ثم كسر أرضية الجزء الأخير؛ يفضّل تأكيد الكسر بالحجم.")
             }
         }
-        // Adam/Eve formations: use three consecutive alternating pivots and local shape.
+        // Adam/Eve formations: require a prior trend, balanced retests and measurable sharp/rounded shapes.
         val adamEvePivots = alternating.takeLast(3)
         if (adamEvePivots.size == 3 &&
             adamEvePivots[0].second && !adamEvePivots[1].second && adamEvePivots[2].second) {
@@ -568,22 +568,30 @@ object ClassicPatternScanner {
             val secondTop = data[secondIndex].high
             val averageTop = (firstTop + secondTop) / 2.0
             val height = averageTop - valley
-            val firstShapeCount = (maxOf(0, firstIndex - 3)..minOf(data.lastIndex, firstIndex + 3))
-                .count { data[it].high >= firstTop * 0.99 }
-            val secondShapeCount = (maxOf(0, secondIndex - 3)..minOf(data.lastIndex, secondIndex + 3))
-                .count { data[it].high >= secondTop * 0.99 }
+            val prior = data.take(firstIndex).takeLast(8)
+            val priorUptrend = prior.size >= 6 && prior.last().close > prior.first().close * 1.04
+            val firstShapeCount = (maxOf(0, firstIndex - 4)..minOf(data.lastIndex, firstIndex + 4))
+                .count { data[it].high >= firstTop * 0.985 }
+            val secondShapeCount = (maxOf(0, secondIndex - 4)..minOf(data.lastIndex, secondIndex + 4))
+                .count { data[it].high >= secondTop * 0.985 }
             val firstIsAdam = firstShapeCount <= 2
             val secondIsAdam = secondShapeCount <= 2
-            if (secondIndex - firstIndex in 5..35 &&
-                abs(firstTop - secondTop) / maxOf(firstTop, secondTop) < 0.055 &&
-                height > averageTop * 0.025) {
+            val firstIsEve = firstShapeCount >= 3
+            val secondIsEve = secondShapeCount >= 3
+            val spacingValid = secondIndex - firstIndex in 7..35 &&
+                valleyIndex - firstIndex >= 3 && secondIndex - valleyIndex >= 3
+            val topsBalanced = abs(firstTop - secondTop) / averageTop < 0.045
+            val valleyDepthValid = height > averageTop * 0.035
+            if (priorUptrend && spacingValid && topsBalanced && valleyDepthValid &&
+                (firstIsAdam || firstIsEve) && (secondIsAdam || secondIsEve)) {
                 val name = when {
-                    firstIsAdam && !secondIsAdam -> "قمة آدم وحواء (Adam & Eve Top)"
-                    !firstIsAdam && secondIsAdam -> "قمة حواء وآدم (Eve & Adam Top)"
-                    else -> "قمة آدم وحواء مزدوجة (Adam/Eve Double Top)"
+                    firstIsAdam && secondIsEve -> "قمة آدم وحواء (Adam & Eve Top)"
+                    firstIsEve && secondIsAdam -> "قمة حواء وآدم (Eve & Adam Top)"
+                    firstIsAdam && secondIsAdam -> "قمتا آدم (Adam-Adam Top)"
+                    else -> "قمتا حواء (Eve-Eve Top)"
                 }
                 out += candidate(name, "هابط", valley, valley - height, valley + height, last,
-                    "قمتان متقاربتان يفصل بينهما قاع واضح؛ تم تمييز القمة الحادة (آدم) من المستديرة (حواء). التأكيد بكسر القاع الفاصل.")
+                    "قمتان بعد اتجاه صاعد، مع قياس عرض كل قمة من الشموع القريبة؛ القمة الحادة آدم والممتدة حواء. التأكيد بكسر القاع الفاصل.")
             }
         }
         if (adamEvePivots.size == 3 &&
@@ -596,22 +604,30 @@ object ClassicPatternScanner {
             val secondBottom = data[secondIndex].low
             val averageBottom = (firstBottom + secondBottom) / 2.0
             val height = peak - averageBottom
-            val firstShapeCount = (maxOf(0, firstIndex - 3)..minOf(data.lastIndex, firstIndex + 3))
-                .count { data[it].low <= firstBottom * 1.01 }
-            val secondShapeCount = (maxOf(0, secondIndex - 3)..minOf(data.lastIndex, secondIndex + 3))
-                .count { data[it].low <= secondBottom * 1.01 }
+            val prior = data.take(firstIndex).takeLast(8)
+            val priorDowntrend = prior.size >= 6 && prior.last().close < prior.first().close * 0.96
+            val firstShapeCount = (maxOf(0, firstIndex - 4)..minOf(data.lastIndex, firstIndex + 4))
+                .count { data[it].low <= firstBottom * 1.015 }
+            val secondShapeCount = (maxOf(0, secondIndex - 4)..minOf(data.lastIndex, secondIndex + 4))
+                .count { data[it].low <= secondBottom * 1.015 }
             val firstIsAdam = firstShapeCount <= 2
             val secondIsAdam = secondShapeCount <= 2
-            if (secondIndex - firstIndex in 5..35 &&
-                abs(firstBottom - secondBottom) / minOf(firstBottom, secondBottom) < 0.055 &&
-                height > averageBottom * 0.025) {
+            val firstIsEve = firstShapeCount >= 3
+            val secondIsEve = secondShapeCount >= 3
+            val spacingValid = secondIndex - firstIndex in 7..35 &&
+                peakIndex - firstIndex >= 3 && secondIndex - peakIndex >= 3
+            val bottomsBalanced = abs(firstBottom - secondBottom) / averageBottom < 0.045
+            val peakHeightValid = height > averageBottom * 0.035
+            if (priorDowntrend && spacingValid && bottomsBalanced && peakHeightValid &&
+                (firstIsAdam || firstIsEve) && (secondIsAdam || secondIsEve)) {
                 val name = when {
-                    firstIsAdam && !secondIsAdam -> "قاع آدم وحواء (Adam & Eve Bottom)"
-                    !firstIsAdam && secondIsAdam -> "قاع حواء وآدم (Eve & Adam Bottom)"
-                    else -> "قاع آدم وحواء مزدوج (Adam/Eve Double Bottom)"
+                    firstIsAdam && secondIsEve -> "قاع آدم وحواء (Adam & Eve Bottom)"
+                    firstIsEve && secondIsAdam -> "قاع حواء وآدم (Eve & Adam Bottom)"
+                    firstIsAdam && secondIsAdam -> "قاعا آدم (Adam-Adam Bottom)"
+                    else -> "قاعا حواء (Eve-Eve Bottom)"
                 }
                 out += candidate(name, "صاعد", peak, peak + height, peak - height, last,
-                    "قاعان متقاربان تفصل بينهما قمة واضحة؛ تم تمييز القاع الحاد (آدم) من المستدير (حواء). التأكيد باختراق القمة الفاصلة.")
+                    "قاعان بعد اتجاه هابط، مع قياس عرض كل قاع من الشموع القريبة؛ القاع الحاد آدم والممتد حواء. التأكيد باختراق القمة الفاصلة.")
             }
         }
         // V-shaped reversals: require two meaningful impulse legs and a compact turning point.
