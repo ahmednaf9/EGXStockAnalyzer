@@ -365,20 +365,53 @@ object ClassicPatternScanner {
                     "سارية هابطة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
             }
         }
+        // Rounded bottom/top: validate a gradual five-stage curve, central extreme and balanced rims.
         if (data.size >= 60) {
-            val base=data.takeLast(60); val left=base.take(15); val mid=base.drop(15).take(30); val right=base.takeLast(15)
-            val leftHigh=left.maxOf{it.high}; val rightHigh=right.maxOf{it.high}; val bottom=mid.minOf{it.low}
-            val rim=(leftHigh+rightHigh)/2
-            val midClose=mid.map{it.close}.average()
-            if (rim>bottom && abs(leftHigh-rightHigh)/rim<.15 && midClose<rim*.92 && right.last().close>right.first().close) {
-                out += candidate("القاع المستدير (قاعدة صحن)","صاعد",rim,rim+(rim-bottom),bottom,last,
-                    "قاعدة طويلة بملامح تقوس وتعافٍ في الجزء الأخير؛ الاختراق فوق الحافة شرط التأكيد.")
+            val base = data.takeLast(60)
+            val sections = (0 until 5).map { i -> base.drop(i * 12).take(12) }
+            val sectionAvg = sections.map { it.map(Candle::close).average() }
+            val leftRim = base.take(12).maxOf { it.high }
+            val rightRim = base.takeLast(12).maxOf { it.high }
+            val bottom = base.drop(12).take(36).minOf { it.low }
+            val bottomIndex = base.drop(12).take(36).indices.minByOrNull { base[12 + it].low } ?: 18
+            val rim = (leftRim + rightRim) / 2.0
+            val depth = rim - bottom
+            val rimsBalanced = rim > 0.0 && abs(leftRim - rightRim) / rim <= 0.08
+            val bottomCentral = bottomIndex in 8..27
+            val depthValid = depth > rim * 0.07 && depth < rim * 0.35
+            val bowlCurve = sectionAvg[0] > sectionAvg[1] &&
+                sectionAvg[1] > sectionAvg[2] * 0.985 &&
+                sectionAvg[3] > sectionAvg[2] * 0.985 &&
+                sectionAvg[4] > sectionAvg[3] &&
+                sectionAvg[2] < sectionAvg[0] * 0.94 &&
+                sectionAvg[2] < sectionAvg[4] * 0.94
+            val recovery = sectionAvg[4] >= sectionAvg[0] * 0.88 &&
+                base.takeLast(8).last().close > base.takeLast(8).first().close
+            if (rimsBalanced && bottomCentral && depthValid && bowlCurve && recovery) {
+                out += candidate("القاع المستدير (قاعدة صحن)", "صاعد", rim, rim + depth, bottom, last,
+                    "قاع مركزي وانحناء تدريجي عبر خمس مراحل مع حافتين متقاربتين وتعافٍ واضح؛ اختراق الحافة يؤكد النموذج.")
             }
-            val leftLow=left.minOf{it.low}; val rightLow=right.minOf{it.low}; val top=mid.maxOf{it.high}
-            val ceiling=(leftLow+rightLow)/2
-            if (top>ceiling && abs(leftLow-rightLow)/ceiling<.15 && midClose>ceiling*1.08 && right.last().close<right.first().close) {
-                out += candidate("القمة المستديرة","هابط",ceiling,ceiling-(top-ceiling),top,last,
-                    "تشكيل قمة طويلة بملامح تقوس وبدء ضعف في الجزء الأخير؛ كسر الدعم شرط التأكيد.")
+
+            val leftCeiling = base.take(12).minOf { it.low }
+            val rightCeiling = base.takeLast(12).minOf { it.low }
+            val top = base.drop(12).take(36).maxOf { it.high }
+            val topIndex = base.drop(12).take(36).indices.maxByOrNull { base[12 + it].high } ?: 18
+            val ceiling = (leftCeiling + rightCeiling) / 2.0
+            val topHeight = top - ceiling
+            val ceilingsBalanced = ceiling > 0.0 && abs(leftCeiling - rightCeiling) / ceiling <= 0.08
+            val topCentral = topIndex in 8..27
+            val heightValid = topHeight > ceiling * 0.07 && topHeight < ceiling * 0.35
+            val domeCurve = sectionAvg[0] < sectionAvg[1] &&
+                sectionAvg[1] < sectionAvg[2] * 1.015 &&
+                sectionAvg[3] < sectionAvg[2] * 1.015 &&
+                sectionAvg[4] < sectionAvg[3] &&
+                sectionAvg[2] > sectionAvg[0] * 1.06 &&
+                sectionAvg[2] > sectionAvg[4] * 1.06
+            val weakening = sectionAvg[4] <= sectionAvg[0] * 1.12 &&
+                base.takeLast(8).last().close < base.takeLast(8).first().close
+            if (ceilingsBalanced && topCentral && heightValid && domeCurve && weakening) {
+                out += candidate("القمة المستديرة", "هابط", ceiling, ceiling - topHeight, top, last,
+                    "قمة مركزية وانحناء تدريجي عبر خمس مراحل مع قاعين جانبيين متقاربين وبدء ضعف؛ كسر خط الدعم يؤكد النموذج.")
             }
         }
         if (data.size >= 30) {
