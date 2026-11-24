@@ -453,7 +453,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         modifier = Modifier.fillMaxWidth().height(54.dp),
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Green)
-                    ) { Text("تحميل السهم من ملف الميتاستوك", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+                    ) { Text("تحميل السهم من مجلد الميتاستوك", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
