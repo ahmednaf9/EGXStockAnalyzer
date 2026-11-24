@@ -77,7 +77,7 @@ object ClassicPatternScanner {
             val height = averageTop - valley
             if (height > 0.0 && abs(firstTop - secondTop) / maxOf(firstTop, secondTop) < 0.045) {
                 out += candidate("القمة المزدوجة", "هابط", valley, valley - height, valley + height, last,
-                    "قمتان متقاربتان يفصل بينهما قاع واضح؛ التأكيد الهابط بإغلاق أسفل القاع الفاصل.")
+                    "يتكوّن النموذج من قمتين عند مستوى متقارب يفصل بينهما قاع. يكتمل التأكيد الهابط عندما يغلق السعر أسفل هذا القاع.")
             }
         }
         if (recent3.size == 3 && !recent3[0].second && recent3[1].second && !recent3[2].second) {
@@ -88,7 +88,7 @@ object ClassicPatternScanner {
             val height = peak - averageBottom
             if (height > 0.0 && abs(firstBottom - secondBottom) / maxOf(firstBottom, secondBottom) < 0.045) {
                 out += candidate("القاع المزدوج", "صاعد", peak, peak + height, peak - height, last,
-                    "قاعان متقاربان يفصل بينهما ارتفاع واضح؛ التأكيد الصاعد باختراق القمة الفاصلة.")
+                    "يتكوّن النموذج من قاعين عند مستوى متقارب يفصل بينهما ارتفاع. يكتمل التأكيد الصاعد عندما يخترق السعر هذه القمة.")
             }
         }
 
@@ -107,7 +107,7 @@ object ClassicPatternScanner {
             val swingSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
             if (headDominant && shouldersSimilar && necklineBalanced && swingSpacingValid && height > 0.0) {
                 out += candidate("الرأس والكتفين", "هابط", neck, neck - height, neck + height, last,
-                    "قمم مرتبة زمنيًا: كتف أيسر ثم رأس أعلى ثم كتف أيمن متقارب؛ التأكيد بكسر خط الرقبة.")
+                    "يتكوّن من ثلاث قمم: قمة وسطى أعلى (الرأس) وبينها قمتان جانبيتان متقاربتان (الكتفان). يتأكد الهبوط بكسر خط الرقبة.")
             }
         }
         if (recent5.size == 5 && recent5.map { it.second } == listOf(false, true, false, true, false)) {
@@ -124,7 +124,7 @@ object ClassicPatternScanner {
             val swingSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
             if (headDominant && shouldersSimilar && necklineBalanced && swingSpacingValid && height > 0.0) {
                 out += candidate("الرأس والكتفين المقلوب", "صاعد", neck, neck + height, neck - height, last,
-                    "قيعان مرتبة زمنيًا: كتف أيسر ثم رأس أدنى ثم كتف أيمن متقارب؛ التأكيد باختراق خط الرقبة.")
+                    "يتكوّن من ثلاثة قيعان: قاع أوسط أعمق (الرأس) وبينهما قاعان جانبيان متقاربان (الكتفان). يتأكد الصعود باختراق خط الرقبة.")
             }
         }
 
@@ -142,7 +142,7 @@ object ClassicPatternScanner {
             val topSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
             if (height > 0.0 && topSpreadPct < 4.0 && topSpacingValid) {
                 out += candidate("القمة الثلاثية", "هابط", valley, valley - height, valley + height, last,
-                    "ثلاث قمم متقاربة يفصل بينها قاعان؛ التأكيد بكسر منطقة الدعم بين القمم.")
+                    "يتكوّن النموذج من ثلاث قمم متقاربة يفصل بينها قاعان. يتأكد الاتجاه الهابط عند كسر منطقة الدعم أسفل القمم.")
             }
         }
         if (recent5.size == 5 && recent5.map { it.second } == listOf(false, true, false, true, false)) {
@@ -158,7 +158,7 @@ object ClassicPatternScanner {
             val bottomSpacingValid = recent5.zipWithNext().all { (a, b) -> b.first - a.first >= 4 }
             if (height > 0.0 && bottomSpreadPct < 4.0 && bottomSpacingValid) {
                 out += candidate("القاع الثلاثي", "صاعد", peak, peak + height, peak - height, last,
-                    "ثلاثة قيعان متقاربة تفصل بينها قمتان؛ التأكيد باختراق منطقة المقاومة بين القيعان.")
+                    "يتكوّن النموذج من ثلاثة قيعان متقاربة تفصل بينها قمتان. يتأكد الاتجاه الصاعد عند اختراق منطقة المقاومة أعلى القيعان.")
             }
         }
         // Cup-and-handle: validate a broad U-shaped cup, balanced rims and a shallow upper-half handle.
@@ -192,7 +192,7 @@ object ClassicPatternScanner {
             if (rimsBalanced && cupDepthValid && bottomIsCentral && roundedShape &&
                 handleInUpperHalf && handleCompact && handleNotRisingSharply) {
                 out += candidate("الكوب والعروة", "صاعد", rim, rim + depth, handleLow, last,
-                    "كوب بقاعدة واسعة وقاع مركزي وحافتين متقاربتين، تعقبه عروة ضحلة في النصف العلوي؛ التأكيد باختراق حافة الكوب.")
+                    "يتخذ السعر شكل كوب ذي قاع مستدير وحافتين متقاربتين، ثم يتراجع قليلًا مكوّنًا عروة صغيرة. يتأكد النموذج باختراق حافة الكوب لأعلى.")
             }
         }
         // Wedges: use chronological swing pivots to validate both boundary slopes and convergence.
@@ -224,12 +224,12 @@ object ClassicPatternScanner {
                     val trigger = lowEnd
                     val height = initialWidth.coerceAtLeast(last * 0.03)
                     out += candidate("الوتد الصاعد", "هابط", trigger, trigger - height, highEnd, last,
-                        "قمم وقيعان محورية صاعدة مع ميل الحد السفلي أسرع من العلوي وتقلص واضح للنطاق؛ كسر الحد السفلي يؤكد النموذج.")
+                        "يتحرك السعر صعودًا داخل نطاق يضيق تدريجيًا، ويكون الحد السفلي أكثر ميلًا من العلوي. كسر الحد السفلي يؤكد الإشارة الهابطة.")
                 } else if (converging && enoughSwingSpacing && fallingWedge) {
                     val trigger = highEnd
                     val height = initialWidth.coerceAtLeast(last * 0.03)
                     out += candidate("الوتد الهابط", "صاعد", trigger, trigger + height, lowEnd, last,
-                        "قمم وقيعان محورية هابطة مع تقارب الحدين وتقلص واضح للنطاق؛ اختراق الحد العلوي يؤكد النموذج.")
+                        "يتحرك السعر هبوطًا داخل نطاق يضيق تدريجيًا حتى تتقارب حدوده. اختراق الحد العلوي يؤكد الإشارة الصاعدة.")
                 }
             }
         }
@@ -283,17 +283,17 @@ object ClassicPatternScanner {
             val descendingUpperBoundary = pivotSlopesAvailable && upperPivotSlope * 15.0 < -range * 0.08
             if (upperPivotFlat && ascendingLowerBoundary && enoughSwings) {
                 out += candidate("المثلث الصاعد", "صاعد", ceiling, ceiling + range, floor - range, last,
-                    "مقاومة شبه أفقية اختُبرت بقمم محورية منفصلة، مع قيعان صاعدة متتابعة؛ الاختراق والإغلاق فوق المقاومة يؤكد النموذج.")
+                    "تظهر مقاومة أفقية تقريبًا، بينما يرتفع كل قاع عن القاع السابق؛ ما يعني أن ضغط الشراء يزداد. يتأكد النموذج بإغلاق أعلى المقاومة.")
             } else if (lowerPivotFlat && descendingUpperBoundary && enoughSwings) {
                 out += candidate("المثلث الهابط", "هابط", floor, floor - range, ceiling + range, last,
-                    "دعم شبه أفقي اختُبر بقمم محورية منفصلة، مع قمم هابطة متتابعة؛ الكسر والإغلاق أسفل الدعم يؤكد النموذج.")
+                    "يظهر دعم أفقي تقريبًا، بينما تنخفض كل قمة عن القمة السابقة؛ ما يعني أن ضغط البيع يزداد. يتأكد النموذج بإغلاق أسفل الدعم.")
             } else if (pivotSlopesAvailable && upperPivotSlope < 0.0 && lowerPivotSlope > 0.0 && contracting) {
                 out += candidate("المثلث المتماثل", "محايد", (ceiling + floor) / 2.0,
                     ceiling + range, floor - range, last,
-                    "الحد العلوي يهبط والسفلي يصعد مع تقلص النطاق؛ اتجاه النموذج لا يتحدد إلا بالاختراق.")
+                    "يتقارب خطا النموذج: الحد العلوي يهبط والسفلي يصعد. لا يمكن تحديد الاتجاه مسبقًا؛ وينتظر تأكيده باختراق أحد الحدين.")
             } else if (upperPivotFlat && lowerPivotFlat && enoughSwings) {
                 out += candidate("المستطيل (النطاق)", "محايد", ceiling, ceiling + range, floor - range, last,
-                    "حد علوي وحد سفلي شبه أفقيين، مع اختبارين محوريين منفصلين لكل حد على الأقل؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
+                    "يتحرك السعر بين حد علوي وحد سفلي شبه أفقيين، مع تكرار اختبار كل حد. يظل الاتجاه غير محدد حتى يغلق السعر خارج النطاق.")
             }
         }
         // Flags: require a strong directional pole and a compact, counter-trend or sideways pause.
@@ -322,12 +322,12 @@ object ClassicPatternScanner {
                 pauseSlope <= pauseRange * 0.35 && pause.last().close > poleStart) {
                 val trigger = pauseHigh
                 out += candidate("العلم الصاعد", "صاعد", trigger, trigger + poleMove, pauseLow, last,
-                    "سارية صاعدة قوية يتبعها تماسك ضيق مائل عرضيًا أو هابطًا؛ الاختراق أعلى التماسك يفعّل هدفًا يساوي طول السارية.")
+                    "يرتفع السعر بقوة (السارية)، ثم يتحرك في نطاق ضيق أو يتراجع قليلًا (العلم). اختراق أعلى النطاق يؤكد النموذج، والهدف النظري يساوي طول السارية.")
             } else if (poleStrong && compactPause && volumeContractionValid && poleEnd < poleStart &&
                 pauseSlope >= -pauseRange * 0.35 && pause.last().close < poleStart) {
                 val trigger = pauseLow
                 out += candidate("العلم الهابط", "هابط", trigger, trigger - poleMove, pauseHigh, last,
-                    "سارية هابطة قوية يتبعها تماسك ضيق مائل عرضيًا أو صاعدًا؛ الكسر أسفل التماسك يفعّل هدفًا يساوي طول السارية.")
+                    "يهبط السعر بقوة (السارية)، ثم يتحرك في نطاق ضيق أو يرتد قليلًا (العلم). كسر أسفل النطاق يؤكد النموذج، والهدف النظري يساوي طول السارية.")
             }
         }
         // High-tight flag: exceptional advance followed by a shallow, compact consolidation.
@@ -418,7 +418,7 @@ object ClassicPatternScanner {
                     out += candidate("التشكيل المتسع (Broadening)", "محايد",
                         highValues.last(), highValues.last() + pivotRange,
                         lowValues.last() - pivotRange, last,
-                        "ثلاث قمم محورية على الأقل تتسع لأعلى وثلاثة قيعان تتسع لأسفل مع زيادة المسافة بين الحدين؛ لا يتحدد الاتجاه إلا باختراق أو كسر واضح.")
+                        "يتسع نطاق حركة السعر؛ القمم تصبح أعلى والقيعان أدنى، وتزداد المسافة بين الحدين. لا يتحدد الاتجاه إلا بعد اختراق أو كسر واضح.")
                 }
             }
         }
@@ -499,7 +499,7 @@ object ClassicPatternScanner {
                 base.takeLast(8).last().close > base.takeLast(8).first().close
             if (rimsBalanced && bottomCentral && depthValid && bowlCurve && recovery) {
                 out += candidate("القاع المستدير (قاعدة صحن)", "صاعد", rim, rim + depth, bottom, last,
-                    "قاع مركزي وانحناء تدريجي عبر خمس مراحل مع حافتين متقاربتين وتعافٍ واضح؛ اختراق الحافة يؤكد النموذج.")
+                    "يتكوّن قاع مستدير تدريجيًا، ثم يتعافى السعر حتى يقترب من مستوى بداية الهبوط. اختراق هذه الحافة يؤكد النموذج.")
             }
 
             val leftCeiling = base.take(12).minOf { it.low }
@@ -521,7 +521,7 @@ object ClassicPatternScanner {
                 base.takeLast(8).last().close < base.takeLast(8).first().close
             if (ceilingsBalanced && topCentral && heightValid && domeCurve && weakening) {
                 out += candidate("القمة المستديرة", "هابط", ceiling, ceiling - topHeight, top, last,
-                    "قمة مركزية وانحناء تدريجي عبر خمس مراحل مع قاعين جانبيين متقاربين وبدء ضعف؛ كسر خط الدعم يؤكد النموذج.")
+                    "تتكوّن قمة مستديرة تدريجيًا، ثم يبدأ السعر في التراجع نحو مستوى الدعم. كسر هذا الدعم يؤكد النموذج.")
             }
         }
         if (data.size >= 30) {
@@ -529,10 +529,10 @@ object ClassicPatternScanner {
             val eH=early.maxOf{it.high}; val eL=early.minOf{it.low}; val lH=late.maxOf{it.high}; val lL=late.minOf{it.low}
             if (eH>0 && eL>0 && lH>eH*1.02 && lL>eL*1.02 && (lH-lL)>(eH-eL)*1.10) {
                 out += candidate("التشكيل المتسع الصاعد","صاعد",lH,lH+(lH-lL),lL,last,
-                    "اتساع نطاق مع تحرك الحدود لأعلى؛ اختراق أعلى الحد الأخير يحتاج تأكيد.")
+                    "يتسع نطاق التداول بينما تتحرك حدوده إلى أعلى. اختراق الحد العلوي قد يدعم استمرار الصعود، لكنه يحتاج إلى تأكيد بالإغلاق.")
             } else if (eH>0 && lH<eH*.98 && lL<eL*.98 && (lH-lL)>(eH-eL)*1.10) {
                 out += candidate("التشكيل المتسع الهابط","هابط",lL,lL-(lH-lL),lH,last,
-                    "اتساع نطاق مع تحرك الحدود لأسفل؛ كسر أدنى الحد الأخير يحتاج تأكيد.")
+                    "يتسع نطاق التداول بينما تتحرك حدوده إلى أسفل. كسر الحد السفلي قد يدعم استمرار الهبوط، لكنه يحتاج إلى تأكيد بالإغلاق.")
             }
         }
         // Diamond reversals: require expanding then contracting swing boundaries and a prior trend.
@@ -607,7 +607,7 @@ object ClassicPatternScanner {
                 if (validImpulse && validCorrection && balancedTiming) {
                     out += candidate("الحركة المقاسة الصاعدة (Measured Move)", "صاعد", b,
                         b + impulse, c, last,
-                        "موجة اندفاع صاعدة واضحة من A إلى B، يتبعها تصحيح مضبوط إلى C وارتداد تكويني إلى D؛ تجاوز B يؤكد استكمال الحركة، والهدف إسقاط طول AB.")
+                        "يتحرك السعر صعودًا من A إلى B، ثم يصحح إلى C قبل محاولة استكمال الصعود نحو D. تجاوز القمة B يؤكد الاستمرار، والهدف النظري يساوي طول الموجة AB.")
                 }
             } else if (spacingValid && bearishShape) {
                 val a = values[0]; val b = values[1]; val c = values[2]; val d = values[3]
@@ -624,7 +624,7 @@ object ClassicPatternScanner {
                 if (validImpulse && validCorrection && balancedTiming) {
                     out += candidate("الحركة المقاسة الهابطة (Measured Move)", "هابط", b,
                         b - impulse, c, last,
-                        "موجة اندفاع هابطة واضحة من A إلى B، يتبعها ارتداد تصحيحي إلى C ثم عودة هابطة إلى D؛ كسر B يؤكد استكمال الحركة، والهدف إسقاط طول AB.")
+                        "يتحرك السعر هبوطًا من A إلى B، ثم يرتد إلى C قبل محاولة استكمال الهبوط نحو D. كسر القاع B يؤكد الاستمرار، والهدف النظري يساوي طول الموجة AB.")
                 }
             }
         }
@@ -688,7 +688,7 @@ object ClassicPatternScanner {
                     else -> "قمتا حواء (Eve-Eve Top)"
                 }
                 out += candidate(name, "هابط", valley, valley - height, valley + height, last,
-                    "قمتان بعد اتجاه صاعد، مع قياس عرض كل قمة من الشموع القريبة؛ القمة الحادة آدم والممتدة حواء. التأكيد بكسر القاع الفاصل.")
+                    "يظهر النموذج بعد صعود ويتكوّن من قمتين: قمة حادة (آدم) وأخرى مستديرة أو ممتدة (حواء). يتأكد الهبوط بكسر القاع بين القمتين.")
             }
         }
         if (adamEvePivots.size == 3 &&
@@ -724,7 +724,7 @@ object ClassicPatternScanner {
                     else -> "قاعا حواء (Eve-Eve Bottom)"
                 }
                 out += candidate(name, "صاعد", peak, peak + height, peak - height, last,
-                    "قاعان بعد اتجاه هابط، مع قياس عرض كل قاع من الشموع القريبة؛ القاع الحاد آدم والممتد حواء. التأكيد باختراق القمة الفاصلة.")
+                    "يظهر النموذج بعد هبوط ويتكوّن من قاعين: قاع حاد (آدم) وآخر مستدير أو ممتد (حواء). يتأكد الصعود باختراق القمة بين القاعين.")
             }
         }
         // V-shaped reversals: require two meaningful impulse legs and a compact turning point.
@@ -750,7 +750,7 @@ object ClassicPatternScanner {
                     val height = trigger - low
                     if (height > 0.0) {
                         out += candidate("القاع حرف V (V Bottom)", "صاعد", trigger, trigger + height, low, last,
-                            "هبوط واضح إلى قاع محوري ثم ارتداد سريع؛ تم فحص قوة الضلعين وتوازن مدتهما. التأكيد باختراق المقاومة.")
+                            "يهبط السعر بسرعة إلى قاع واضح ثم يرتد بسرعة، مع مقارنة قوة الهبوط بالارتداد ومدتهما. يتأكد النموذج باختراق المقاومة.")
                     }
                 }
             }
@@ -775,7 +775,7 @@ object ClassicPatternScanner {
                     val height = top - trigger
                     if (height > 0.0) {
                         out += candidate("القمة حرف V المقلوب (Inverted V)", "هابط", trigger, trigger - height, top, last,
-                            "صعود واضح إلى قمة محورية ثم هبوط سريع؛ تم فحص قوة الضلعين وتوازن مدتهما. التأكيد بكسر الدعم.")
+                            "يصعد السعر بسرعة إلى قمة واضحة ثم يهبط بسرعة، مع مقارنة قوة الصعود بالهبوط ومدتهما. يتأكد النموذج بكسر الدعم.")
                     }
                 }
             }
@@ -938,13 +938,13 @@ object ClassicPatternScanner {
                     val trigger = islandLow
                     out += candidate("الجزيرة الانعكاسية الهابطة (Island)", "هابط",
                         trigger, trigger - islandRange, islandHigh, last,
-                        "فجوة صاعدة حقيقية إلى جزيرة صغيرة ثم فجوة هابطة خارجها، بعد اتجاه صاعد؛ كسر قاع الجزيرة يؤكد الانعكاس.")
+                        "بعد اتجاه صاعد، تقفز الأسعار بفجوة لأعلى ثم تتحرك لفترة قصيرة بعيدًا عن الأسعار السابقة، قبل فجوة هابطة. كسر قاع هذه المنطقة يؤكد احتمال انعكاس الاتجاه.")
                 }
                 if (bullishIsland) {
                     val trigger = islandHigh
                     out += candidate("الجزيرة الانعكاسية الصاعدة (Island)", "صاعد",
                         trigger, trigger + islandRange, islandLow, last,
-                        "فجوة هابطة حقيقية إلى جزيرة صغيرة ثم فجوة صاعدة خارجها، بعد اتجاه هابط؛ اختراق قمة الجزيرة يؤكد الانعكاس.")
+                        "بعد اتجاه هابط، تهبط الأسعار بفجوة ثم تتحرك لفترة قصيرة بعيدًا عن الأسعار السابقة، قبل فجوة صاعدة. اختراق قمة هذه المنطقة يؤكد احتمال انعكاس الاتجاه.")
                 }
             }
         }
@@ -986,10 +986,10 @@ object ClassicPatternScanner {
             val upthrustDepthText = String.format(java.util.Locale.US, "%.2f", upthrustDepthPct)
             if (spring) out += candidate("Spring (اختراق دعم وهمي)", "صاعد",
                 support, support + range * 0.65, springBreak.low, last,
-                "دعم اختُبر مرتين على الأقل، ثم اختراق هابط محدود بنسبة $springDepthText% أعقبه استرداد خلال ثلاث شموع بشمعة صاعدة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+                "يهبط السعر أسفل دعم سبق اختباره مرتين على الأقل، ثم يعود فوقه خلال ثلاث شموع بشمعة صاعدة قوية. قد يكون هذا كسرًا وهميًا للدعم؛ وتظل متابعة حجم التداول وسياق السوق مهمة.")
             if (upthrust) out += candidate("Upthrust (اختراق مقاومة وهمي)", "هابط",
                 resistance, resistance - range * 0.65, upthrustBreak.high, last,
-                "مقاومة اختُبرت مرتين على الأقل، ثم اختراق صاعد محدود بنسبة $upthrustDepthText% أعقبه رفض خلال ثلاث شموع بشمعة هابطة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+                "يخترق السعر مقاومة سبق اختبارها مرتين على الأقل، ثم يعود أسفلها خلال ثلاث شموع بشمعة هابطة قوية. قد يكون هذا اختراقًا وهميًا للمقاومة؛ وتظل متابعة حجم التداول وسياق السوق مهمة.")
         }
         // Inverted cup-and-handle: broad rounded ceiling, balanced support rims and a shallow rebound handle.
         if (data.size >= 55) {
