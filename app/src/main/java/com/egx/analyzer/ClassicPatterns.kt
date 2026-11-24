@@ -1332,13 +1332,22 @@ object ClassicPatternScanner {
             "هابط" -> invalidation - trigger
             else -> 0.0
         }
+        val targetDistancePct = if (trigger > 0.0 && targetSuccess > 0.0)
+            abs(targetSuccess - trigger) / trigger * 100.0 else 0.0
+        val invalidationDistancePct = if (trigger > 0.0 && invalidation > 0.0)
+            abs(invalidation - trigger) / trigger * 100.0 else 0.0
+        val targetRiskDistanceReason = if (targetDistancePct > 0.0 && invalidationDistancePct > 0.0) {
+            "مسافة الهدف النظري ${String.format(java.util.Locale.US, "%.2f", targetDistancePct)}%، ومسافة الإلغاء ${String.format(java.util.Locale.US, "%.2f", invalidationDistancePct)}%"
+        } else {
+            "مسافة الهدف أو الإلغاء غير متاحة"
+        }
         val riskRewardReason = if (reward > 0.0 && risk > 0.0) {
             val ratio = reward / risk
             "العائد النظري إلى المخاطرة ${String.format(java.util.Locale.US, "%.2f", ratio)}:1"
         } else {
             "نسبة العائد إلى المخاطرة غير متاحة لهذا النموذج"
         }
-        val details = "$baseReason؛ $distanceReason؛ $riskRewardReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
+        val details = "$baseReason؛ $distanceReason؛ $targetRiskDistanceReason؛ $riskRewardReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
         return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,invalidation,explanation,confidence,details)
     }
 }
