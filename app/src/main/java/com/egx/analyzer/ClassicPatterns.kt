@@ -322,9 +322,28 @@ object ClassicPatternScanner {
                 out += candidate("القناة الهابطة","هابط",lower2,lower2-firstRange,upper2,last,
                     "نطاقان متوازيان تقريبًا وميل متوسط هابط؛ كسر أرضية القناة هو مستوى التفعيل المرجعي.")
             }
-            if (secondRange > firstRange*1.15 && upper2>upper1 && lower2<lower1) {
-                out += candidate("التشكيل المتسع (Broadening)","محايد",upper2,upper2+secondRange,lower2-secondRange,last,
-                    "قمم أعلى وقيعان أدنى مع اتساع الحركة؛ اتجاه التأكيد يتحدد بكسر أحد الحدود.")
+            val broadeningPivots = alternating.filter { it.first >= data.size - 40 }
+            val broadeningHighs = broadeningPivots.filter { it.second }
+            val broadeningLows = broadeningPivots.filter { !it.second }
+            if (broadeningHighs.size >= 3 && broadeningLows.size >= 3) {
+                val highValues = broadeningHighs.map { data[it.first].high }
+                val lowValues = broadeningLows.map { data[it.first].low }
+                val highsExpand = highValues.zipWithNext().count { (a, b) -> b > a * 1.002 } >= 2
+                val lowsExpand = lowValues.zipWithNext().count { (a, b) -> b < a * 0.998 } >= 2
+                val highSpan = broadeningHighs.last().first - broadeningHighs.first().first
+                val lowSpan = broadeningLows.last().first - broadeningLows.first().first
+                val pivotSpacingValid = highSpan >= 8 && lowSpan >= 8
+                val pivotRange = highValues.last() - lowValues.last()
+                val priorPivotRange = highValues.first() - lowValues.first()
+                val expansionValid = priorPivotRange > 0.0 &&
+                    pivotRange > priorPivotRange * 1.15 &&
+                    secondRange > firstRange * 1.10
+                if (highsExpand && lowsExpand && pivotSpacingValid && expansionValid) {
+                    out += candidate("التشكيل المتسع (Broadening)", "محايد",
+                        highValues.last(), highValues.last() + pivotRange,
+                        lowValues.last() - pivotRange, last,
+                        "ثلاث قمم محورية على الأقل تتسع لأعلى وثلاثة قيعان تتسع لأسفل مع زيادة المسافة بين الحدين؛ لا يتحدد الاتجاه إلا باختراق أو كسر واضح.")
+                }
             }
         }
         if (data.size >= 35) {
@@ -771,17 +790,40 @@ object ClassicPatternScanner {
                     "اتجاه تمهيدي صاعد يعقبه تسارع واضح في الصعود (Bump)، ثم تراجع يكسر دعم منطقة التكوين؛ الهدف النظري يُقاس من ارتفاع مرحلة الاندفاع، والفشل أعلى القمة.")
             }
         }
-        // Broadening wedge approximation (sloped expansion), directional bias inferred from midpoints.
+        // Broadening formations: require repeated expanding swing highs and lows, not just wider half-window ranges.
         if (data.size >= 35) {
-            val w=data.takeLast(35); val a=w.take(17); val b=w.takeLast(18)
-            val aH=a.maxOf{it.high}; val aL=a.minOf{it.low}; val bH=b.maxOf{it.high}; val bL=b.minOf{it.low}
-            val aMid=(aH+aL)/2; val bMid=(bH+bL)/2
-            if (bH>aH*1.02 && bL<aL*.98 && bMid>aMid) {
-                out += candidate("الوتد المتسع الصاعد (Broadening Wedge)","صاعد",bH,bH+(bH-bL),bL,last,
-                    "اتساع الحدود مع ميل عام صاعد؛ الاختراق فوق الحد الأعلى شرط تأكيد إضافي.")
-            } else if (bH>aH*1.02 && bL<aL*.98 && bMid<aMid) {
-                out += candidate("الوتد المتسع الهابط (Broadening Wedge)","هابط",bL,bL-(bH-bL),bH,last,
-                    "اتساع الحدود مع ميل عام هابط؛ الكسر أسفل الحد الأدنى شرط تأكيد إضافي.")
+            val startIndex = data.size - 35
+            val formationPivots = alternating.filter { it.first >= startIndex }
+            val formationHighs = formationPivots.filter { it.second }
+            val formationLows = formationPivots.filter { !it.second }
+            if (formationHighs.size >= 3 && formationLows.size >= 3) {
+                val highValues = formationHighs.map { data[it.first].high }
+                val lowValues = formationLows.map { data[it.first].low }
+                val higherHighCount = highValues.zipWithNext().count { (a, b) -> b > a * 1.002 }
+                val lowerLowCount = lowValues.zipWithNext().count { (a, b) -> b < a * 0.998 }
+                val highSpan = formationHighs.last().first - formationHighs.first().first
+                val lowSpan = formationLows.last().first - formationLows.first().first
+                val firstWidth = highValues.first() - lowValues.first()
+                val finalWidth = highValues.last() - lowValues.last()
+                val expandsOutward = higherHighCount >= 2 && lowerLowCount >= 2 &&
+                    highSpan >= 8 && lowSpan >= 8 && firstWidth > 0.0 &&
+                    finalWidth > firstWidth * 1.15
+                if (expandsOutward) {
+                    val upper = highValues.last()
+                    val lower = lowValues.last()
+                    val width = finalWidth
+                    val firstMid = (highValues.first() + lowValues.first()) / 2.0
+                    val lastMid = (upper + lower) / 2.0
+                    if (lastMid > firstMid * 1.01) {
+                        out += candidate("الوتد المتسع الصاعد (Broadening Wedge)", "صاعد",
+                            upper, upper + width, lower, last,
+                            "قمم محورية أعلى وقيعان أدنى متتابعة مع اتساع الحدود وميل متوسط صاعد؛ اختراق آخر قمة يؤكد النموذج.")
+                    } else if (lastMid < firstMid * 0.99) {
+                        out += candidate("الوتد المتسع الهابط (Broadening Wedge)", "هابط",
+                            lower, lower - width, upper, last,
+                            "قمم محورية أعلى وقيعان أدنى متتابعة مع اتساع الحدود وميل متوسط هابط؛ كسر آخر قاع يؤكد النموذج.")
+                    }
+                }
             }
         }
 
