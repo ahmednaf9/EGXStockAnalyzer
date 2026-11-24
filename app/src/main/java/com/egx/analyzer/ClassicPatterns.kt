@@ -614,24 +614,57 @@ object ClassicPatternScanner {
                     "قاعان متقاربان تفصل بينهما قمة واضحة؛ تم تمييز القاع الحاد (آدم) من المستدير (حواء). التأكيد باختراق القمة الفاصلة.")
             }
         }
-        // V-shaped reversal approximations, validated by a strong turn from the extreme.
+        // V-shaped reversals: require two meaningful impulse legs and a compact turning point.
         if (data.size >= 25) {
-            val v=data.takeLast(25); val mid=12
-            val lowIndex=v.indices.minByOrNull{v[it].low} ?: mid
-            val low=v[lowIndex].low; val leftHigh=v.take(lowIndex).maxOfOrNull{it.high} ?: low
-            val rightHigh=v.drop(lowIndex+1).maxOfOrNull{it.high} ?: low
-            if (lowIndex in 5..19 && leftHigh>low*1.08 && last>low*1.08 && last>v.takeLast(5).first().close) {
-                val trigger=maxOf(leftHigh,rightHigh); val height=trigger-low
-                out += candidate("القاع حرف V (V Bottom)","صاعد",trigger,trigger+height,low,last,
-                    "هبوط حاد ثم تعافٍ سريع من قاع محوري؛ تأكيد عند تجاوز المقاومة المحددة.")
+            val v = data.takeLast(25)
+            val lowIndex = v.indices.minByOrNull { v[it].low } ?: 12
+            if (lowIndex in 5..19) {
+                val low = v[lowIndex].low
+                val leftHigh = v.take(lowIndex).maxOfOrNull { it.high } ?: low
+                val rightHigh = v.drop(lowIndex + 1).maxOfOrNull { it.high } ?: low
+                val leftMove = (leftHigh - low) / low.coerceAtLeast(0.000001)
+                val rightMove = (rightHigh - low) / low.coerceAtLeast(0.000001)
+                val leftBars = lowIndex
+                val rightBars = v.lastIndex - lowIndex
+                val legBalance = minOf(leftBars, rightBars).toDouble() /
+                    maxOf(leftBars, rightBars).coerceAtLeast(1)
+                val recoveryStart = v.getOrNull(lowIndex + 1)?.close ?: low
+                val recentRecovery = v.takeLast(5).first().close
+                if (leftMove >= 0.07 && rightMove >= 0.06 &&
+                    legBalance >= 0.30 && last >= low * 1.06 &&
+                    last > recentRecovery && recoveryStart > low * 1.01) {
+                    val trigger = maxOf(leftHigh, rightHigh)
+                    val height = trigger - low
+                    if (height > 0.0) {
+                        out += candidate("القاع حرف V (V Bottom)", "صاعد", trigger, trigger + height, low, last,
+                            "هبوط واضح إلى قاع محوري ثم ارتداد سريع؛ تم فحص قوة الضلعين وتوازن مدتهما. التأكيد باختراق المقاومة.")
+                    }
+                }
             }
-            val highIndex=v.indices.maxByOrNull{v[it].high} ?: mid
-            val top=v[highIndex].high; val leftLow=v.take(highIndex).minOfOrNull{it.low} ?: top
-            val rightLow=v.drop(highIndex+1).minOfOrNull{it.low} ?: top
-            if (highIndex in 5..19 && top>leftLow*1.08 && top>rightLow*1.08 && last<top*.92) {
-                val trigger=minOf(leftLow,rightLow); val height=top-trigger
-                out += candidate("القمة حرف V المقلوب (Inverted V)","هابط",trigger,trigger-height,top,last,
-                    "صعود حاد ثم انعكاس سريع من قمة محورية؛ تأكيد عند كسر الدعم المحدد.")
+
+            val highIndex = v.indices.maxByOrNull { v[it].high } ?: 12
+            if (highIndex in 5..19) {
+                val top = v[highIndex].high
+                val leftLow = v.take(highIndex).minOfOrNull { it.low } ?: top
+                val rightLow = v.drop(highIndex + 1).minOfOrNull { it.low } ?: top
+                val leftMove = (top - leftLow) / top.coerceAtLeast(0.000001)
+                val rightMove = (top - rightLow) / top.coerceAtLeast(0.000001)
+                val leftBars = highIndex
+                val rightBars = v.lastIndex - highIndex
+                val legBalance = minOf(leftBars, rightBars).toDouble() /
+                    maxOf(leftBars, rightBars).coerceAtLeast(1)
+                val declineStart = v.getOrNull(highIndex + 1)?.close ?: top
+                val recentDecline = v.takeLast(5).first().close
+                if (leftMove >= 0.07 && rightMove >= 0.06 &&
+                    legBalance >= 0.30 && last <= top * 0.94 &&
+                    last < recentDecline && declineStart < top * 0.99) {
+                    val trigger = minOf(leftLow, rightLow)
+                    val height = top - trigger
+                    if (height > 0.0) {
+                        out += candidate("القمة حرف V المقلوب (Inverted V)", "هابط", trigger, trigger - height, top, last,
+                            "صعود واضح إلى قمة محورية ثم هبوط سريع؛ تم فحص قوة الضلعين وتوازن مدتهما. التأكيد بكسر الدعم.")
+                    }
+                }
             }
         }
         // Pipe bottom/top: two strong adjacent candles near a local extreme.
