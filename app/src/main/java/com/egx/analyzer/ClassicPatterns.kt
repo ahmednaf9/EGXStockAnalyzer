@@ -762,38 +762,46 @@ object ClassicPatternScanner {
             }
         }
 
-        // Island reversals: require two meaningful separating gaps and a preceding trend.
+        // Island reversals: validate gap direction, gap magnitude, compact island and prior trend.
         if (data.size >= 18) {
             val w = data.takeLast(18)
             for (i in 5 until w.size - 4) {
                 val island = w.subList(i - 2, i + 2)
+                val firstIsland = w[i - 2]
+                val lastIsland = w[i + 1]
+                val beforeIsland = w[i - 3]
+                val afterIsland = w[i + 2]
                 val islandHigh = island.maxOf { it.high }
                 val islandLow = island.minOf { it.low }
                 val islandRange = islandHigh - islandLow
-                val leftDownGap = w[i - 2].low - w[i - 3].high
-                val rightDownGap = w[i + 1].low - w[i + 2].high
-                val leftUpGap = w[i - 3].low - w[i - 2].high
-                val rightUpGap = w[i + 2].low - w[i + 1].high
-                val gapFloor = last * 0.001
-                val meaningfulIsland = islandRange > 0.0 && islandRange < last * 0.12
+                // Positive values represent actual non-overlapping gaps in the stated direction.
+                val gapIntoUp = firstIsland.low - beforeIsland.high
+                val gapIntoDown = beforeIsland.low - firstIsland.high
+                val gapOutDown = lastIsland.low - afterIsland.high
+                val gapOutUp = afterIsland.low - lastIsland.high
+                val averageRange = w.take(i - 2).takeLast(10)
+                    .map { it.high - it.low }.average().coerceAtLeast(last * 0.001)
+                val gapFloor = maxOf(last * 0.001, averageRange * 0.15)
+                val meaningfulIsland = islandRange > 0.0 &&
+                    islandRange < last * 0.08 && islandRange < averageRange * 5.0
                 val prior = w.subList(i - 5, i - 2)
-                val priorWasRising = prior.last().close > prior.first().close * 1.015
-                val priorWasFalling = prior.last().close < prior.first().close * 0.985
-                val bearishIsland = leftUpGap > gapFloor && rightDownGap > gapFloor &&
+                val priorWasRising = prior.last().close > prior.first().close * 1.02
+                val priorWasFalling = prior.last().close < prior.first().close * 0.98
+                val bearishIsland = gapIntoUp > gapFloor && gapOutDown > gapFloor &&
                     meaningfulIsland && priorWasRising
-                val bullishIsland = leftDownGap > gapFloor && rightUpGap > gapFloor &&
+                val bullishIsland = gapIntoDown > gapFloor && gapOutUp > gapFloor &&
                     meaningfulIsland && priorWasFalling
                 if (bearishIsland) {
                     val trigger = islandLow
                     out += candidate("الجزيرة الانعكاسية الهابطة (Island)", "هابط",
                         trigger, trigger - islandRange, islandHigh, last,
-                        "فجوة صاعدة ثم جزيرة سعرية صغيرة وفجوة هابطة، بعد اتجاه صاعد سابق؛ كسر قاع الجزيرة شرط التأكيد.")
+                        "فجوة صاعدة حقيقية إلى جزيرة صغيرة ثم فجوة هابطة خارجها، بعد اتجاه صاعد؛ كسر قاع الجزيرة يؤكد الانعكاس.")
                 }
                 if (bullishIsland) {
                     val trigger = islandHigh
                     out += candidate("الجزيرة الانعكاسية الصاعدة (Island)", "صاعد",
                         trigger, trigger + islandRange, islandLow, last,
-                        "فجوة هابطة ثم جزيرة سعرية صغيرة وفجوة صاعدة، بعد اتجاه هابط سابق؛ اختراق قمة الجزيرة شرط التأكيد.")
+                        "فجوة هابطة حقيقية إلى جزيرة صغيرة ثم فجوة صاعدة خارجها، بعد اتجاه هابط؛ اختراق قمة الجزيرة يؤكد الانعكاس.")
                 }
             }
         }
