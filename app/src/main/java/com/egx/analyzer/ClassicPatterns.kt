@@ -667,21 +667,52 @@ object ClassicPatternScanner {
                 }
             }
         }
-        // Pipe bottom/top: two strong adjacent candles near a local extreme.
+        // Pipe bottom/top: strong opposite candles after a clear trend, at a meaningful extreme.
         if (data.size >= 30) {
-            val p=data.takeLast(30); val a=p[p.size-2]; val b=p.last()
-            val bodyA=abs(a.close-a.open); val bodyB=abs(b.close-b.open)
-            val avgRange=p.map{it.high-it.low}.average().coerceAtLeast(last*.001)
-            val priorLow=p.dropLast(2).minOf{it.low}; val priorHigh=p.dropLast(2).maxOf{it.high}
-            if (a.close<a.open && b.close>b.open && bodyA>avgRange*1.4 && bodyB>avgRange*1.4 && minOf(a.low,b.low)<=priorLow*1.03) {
-                val trigger=maxOf(a.high,b.high); val height=trigger-minOf(a.low,b.low)
-                out += candidate("Pipe Bottom","صاعد",trigger,trigger+height,minOf(a.low,b.low),last,
-                    "شمعتان كبيرتان متعاكستان قرب قاع نطاق؛ الاختراق فوق قمتهما يؤكد بصورة أولية.")
+            val p = data.takeLast(30)
+            val a = p[p.size - 2]
+            val b = p.last()
+            val prior = p.dropLast(2)
+            val bodyA = abs(a.close - a.open)
+            val bodyB = abs(b.close - b.open)
+            val avgRange = prior.takeLast(20).map { it.high - it.low }.average()
+                .coerceAtLeast(last * 0.001)
+            val rangeA = (a.high - a.low).coerceAtLeast(last * 0.001)
+            val rangeB = (b.high - b.low).coerceAtLeast(last * 0.001)
+            val closePositionA = (a.close - a.low) / rangeA
+            val closePositionB = (b.close - b.low) / rangeB
+            val priorStart = prior.first().close
+            val priorEnd = prior.last().close
+            val priorLow = prior.minOf { it.low }
+            val priorHigh = prior.maxOf { it.high }
+            val pairLow = minOf(a.low, b.low)
+            val pairHigh = maxOf(a.high, b.high)
+            val strongCandles = bodyA >= avgRange * 1.0 && bodyB >= avgRange * 1.0 &&
+                rangeA >= avgRange * 1.15 && rangeB >= avgRange * 1.15
+
+            val bearishTrend = priorStart > 0.0 && priorEnd < priorStart * 0.95
+            val bullishTrend = priorStart > 0.0 && priorEnd > priorStart * 1.05
+
+            if (bearishTrend && a.close < a.open && b.close > b.open &&
+                strongCandles && closePositionA <= 0.35 && closePositionB >= 0.65 &&
+                pairLow <= priorLow * 1.025) {
+                val trigger = pairHigh
+                val height = trigger - pairLow
+                if (height > 0.0) {
+                    out += candidate("Pipe Bottom", "صاعد", trigger, trigger + height, pairLow, last,
+                        "اتجاه هابط سابق أعقبته شمعتان قويتان متعاكستان قرب القاع؛ إغلاق الشمعة الثانية قرب أعلاها. التأكيد باختراق أعلى الشمعتين.")
+                }
             }
-            if (a.close>a.open && b.close<b.open && bodyA>avgRange*1.4 && bodyB>avgRange*1.4 && maxOf(a.high,b.high)>=priorHigh*.97) {
-                val trigger=minOf(a.low,b.low); val height=maxOf(a.high,b.high)-trigger
-                out += candidate("Pipe Top","هابط",trigger,trigger-height,maxOf(a.high,b.high),last,
-                    "شمعتان كبيرتان متعاكستان قرب قمة نطاق؛ الكسر أسفل قاعهما يؤكد بصورة أولية.")
+
+            if (bullishTrend && a.close > a.open && b.close < b.open &&
+                strongCandles && closePositionA >= 0.65 && closePositionB <= 0.35 &&
+                pairHigh >= priorHigh * 0.975) {
+                val trigger = pairLow
+                val height = pairHigh - trigger
+                if (height > 0.0) {
+                    out += candidate("Pipe Top", "هابط", trigger, trigger - height, pairHigh, last,
+                        "اتجاه صاعد سابق أعقبته شمعتان قويتان متعاكستان قرب القمة؛ إغلاق الشمعة الثانية قرب أدناها. التأكيد بكسر أدنى الشمعتين.")
+                }
             }
         }
         // Three Drives: validate both the three impulse extremes and the intervening reaction pivots.
