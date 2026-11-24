@@ -195,20 +195,42 @@ object ClassicPatternScanner {
                     "كوب بقاعدة واسعة وقاع مركزي وحافتين متقاربتين، تعقبه عروة ضحلة في النصف العلوي؛ التأكيد باختراق حافة الكوب.")
             }
         }
-        // Wedge approximation from contracting recent range and sloping boundaries.
+        // Wedges: use chronological swing pivots to validate both boundary slopes and convergence.
         if (data.size >= 30) {
-            val w=data.takeLast(30); val first=w.take(15); val second=w.takeLast(15)
-            val firstH=first.maxOf{it.high}; val secondH=second.maxOf{it.high}
-            val firstL=first.minOf{it.low}; val secondL=second.minOf{it.low}
-            val contracting=(secondH-secondL)<(firstH-firstL)*.82
-            if (contracting && secondH<firstH && secondL>firstL) {
-                val trigger=secondH; val height=(firstH-firstL).coerceAtLeast(last*.03)
-                out += candidate("الوتد الهابط","صاعد",trigger,trigger+height,secondL,last,
-                    "حدود الحركة تتقارب مع ميل هابط؛ الاختراق أعلى الحد العلوي إشارة محتملة.")
-            } else if (contracting && secondH>firstH && secondL<firstL) {
-                val trigger=secondL; val height=(firstH-firstL).coerceAtLeast(last*.03)
-                out += candidate("الوتد الصاعد","هابط",trigger,trigger-height,secondH,last,
-                    "حدود الحركة تتقارب مع ميل صاعد؛ الكسر أسفل الحد السفلي إشارة محتملة.")
+            val startIndex = data.size - 30
+            val windowPivots = alternating.filter { it.first >= startIndex }
+            val swingHighs = windowPivots.filter { it.second }
+            val swingLows = windowPivots.filter { !it.second }
+            if (swingHighs.size >= 2 && swingLows.size >= 2) {
+                val firstHigh = swingHighs.first()
+                val lastHigh = swingHighs.last()
+                val firstLow = swingLows.first()
+                val lastLow = swingLows.last()
+                val highStart = data[firstHigh.first].high
+                val highEnd = data[lastHigh.first].high
+                val lowStart = data[firstLow.first].low
+                val lowEnd = data[lastLow.first].low
+                val highSlope = (highEnd - highStart) / (lastHigh.first - firstHigh.first).toDouble()
+                val lowSlope = (lowEnd - lowStart) / (lastLow.first - firstLow.first).toDouble()
+                val initialWidth = highStart - lowStart
+                val finalWidth = highEnd - lowEnd
+                val converging = initialWidth > 0.0 && finalWidth > 0.0 &&
+                    finalWidth < initialWidth * 0.82
+                val enoughSwingSpacing = lastHigh.first - firstHigh.first >= 6 &&
+                    lastLow.first - firstLow.first >= 6
+                val risingWedge = highSlope > 0.0 && lowSlope > highSlope * 1.10
+                val fallingWedge = lowSlope < 0.0 && highSlope < lowSlope * 1.10
+                if (converging && enoughSwingSpacing && risingWedge) {
+                    val trigger = lowEnd
+                    val height = initialWidth.coerceAtLeast(last * 0.03)
+                    out += candidate("الوتد الصاعد", "هابط", trigger, trigger - height, highEnd, last,
+                        "قمم وقيعان محورية صاعدة مع ميل الحد السفلي أسرع من العلوي وتقلص واضح للنطاق؛ كسر الحد السفلي يؤكد النموذج.")
+                } else if (converging && enoughSwingSpacing && fallingWedge) {
+                    val trigger = highEnd
+                    val height = initialWidth.coerceAtLeast(last * 0.03)
+                    out += candidate("الوتد الهابط", "صاعد", trigger, trigger + height, lowEnd, last,
+                        "قمم وقيعان محورية هابطة مع تقارب الحدين وتقلص واضح للنطاق؛ اختراق الحد العلوي يؤكد النموذج.")
+                }
             }
         }
         // Range and triangle validation using contraction, horizontal-boundary tolerance and swing separation.
