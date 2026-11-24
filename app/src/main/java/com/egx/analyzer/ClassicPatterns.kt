@@ -151,16 +151,38 @@ object ClassicPatternScanner {
                     "ثلاثة قيعان متقاربة تفصل بينها قمتان؛ التأكيد باختراق منطقة المقاومة بين القيعان.")
             }
         }
-        // Cup-and-handle approximation: rounded multi-week base, then a shallow handle.
+        // Cup-and-handle: validate a broad U-shaped cup, balanced rims and a shallow upper-half handle.
         if (data.size >= 55) {
-            val cup=data.takeLast(55).dropLast(10); val handle=data.takeLast(10)
-            val left=cup.take(10).maxOf{it.high}; val bottom=cup.drop(10).take(25).minOf{it.low}
-            val right=cup.takeLast(10).maxOf{it.high}; val handleLow=handle.minOf{it.low}
-            val rim=(left+right)/2
-            if (bottom<rim && abs(left-right)/rim<.12 && handleLow>rim*.82 && handleLow<rim*1.02) {
-                val depth=rim-bottom
-                out += candidate("الكوب والعروة","صاعد",rim,rim+depth,handleLow,last,
-                    "قاعدة مقوسة تقريبية مع عروة قصيرة؛ يتأكد باختراق حافة الكوب.")
+            val window = data.takeLast(55)
+            val cup = window.dropLast(10)
+            val handle = window.takeLast(10)
+            val leftSection = cup.take(12)
+            val middleSection = cup.drop(12).take(21)
+            val rightSection = cup.takeLast(12)
+            val leftRim = leftSection.maxOf { it.high }
+            val rightRim = rightSection.maxOf { it.high }
+            val rim = (leftRim + rightRim) / 2.0
+            val bottom = middleSection.minOf { it.low }
+            val bottomIndex = middleSection.indices.minByOrNull { middleSection[it].low } ?: 10
+            val depth = rim - bottom
+            val leftCloseAvg = leftSection.map { it.close }.average()
+            val centerCloseAvg = middleSection.map { it.close }.average()
+            val rightCloseAvg = rightSection.map { it.close }.average()
+            val handleLow = handle.minOf { it.low }
+            val handleHigh = handle.maxOf { it.high }
+            val handleRange = handleHigh - handleLow
+            val rimsBalanced = rim > 0.0 && abs(leftRim - rightRim) / rim < 0.07
+            val cupDepthValid = depth > rim * 0.08 && depth < rim * 0.40
+            val bottomIsCentral = bottomIndex in 4..16
+            val roundedShape = centerCloseAvg < leftCloseAvg && centerCloseAvg < rightCloseAvg &&
+                centerCloseAvg < rim * 0.94
+            val handleInUpperHalf = handleLow > bottom + depth * 0.50 && handleLow < rim * 0.99
+            val handleCompact = handleRange < depth * 0.45 && handleHigh < rim * 1.04
+            val handleNotRisingSharply = handle.last().close <= handle.first().close * 1.04
+            if (rimsBalanced && cupDepthValid && bottomIsCentral && roundedShape &&
+                handleInUpperHalf && handleCompact && handleNotRisingSharply) {
+                out += candidate("الكوب والعروة", "صاعد", rim, rim + depth, handleLow, last,
+                    "كوب بقاعدة واسعة وقاع مركزي وحافتين متقاربتين، تعقبه عروة ضحلة في النصف العلوي؛ التأكيد باختراق حافة الكوب.")
             }
         }
         // Wedge approximation from contracting recent range and sloping boundaries.
