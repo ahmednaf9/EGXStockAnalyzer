@@ -379,8 +379,7 @@ object ClassicPatternScanner {
                 val pivotRange = highValues.last() - lowValues.last()
                 val priorPivotRange = highValues.first() - lowValues.first()
                 val expansionValid = priorPivotRange > 0.0 &&
-                    pivotRange > priorPivotRange * 1.15 &&
-                    secondRange > firstRange * 1.10
+                    pivotRange > priorPivotRange * 1.15
                 if (highsExpand && lowsExpand && pivotSpacingValid && expansionValid) {
                     out += candidate("التشكيل المتسع (Broadening)", "محايد",
                         highValues.last(), highValues.last() + pivotRange,
