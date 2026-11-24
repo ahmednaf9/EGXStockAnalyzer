@@ -544,17 +544,38 @@ object ClassicPatternScanner {
                     "قمة مقوسة عريضة بقاعين جانبيين متقاربين، تعقبها عروة ارتدادية ضحلة في النصف السفلي؛ التأكيد بكسر دعم حافتي النموذج.")
             }
         }
-        // Bump-and-run reversal approximation: steep run-up, hump and sharp breakdown.
-        if (data.size >= 60) {
-            val w=data.takeLast(60); val lead=w.take(25); val bump=w.drop(25).take(15); val decline=w.takeLast(20)
-            val leadRise=lead.last().close-lead.first().close
-            val bumpRise=bump.maxOf{it.high}-bump.minOf{it.low}
-            val support=decline.minOf{it.low}; val peak=w.maxOf{it.high}
-            if (leadRise>last*.12 && bumpRise>leadRise*.45 && decline.last().close<decline.first().close &&
-                decline.last().close<support*1.08) {
-                val trigger=support; val height=peak-support
-                out += candidate("Bump-and-Run (انعكاس هابط)","هابط",trigger,trigger-height,peak,last,
-                    "ارتفاع حاد وتشكيل قمة ثم ضعف؛ الكسر أسفل الدعم المحلي هو التأكيد.")
+        // Bump-and-Run: gradual lead-in, accelerated bump, then a confirmed support break.
+        if (data.size >= 60 && last > 0.0) {
+            val w = data.takeLast(60)
+            val lead = w.take(25)
+            val bump = w.drop(25).take(15)
+            val decline = w.takeLast(20)
+            val leadStart = lead.first().close
+            val leadEnd = lead.last().close
+            val bumpStart = bump.first().close
+            val peakIndex = bump.indices.maxByOrNull { bump[it].high } ?: 0
+            val peak = bump[peakIndex].high
+            val leadPct = if (leadStart > 0.0) (leadEnd - leadStart) / leadStart * 100.0 else 0.0
+            val bumpPct = if (bumpStart > 0.0) (peak - bumpStart) / bumpStart * 100.0 else 0.0
+            val leadSlope = leadPct / 25.0
+            val bumpSlope = bumpPct / 15.0
+            val postPeak = if (peakIndex < bump.lastIndex) bump.drop(peakIndex + 1) + decline else decline
+            val support = (bump.takeLast(5) + decline.take(10)).minOf { it.low }
+            val drawdownPct = if (peak > 0.0) (peak - decline.last().close) / peak * 100.0 else 0.0
+            val breakdown = decline.last().close < support
+            val accelerated = bumpSlope > leadSlope * 1.35 && bumpPct > 5.0
+            val orderlyLeadIn = leadPct in 4.0..25.0 && leadEnd >= leadStart
+            val peakNearBumpEnd = peakIndex >= 5
+            val postPeakWeakness = postPeak.isNotEmpty() &&
+                postPeak.last().close < peak * 0.96 &&
+                decline.last().close < decline.first().close * 0.96
+            if (orderlyLeadIn && accelerated && peakNearBumpEnd &&
+                drawdownPct >= 6.0 && postPeakWeakness && breakdown) {
+                val trigger = support
+                val height = (peak - leadEnd).coerceAtLeast(peak * 0.04)
+                out += candidate("Bump-and-Run (انعكاس هابط)", "هابط", trigger,
+                    trigger - height, peak, last,
+                    "اتجاه تمهيدي صاعد يعقبه تسارع واضح في الصعود (Bump)، ثم تراجع يكسر دعم منطقة التكوين؛ الهدف النظري يُقاس من ارتفاع مرحلة الاندفاع، والفشل أعلى القمة.")
             }
         }
         // Broadening wedge approximation (sloped expansion), directional bias inferred from midpoints.
