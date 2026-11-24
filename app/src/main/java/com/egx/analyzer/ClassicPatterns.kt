@@ -453,25 +453,38 @@ object ClassicPatternScanner {
             }
         }
 
-        // Island reversals: a compact cluster isolated by gaps (approximation).
-        if (data.size >= 15) {
-            val w=data.takeLast(15)
-            for (i in 5 until w.size-4) {
-                val island=w.subList(i-2,i+2)
-                val islandHigh=island.maxOf{it.high}; val islandLow=island.minOf{it.low}
-                val leftGapDown=w[i-2].low > w[i-3].high
-                val rightGapDown=w[i+2].high < w[i+1].low
-                val leftGapUp=w[i-2].high < w[i-3].low
-                val rightGapUp=w[i+2].low > w[i+1].high
-                if (leftGapUp && rightGapDown) {
-                    val trigger=islandLow; val height=islandHigh-islandLow
-                    out += candidate("الجزيرة الانعكاسية الهابطة (Island)","هابط",trigger,trigger-height,islandHigh,last,
-                        "مجموعة شموع معزولة بفجوتين؛ كسر قاع الجزيرة شرط التأكيد.")
+        // Island reversals: require two meaningful separating gaps and a preceding trend.
+        if (data.size >= 18) {
+            val w = data.takeLast(18)
+            for (i in 5 until w.size - 4) {
+                val island = w.subList(i - 2, i + 2)
+                val islandHigh = island.maxOf { it.high }
+                val islandLow = island.minOf { it.low }
+                val islandRange = islandHigh - islandLow
+                val leftDownGap = w[i - 2].low - w[i - 3].high
+                val rightDownGap = w[i + 1].low - w[i + 2].high
+                val leftUpGap = w[i - 3].low - w[i - 2].high
+                val rightUpGap = w[i + 2].low - w[i + 1].high
+                val gapFloor = last * 0.001
+                val meaningfulIsland = islandRange > 0.0 && islandRange < last * 0.12
+                val prior = w.subList(i - 5, i - 2)
+                val priorWasRising = prior.last().close > prior.first().close * 1.015
+                val priorWasFalling = prior.last().close < prior.first().close * 0.985
+                val bearishIsland = leftUpGap > gapFloor && rightDownGap > gapFloor &&
+                    meaningfulIsland && priorWasRising
+                val bullishIsland = leftDownGap > gapFloor && rightUpGap > gapFloor &&
+                    meaningfulIsland && priorWasFalling
+                if (bearishIsland) {
+                    val trigger = islandLow
+                    out += candidate("الجزيرة الانعكاسية الهابطة (Island)", "هابط",
+                        trigger, trigger - islandRange, islandHigh, last,
+                        "فجوة صاعدة ثم جزيرة سعرية صغيرة وفجوة هابطة، بعد اتجاه صاعد سابق؛ كسر قاع الجزيرة شرط التأكيد.")
                 }
-                if (leftGapDown && rightGapUp) {
-                    val trigger=islandHigh; val height=islandHigh-islandLow
-                    out += candidate("الجزيرة الانعكاسية الصاعدة (Island)","صاعد",trigger,trigger+height,islandLow,last,
-                        "مجموعة شموع معزولة بفجوتين؛ اختراق قمة الجزيرة شرط التأكيد.")
+                if (bullishIsland) {
+                    val trigger = islandHigh
+                    out += candidate("الجزيرة الانعكاسية الصاعدة (Island)", "صاعد",
+                        trigger, trigger + islandRange, islandLow, last,
+                        "فجوة هابطة ثم جزيرة سعرية صغيرة وفجوة صاعدة، بعد اتجاه هابط سابق؛ اختراق قمة الجزيرة شرط التأكيد.")
                 }
             }
         }
