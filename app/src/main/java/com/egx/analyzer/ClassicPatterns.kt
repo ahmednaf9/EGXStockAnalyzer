@@ -440,13 +440,23 @@ object ClassicPatternScanner {
             val pennantCompact = poleMove > 0.0 && pauseWidth / poleMove in 0.08..0.55
             val pennantShape = upperConverges && lowerConverges && pivotSpacingValid &&
                 pauseWidth > 0.0
+            val bullishPoleRange = (pole.maxOf { it.high } - poleStart).coerceAtLeast(0.0)
+            val bearishPoleRange = (poleStart - pole.minOf { it.low }).coerceAtLeast(0.0)
+            val bullishRetracement = if (bullishPoleRange > 0.0)
+                (pole.maxOf { it.high } - pauseLow) / bullishPoleRange else 1.0
+            val bearishRetracement = if (bearishPoleRange > 0.0)
+                (pauseHigh - pole.minOf { it.low }) / bearishPoleRange else 1.0
+            val bullishPauseValid = bullishRetracement in 0.0..0.50 &&
+                pause.last().close > poleStart + bullishPoleRange * 0.50
+            val bearishPauseValid = bearishRetracement in 0.0..0.50 &&
+                pause.last().close < poleStart - bearishPoleRange * 0.50
             if (poleStrong && pennantCompact && pennantShape && poleEnd > poleStart &&
-                pause.last().close > poleStart) {
+                bullishPauseValid) {
                 out += candidate("الراية الصاعدة (Pennant)", "صاعد", pauseHigh,
                     pauseHigh + poleMove, pauseLow, last,
                     "سارية صاعدة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الاختراق أعلى الراية يفعّل هدف طول السارية.")
             } else if (poleStrong && pennantCompact && pennantShape && poleEnd < poleStart &&
-                pause.last().close < poleStart) {
+                bearishPauseValid) {
                 out += candidate("الراية الهابطة (Pennant)", "هابط", pauseLow,
                     pauseLow - poleMove, pauseHigh, last,
                     "سارية هابطة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
