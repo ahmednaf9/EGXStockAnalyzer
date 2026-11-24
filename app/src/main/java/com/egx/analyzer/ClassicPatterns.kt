@@ -328,26 +328,42 @@ object ClassicPatternScanner {
         }
         // Additional formations: channel, broadening, pennant and rounded bases.
         if (data.size >= 40) {
-            val channel = data.takeLast(40)
-            val first = channel.take(20); val second = channel.takeLast(20)
-            val firstMid = (first.maxOf { it.high } + first.minOf { it.low }) / 2.0
-            val secondMid = (second.maxOf { it.high } + second.minOf { it.low }) / 2.0
-            val firstRange = first.maxOf { it.high } - first.minOf { it.low }
-            val secondRange = second.maxOf { it.high } - second.minOf { it.low }
-            val upper1 = first.maxOf { it.high }; val upper2 = second.maxOf { it.high }
-            val lower1 = first.minOf { it.low }; val lower2 = second.minOf { it.low }
-            val upperShift = upper2 - upper1
-            val lowerShift = lower2 - lower1
-            val parallelShift = firstRange > 0.0 && abs(upperShift - lowerShift) / firstRange < 0.12
-            val rangeStable = firstRange > 0.0 && secondRange / firstRange in 0.65..1.35
-            val channelValid = parallelShift && rangeStable &&
-                abs(upperShift) / firstRange < 0.65 && abs(lowerShift) / firstRange < 0.65
-            if (channelValid && secondMid > firstMid) {
-                out += candidate("القناة الصاعدة","صاعد",upper2,upper2+firstRange,lower2,last,
-                    "نطاقان متوازيان تقريبًا وميل متوسط صاعد؛ تجاوز سقف القناة هو مستوى التفعيل المرجعي.")
-            } else if (channelValid && secondMid < firstMid) {
-                out += candidate("القناة الهابطة","هابط",lower2,lower2-firstRange,upper2,last,
-                    "نطاقان متوازيان تقريبًا وميل متوسط هابط؛ كسر أرضية القناة هو مستوى التفعيل المرجعي.")
+            val channelPivots = alternating.filter { it.first >= data.size - 40 }
+            val channelHighs = channelPivots.filter { it.second }
+            val channelLows = channelPivots.filter { !it.second }
+            if (channelHighs.size >= 2 && channelLows.size >= 2) {
+                val firstHighPivot = channelHighs.first()
+                val lastHighPivot = channelHighs.last()
+                val firstLowPivot = channelLows.first()
+                val lastLowPivot = channelLows.last()
+                val upper1 = data[firstHighPivot.first].high
+                val upper2 = data[lastHighPivot.first].high
+                val lower1 = data[firstLowPivot.first].low
+                val lower2 = data[lastLowPivot.first].low
+                val highBars = lastHighPivot.first - firstHighPivot.first
+                val lowBars = lastLowPivot.first - firstLowPivot.first
+                val upperSlope = if (highBars > 0) (upper2 - upper1) / highBars.toDouble() else 0.0
+                val lowerSlope = if (lowBars > 0) (lower2 - lower1) / lowBars.toDouble() else 0.0
+                val initialWidth = upper1 - lower1
+                val finalWidth = upper2 - lower2
+                val averageWidth = (initialWidth + finalWidth) / 2.0
+                val slopeDifference = abs(upperSlope - lowerSlope) * 20.0
+                val parallelBoundaries = initialWidth > 0.0 && finalWidth > 0.0 &&
+                    slopeDifference < averageWidth * 0.18
+                val stableWidth = initialWidth > 0.0 && finalWidth / initialWidth in 0.70..1.30
+                val enoughSpan = highBars >= 8 && lowBars >= 8
+                val risingChannel = upperSlope > 0.0 && lowerSlope > 0.0 &&
+                    (upperSlope + lowerSlope) / 2.0 > 0.0
+                val fallingChannel = upperSlope < 0.0 && lowerSlope < 0.0 &&
+                    (upperSlope + lowerSlope) / 2.0 < 0.0
+                val channelValid = parallelBoundaries && stableWidth && enoughSpan
+                if (channelValid && risingChannel) {
+                    out += candidate("القناة الصاعدة","صاعد",upper2,upper2+averageWidth,lower2,last,
+                        "قمم وقيعان محورية تصعد بميول متقاربة وتحافظ على عرض القناة؛ تجاوز الحد العلوي هو مستوى التفعيل المرجعي.")
+                } else if (channelValid && fallingChannel) {
+                    out += candidate("القناة الهابطة","هابط",lower2,lower2-averageWidth,upper2,last,
+                        "قمم وقيعان محورية تهبط بميول متقاربة وتحافظ على عرض القناة؛ كسر الحد السفلي هو مستوى التفعيل المرجعي.")
+                }
             }
             val broadeningPivots = alternating.filter { it.first >= data.size - 40 }
             val broadeningHighs = broadeningPivots.filter { it.second }
