@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
 fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
-    var message by remember { mutableStateOf("اكتب رمز السهم، ثم اختر مصدر بيانات الأسعار التاريخية.") }
+    var message by remember { mutableStateOf("ابدأ بكتابة رمز السهم، ثم اختر مصدر بياناته: مجلد MetaStock أو ملف Excel/CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
@@ -532,7 +532,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Column(Modifier.fillMaxWidth().padding(13.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("قائمة أسهم ميتاستوك", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            Text("قائمة الأسهم المتاحة في MetaStock", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                             Text(if (indexedSymbols.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedSymbols.size} رمز سهم موجود في المجلد ويمكن البحث عنه وتحميل بياناته", color = Muted, fontSize = 12.sp)
                         }
                         Button(
@@ -736,7 +736,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         )
                     }
                 }
-                Text("الفترة: ${period}",color=Muted,fontSize=11.sp)
+                Text("الفترة الزمنية للتحليل: ${period}",color=Muted,fontSize=11.sp)
 
                 Spacer(Modifier.height(14.dp))
                 SectionTitle("ملخص حالة السهم")
@@ -948,7 +948,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Text("حركة التداول", Modifier.weight(1f), color = Navy, fontSize = 13.sp)
+                            Text("حركة السعر وحجم التداول", Modifier.weight(1f), color = Navy, fontSize = 13.sp)
                             Text(liquidityText, color = liquidityColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                         }
                         Spacer(Modifier.height(7.dp))
@@ -993,7 +993,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             Metric("توافق الإشارات", egxReport.alignment, Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(8.dp))
-                        Text("مدى اتفاق المؤشرات الفنية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        Text("مدى توافق المؤشرات الفنية مع بعضها", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         egxReport.indicatorReasons.forEach { reason ->
                             Text("• " + reason, color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                         }
@@ -1275,7 +1275,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Column(Modifier.fillMaxWidth().padding(15.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
-                            Text("مدى اتفاق المؤشرات الفنية", color = Muted, fontSize = 11.sp)
+                            Text("مدى توافق المؤشرات الفنية مع بعضها", color = Muted, fontSize = 11.sp)
                             Text(
                                 a.finalRating,
                                 color = finalRatingColor(a.finalRating),
@@ -1589,7 +1589,7 @@ private fun PriceTrendChart(data: List<Candle>) {
     val range = (high - low).coerceAtLeast(0.000001)
     Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
         Column(Modifier.fillMaxWidth().padding(12.dp)) {
-            Text("الشارت بالشموع اليابانية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Text("الرسم البياني للشموع اليابانية", color = Navy, fontWeight = FontWeight.Bold, fontSize = 13.sp)
             Canvas(Modifier.fillMaxWidth().height(210.dp)) {
                 val dx = size.width / data.size
                 val bodyWidth = (dx * 0.62f).coerceAtLeast(2f)
@@ -1608,7 +1608,7 @@ private fun PriceTrendChart(data: List<Candle>) {
                     )
                 }
             }
-            Text("آخر إغلاق: " + String.format(Locale.US, "%.2f", data.last().close), color = Muted, fontSize = 10.sp)
+            Text("سعر الإغلاق في آخر جلسة: " + String.format(Locale.US, "%.2f", data.last().close), color = Muted, fontSize = 10.sp)
         }
     }
 }
