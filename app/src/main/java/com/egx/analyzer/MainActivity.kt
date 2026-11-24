@@ -199,7 +199,7 @@ class MainActivity : ComponentActivity() {
         data to when {
             data.size < 35 -> "تم استيراد ${data.size} جلسة من Excel. يلزم 35 جلسة على الأقل لبدء التحليل وحساب RSI وMACD بصورة أفضل؛ أضف بيانات تاريخية أكثر."
             data.size < 50 -> "تم استيراد ${data.size} جلسة من Excel؛ SMA 50 (متوسط آخر 50 جلسة) والتقييم الفني الكامل يحتاجان إلى 50 جلسة على الأقل."
-            else -> "تم استيراد ${data.size} شمعة من Excel بعد التحقق من سلامة الأسعار."
+            else -> "تم استيراد ${data.size} جلسة تداول من Excel بعد التحقق من سلامة الأسعار."
         }
     } catch(e:Exception){ emptyList<Candle>() to "تعذرت قراءة ملف Excel. تحقق من وجود عناوين الأعمدة وترتيبها: Date, Open, High, Low, Close, Volume، ومن أن الملف بصيغة XLSX. التفاصيل: ${e.message ?: "تحقق من الملف."}" }
 
@@ -692,7 +692,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     color = Muted, fontSize = 12.sp, lineHeight = 18.sp
                 )
                 Feature("ملخص حالة السهم", "يعرض أهم الإشارات الإيجابية والسلبية، ويوضح الصورة العامة لحركة السهم.")
-                Feature("اتجاه السهم وقوة حركته", "يوضح هل السهم صاعد أم هابط أم يتحرك في نطاق، ويستخدم مؤشرات RSI وMACD والمتوسطات المتحركة لقياس قوة الحركة.")
+                Feature("اتجاه السهم وقوة حركته", "يوضح هل السهم صاعد أم هابط أم يتحرك في نطاق، ويستخدم RSI (مؤشر القوة النسبية) لقياس الزخم، وMACD (تقارب وتباعد المتوسطات المتحركة) لمتابعة تغير الاتجاه، إلى جانب المتوسطات المتحركة.")
                 Feature("مناطق الدعم والمقاومة", "يعرض أسعارًا قد يجد السهم عندها دعمًا يساعده على الارتداد، أو مقاومة يصعب عليه تجاوزها.")
                 Feature("النماذج الفنية", "يرصد أشكالًا تتكون على الرسم البياني، وقد تساعد في فهم احتمال استمرار الحركة أو انعكاسها.")
                 Feature("متابعة المخاطر", "يعرض مستويات سعرية افتراضية للمتابعة، والسعر الذي يفقد عنده السيناريو صلاحيته، مع مقارنة العائد المحتمل بالمخاطرة.")
@@ -858,7 +858,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.fillMaxWidth().padding(15.dp)) {
-                        Text("مستوى قوة الإشارات الفنية", color = Muted, fontSize = 12.sp)
+                        Text("مدى توافق المؤشرات الفنية", color = Muted, fontSize = 12.sp)
                         val classificationColor = when (a.technicalClassification) {
                             "قوي جداً", "قوي", "إيجابي" -> Green
                             "ضعيف", "ضعيف جداً" -> Red
@@ -868,7 +868,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         Spacer(Modifier.height(4.dp))
                         Text(a.technicalClassificationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(9.dp))
-                        Text("الخلاصة العملية: ماذا تعني الإشارات حاليًا؟", color = Muted, fontSize = 12.sp)
+                        Text("الخلاصة العملية: كيف تُقرأ الإشارات حاليًا؟", color = Muted, fontSize = 12.sp)
                         val recommendationColor = when (a.executionRecommendation) {
                             "شراء", "شراء تدريجي" -> Green
                             "تجنب" -> Red
@@ -876,6 +876,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         }
                         Text(a.executionRecommendation, color = recommendationColor, fontSize = 19.sp, fontWeight = FontWeight.Bold)
                         Text(a.executionRecommendationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Text("هذه خلاصة آلية مبنية على المؤشرات والمستويات المتاحة، وليست أمرًا بتنفيذ صفقة.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                         Spacer(Modifier.height(5.dp))
                         Text(
                             "نسبة العائد المحتمل إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) + " إلى 1" } ?: "غير متاحة"} — أي مقارنة الهدف المحتمل بالمسافة إلى مستوى إبطال السيناريو، وليست ضمانًا للربح.",
@@ -911,11 +912,11 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("المؤشرات الفنية وما توضحه")
                 Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                    Metric("RSI 14", one(a.rsi), Modifier.weight(1f),
+                    Metric("RSI 14 (القوة النسبية)", one(a.rsi), Modifier.weight(1f),
                         if (a.rsi < 45.0) Red else if (a.rsi >= 55.0) Green else Amber)
-                    Metric("SMA 20", a.sma20?.let(::money) ?: "—", Modifier.weight(1f),
+                    Metric("SMA 20 (متوسط 20)", a.sma20?.let(::money) ?: "—", Modifier.weight(1f),
                         a.sma20?.let { if (a.last.close >= it) Green else Red } ?: Muted)
-                    Metric("SMA 50", a.sma50?.let(::money) ?: "—", Modifier.weight(1f),
+                    Metric("SMA 50 (متوسط 50)", a.sma50?.let(::money) ?: "—", Modifier.weight(1f),
                         a.sma50?.let { if (a.last.close >= it) Green else Red } ?: Muted)
                 }
                 Spacer(Modifier.height(8.dp))
