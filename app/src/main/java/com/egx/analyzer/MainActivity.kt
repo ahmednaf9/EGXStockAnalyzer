@@ -1069,11 +1069,11 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
                                 Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                                 Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("درجة أولوية متابعة النموذج (تقديرية): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("تجمع هذه الدرجة تقييم شكل النموذج مع قرب السعر من مستوى تأكيده وحجم التداول. وهي لترتيب أولوية المتابعة، وليست نسبة لاحتمال نجاح النموذج.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                                Text("مؤشر أولوية متابعة النموذج (تقديري): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("هذا المؤشر يجمع جودة شكل النموذج، ومدى قرب السعر من مستوى تأكيده، ونشاط التداول. يساعدك على ترتيب النماذج التي تستحق المتابعة أولًا؛ ولا يمثل احتمال نجاح النموذج.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val shownProximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
                                 val shownVolumeBonus = when { currentVolumeRatio >= 1.5 -> 8.0; currentVolumeRatio >= 1.2 -> 5.0; currentVolumeRatio >= 1.0 -> 2.0; else -> 0.0 }
-                                Text("تفصيل الإضافة: قرب التفعيل +${String.format(Locale.US, "%.1f", shownProximityBonus)} نقطة • الحجم +${String.format(Locale.US, "%.1f", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                                Text("تفصيل المؤشر: القرب من سعر التأكيد +${String.format(Locale.US, "%.1f", shownProximityBonus)} نقطة • نشاط التداول +${String.format(Locale.US, "%.1f", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                                 val priorityLabel = when {
@@ -1088,7 +1088,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                     priority >= 65.0 -> Amber
                                     else -> Muted
                                 }
-                                Text("الأولوية: ${String.format(Locale.US, "%.1f", priority)} • $priorityLabel • البعد عن التفعيل: ${String.format(Locale.US, "%.2f", distancePct)}%", color = priorityColor, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("أولوية المتابعة: ${String.format(Locale.US, "%.1f", priority)} • $priorityLabel • بُعد السعر عن مستوى التأكيد: ${String.format(Locale.US, "%.2f", distancePct)}%", color = priorityColor, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 val closeNow = classicData.last().close
                                 val isInvalidated = (p.bias == "صاعد" && closeNow <= p.invalidation) ||
                                     (p.bias == "هابط" && closeNow >= p.invalidation)
@@ -1096,38 +1096,38 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 val volumeQualified = currentVolumeRatio >= 1.2
                                 val readiness = when {
                                     p.bias == "محايد" -> "محايد — ينتظر تحديد الاتجاه"
-                                    isInvalidated -> "المستوى المرجعي للإبطال تم تجاوزه — راجع النموذج"
-                                    isTriggered && volumeQualified -> "تفعيل مبدئي مع حجم تداول داعم"
-                                    isTriggered -> "تفعيل مبدئي — الحجم أقل من معيار الدعم"
-                                    distancePct <= 2.0 -> "قريب من مستوى التفعيل"
-                                    else -> "قيد التكوين — لم يتأكد بعد"
+                                    isInvalidated -> "السعر تجاوز مستوى إبطال النموذج — أعد تقييمه"
+                                    isTriggered && volumeQualified -> "وصل السعر إلى مستوى التأكيد المبدئي، وحجم التداول يدعم الحركة"
+                                    isTriggered -> "وصل السعر إلى مستوى التأكيد المبدئي، لكن حجم التداول لا يقدم دعمًا كافيًا"
+                                    distancePct <= 2.0 -> "السعر قريب من المستوى المطلوب لتأكيد النموذج"
+                                    else -> "النموذج ما زال في طور التكوين ولم يتحقق شرط التأكيد"
                                 }
                                 val patternStage = when {
-                                    p.bias == "محايد" -> "انتظار اختراق أحد الحدود"
-                                    isInvalidated -> if (p.bias == "صاعد") "سيناريو صاعد مُبطَل مبدئيًا" else "سيناريو هابط مُبطَل مبدئيًا"
+                                    p.bias == "محايد" -> "انتظار خروج السعر من أحد جانبي النطاق لتحديد الاتجاه"
+                                    isInvalidated -> if (p.bias == "صاعد") "السيناريو الصاعد فقد شرط صلاحيته مبدئيًا" else "السيناريو الهابط فقد شرط صلاحيته مبدئيًا"
                                     isTriggered -> "تفعيل مبدئي"
                                     else -> "نموذج غير مكتمل"
                                 }
-                                Text("تصنيف المرحلة: $patternStage", color = when { patternStage.contains("مُبطَل") -> Red; patternStage.contains("تفعيل") -> Green; else -> Amber }, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("جاهزية النموذج: $readiness", color = pc, fontSize = 10.sp)
-                                Text("حجم تداول آخر جلسة مقابل متوسط 20 جلسة: ${if (averageVolume > 0.0) String.format(Locale.US, "%.2f", currentVolumeRatio) + "×" else "غير متاح"}", color = if (currentVolumeRatio >= 1.2) Green else Muted, fontSize = 10.sp)
-                                Text("ترتيب مساعد يوضح أي النماذج أولى بالمتابعة، بناءً على جودة الشكل وقرب السعر من التأكيد وحجم التداول؛ وليس احتمال نجاح إحصائيًا.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
+                                Text("مرحلة النموذج: $patternStage", color = when { patternStage.contains("مُبطَل") -> Red; patternStage.contains("تفعيل") -> Green; else -> Amber }, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text("حالة الاستعداد: $readiness", color = pc, fontSize = 10.sp)
+                                Text("حجم تداول آخر جلسة مقارنة بمتوسط 20 جلسة: ${if (averageVolume > 0.0) String.format(Locale.US, "%.2f", currentVolumeRatio) + " مرة" else "غير متاح"}", color = if (currentVolumeRatio >= 1.2) Green else Muted, fontSize = 10.sp)
+                                Text("ترتيب مساعد لتحديد النماذج الأجدر بالمتابعة حسب جودة الشكل، وقرب السعر من التأكيد، ونشاط التداول؛ وليس نسبة نجاح إحصائية.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
                                 Spacer(Modifier.height(3.dp))
                                 Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                                 Spacer(Modifier.height(4.dp))
-                                Text("سعر تأكيد النموذج: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
-                                Text("الهدف النظري إذا تأكد النموذج: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("المستوى النظري في حالة فشل السيناريو أو انعكاسه: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("مستوى مرجعي لإبطال النموذج: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                                Text("السعر الذي يؤكد النموذج عند الوصول إليه: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
+                                Text("الهدف السعري النظري إذا تحقق التأكيد: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المستوى النظري المقابل إذا فشل السيناريو أو انعكس: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("السعر المرجعي الذي عنده يفقد النموذج صلاحيته: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
                                 val successMovePct = if (closeNow > 0.0) (p.targetSuccess / closeNow - 1.0) * 100.0 else 0.0
                                 val failureMovePct = if (closeNow > 0.0) (p.targetFailure / closeNow - 1.0) * 100.0 else 0.0
-                                Text("المسافة السعرية للمستهدف الناجح من آخر إغلاق: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                                Text("المسافة السعرية للمستهدف المقابل من آخر إغلاق: ${String.format(Locale.US, "%+.2f", failureMovePct)}%", color = Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("التغير المطلوب من آخر إغلاق للوصول إلى الهدف النظري: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("التغير من آخر إغلاق للوصول إلى المستوى المقابل: ${String.format(Locale.US, "%+.2f", failureMovePct)}%", color = Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 ClassicPatternChart(aggregateCandles(candles, period).takeLast(55), p)
                             }
                         }
                         Spacer(Modifier.height(7.dp))
-                        Text("تنبيه: هذه نتائج كشف تقريبي تعتمد على قمم وقيعان السعر؛ النموذج لا يتأكد إلا بالإغلاق خارج مستوى التفعيل. المستهدفات قياسات نظرية وليست توقعات مضمونة.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
+                        Text("تنبيه: يكتشف البرنامج النماذج بصورة تقريبية اعتمادًا على قمم وقيعان السعر. لا يُعد النموذج مؤكدًا إلا بعد إغلاق السعر خارج مستوى التأكيد، والأهداف قياسات نظرية لا تضمن وصول السعر إليها.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -1138,7 +1138,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 ) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Text(
-                            "النماذج المرصودة خلال آخر 10 جلسات، مع فحص تأكيد كل نموذج من إغلاق الجلسة التالية.",
+                            "يعرض هذا القسم نماذج الشموع التي رُصدت خلال آخر 10 جلسات، ويتحقق مما إذا كان إغلاق الجلسة التالية قد أكد كل نموذج.",
                             color = Muted, fontSize = 11.sp, lineHeight = 17.sp
                         )
                         Spacer(Modifier.height(9.dp))
@@ -1218,14 +1218,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                     Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                         Text("ماذا يعني هذا النموذج؟ ببساطة", color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                         Spacer(Modifier.height(6.dp))
-                                        Text("1. كيف تكوّن النموذج؟  ${pattern.explanation}", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Text("1. شكل النموذج: ${pattern.explanation}", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
                                         Spacer(Modifier.height(4.dp))
                                         val meaning = when (pattern.direction) {
                                             "إيجابي" -> "قد يشير إلى تحسن قوة المشترين ومحاولة السعر الارتداد لأعلى."
                                             "سلبي" -> "قد يشير إلى زيادة ضغط البائعين واحتمال تعرض السعر لهبوط."
                                             else -> "يعكس ترددًا بين المشترين والبائعين؛ والاتجاه لم يُحسم بعد."
                                         }
-                                        Text("2. ماذا قد يعني ذلك؟  $meaning", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Text("2. الدلالة المحتملة: $meaning", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
                                         Spacer(Modifier.height(4.dp))
                                         val expectation = when {
                                             pattern.confirmation.startsWith("تأكدت") -> "الإشارة اجتازت شرط التأكيد المبدئي؛ راقب استمرار الحركة نحو المستهدفات."
@@ -1235,7 +1235,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                             pattern.direction == "سلبي" -> "ننتظر إغلاقًا أسفل قاع النموذج قبل اعتبار الهبوط مؤكدًا."
                                             else -> "ننتظر إغلاقًا خارج قمة أو قاع النموذج لتحديد الاتجاه."
                                         }
-                                        Text("3. ما الحركة التي نتابعها؟  $expectation", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
+                                        Text("3. ما الذي يؤكد الإشارة؟ $expectation", color = Navy, fontSize = 11.sp, lineHeight = 17.sp)
                                         Spacer(Modifier.height(4.dp))
                                         val action = when {
                                             pattern.confirmation.startsWith("أُبطلت") -> "القرار: تجنب تنفيذ هذا السيناريو، وأعد تقييم السهم."
@@ -1243,7 +1243,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                             pattern.confirmation.startsWith("تحول إلى") -> "القرار: انتظر ثبات الاختراق ولا تتسرع قبل وضوح الحركة."
                                             else -> "القرار: انتظار التأكيد، وعدم الدخول اعتمادًا على شكل الشمعة وحده."
                                         }
-                                        Text("4. ما الذي يستحق المتابعة؟  $action", color = patternColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
+                                        Text("4. كيفية التعامل: $action", color = patternColor, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
                                     }
                                 }
                                 Spacer(Modifier.height(5.dp))
