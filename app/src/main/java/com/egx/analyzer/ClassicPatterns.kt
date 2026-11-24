@@ -274,9 +274,9 @@ object ClassicPatternScanner {
                 out += candidate("المثلث المتماثل", "محايد", (ceiling + floor) / 2.0,
                     ceiling + range, floor - range, last,
                     "الحد العلوي يهبط والسفلي يصعد مع تقلص النطاق؛ اتجاه النموذج لا يتحدد إلا بالاختراق.")
-            } else if (!upperFlat && !lowerFlat) {
+            } else if (upperFlat && lowerFlat && enoughSwings) {
                 out += candidate("المستطيل (النطاق)", "محايد", ceiling, ceiling + range, floor - range, last,
-                    "حركة عرضية بين دعم ومقاومة مع اختبارين محوريين منفصلين لكل حد على الأقل؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
+                    "حد علوي وحد سفلي شبه أفقيين، مع اختبارين محوريين منفصلين لكل حد على الأقل؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
             }
         }
         // Flags: require a strong directional pole and a compact, counter-trend or sideways pause.
