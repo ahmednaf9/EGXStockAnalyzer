@@ -738,6 +738,44 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Text("الفترة الزمنية للتحليل: ${period}",color=Muted,fontSize=11.sp)
 
+                Spacer(Modifier.height(12.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                        Text("التقييم الفني النهائي للسهم", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                        Spacer(Modifier.height(7.dp))
+                        Text("مدى توافق المؤشرات الفنية", color = Muted, fontSize = 12.sp)
+                        val classificationColor = when (a.technicalClassification) {
+                            "قوي جداً", "قوي", "إيجابي" -> Green
+                            "ضعيف", "ضعيف جداً" -> Red
+                            else -> Amber
+                        }
+                        Text(a.technicalClassification, color = classificationColor, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+                        Spacer(Modifier.height(4.dp))
+                        Text(a.technicalClassificationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Spacer(Modifier.height(9.dp))
+                        Text("الخلاصة العملية: كيف تُقرأ الإشارات حاليًا؟", color = Muted, fontSize = 12.sp)
+                        val recommendationColor = when (a.executionRecommendation) {
+                            "شراء", "شراء تدريجي" -> Green
+                            "تجنب" -> Red
+                            else -> Amber
+                        }
+                        Text(a.executionRecommendation, color = recommendationColor, fontSize = 19.sp, fontWeight = FontWeight.Bold)
+                        Text(a.executionRecommendationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                        Text("هذه خلاصة آلية مبنية على المؤشرات والمستويات المتاحة، وليست أمرًا بتنفيذ صفقة.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(5.dp))
+                        Text(
+                            "نسبة العائد المحتمل إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) + " إلى 1" } ?: "غير متاحة"} — أي مقارنة الهدف المحتمل بالمسافة إلى مستوى إبطال السيناريو، وليست ضمانًا للربح.",
+                            color = Muted, fontSize = 11.sp
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+
+
                 Spacer(Modifier.height(14.dp))
                 SectionTitle("ملخص حالة السهم")
                 val nearestSupport = a.supports.firstOrNull()
@@ -851,40 +889,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         }
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.fillMaxWidth().padding(15.dp)) {
-                        Text("مدى توافق المؤشرات الفنية", color = Muted, fontSize = 12.sp)
-                        val classificationColor = when (a.technicalClassification) {
-                            "قوي جداً", "قوي", "إيجابي" -> Green
-                            "ضعيف", "ضعيف جداً" -> Red
-                            else -> Amber
-                        }
-                        Text(a.technicalClassification, color = classificationColor, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-                        Spacer(Modifier.height(4.dp))
-                        Text(a.technicalClassificationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
-                        Spacer(Modifier.height(9.dp))
-                        Text("الخلاصة العملية: كيف تُقرأ الإشارات حاليًا؟", color = Muted, fontSize = 12.sp)
-                        val recommendationColor = when (a.executionRecommendation) {
-                            "شراء", "شراء تدريجي" -> Green
-                            "تجنب" -> Red
-                            else -> Amber
-                        }
-                        Text(a.executionRecommendation, color = recommendationColor, fontSize = 19.sp, fontWeight = FontWeight.Bold)
-                        Text(a.executionRecommendationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
-                        Text("هذه خلاصة آلية مبنية على المؤشرات والمستويات المتاحة، وليست أمرًا بتنفيذ صفقة.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
-                        Spacer(Modifier.height(5.dp))
-                        Text(
-                            "نسبة العائد المحتمل إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) + " إلى 1" } ?: "غير متاحة"} — أي مقارنة الهدف المحتمل بالمسافة إلى مستوى إبطال السيناريو، وليست ضمانًا للربح.",
-                            color = Muted, fontSize = 11.sp
-                        )
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
                 SectionTitle("ملخص التحليل الفني")
                 ResultCard(
                     "الحالة: ${a.scoreLabel}\n" +
