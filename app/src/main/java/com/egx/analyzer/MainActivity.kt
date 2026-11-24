@@ -467,7 +467,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
                     ) {
-                        Text("تحميل السهم من ملف Excel/CSV", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                        Text("تحميل السهم من ملف Excel/CSV", fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, softWrap = false)
                     }
                     Spacer(Modifier.height(14.dp))
                     Button(
