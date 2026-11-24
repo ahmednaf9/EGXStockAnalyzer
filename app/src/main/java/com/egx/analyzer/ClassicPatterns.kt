@@ -211,23 +211,40 @@ object ClassicPatternScanner {
                     "حدود الحركة تتقارب مع ميل صاعد؛ الكسر أسفل الحد السفلي إشارة محتملة.")
             }
         }
-        // Range / triangle candidates based on recent 30-bar boundaries.
-        val recent=data.takeLast(30); val ceiling=recent.maxOf{it.high}; val floor=recent.minOf{it.low}; val range=ceiling-floor
-        if (range>0 && range/last < .22) {
-            val recentHighs=recent.take(15).maxOf{it.high}; val recentLows=recent.take(15).minOf{it.low}
-            val laterHighs=recent.drop(15).maxOf{it.high}; val laterLows=recent.drop(15).minOf{it.low}
-            if (laterHighs < recentHighs && laterLows > recentLows) {
-                out += candidate("المثلث المتماثل","محايد",ceiling,ceiling+range,floor-range,last,
-                    "نطاق يتقلص؛ اتجاه النموذج يتحدد بالاختراق، ويُعرض الهدف للاتجاه الذي يتأكد.")
-            } else if (abs(ceiling-recent.take(15).maxOf{it.high})/ceiling < .03 && laterLows>recentLows) {
-                out += candidate("المثلث الصاعد","صاعد",ceiling,ceiling+range,floor-range,last,
-                    "مقاومة شبه أفقية وقيعان أعلى؛ الاختراق فوق المقاومة يؤكد.")
-            } else if (abs(floor-recent.take(15).minOf{it.low})/floor < .03 && laterHighs<recentHighs) {
-                out += candidate("المثلث الهابط","هابط",floor,floor-range,ceiling+range,last,
-                    "دعم شبه أفقي وقمم أقل؛ الكسر أسفل الدعم يؤكد.")
-            } else {
-                out += candidate("المستطيل (النطاق)","محايد",ceiling,ceiling+range,floor-range,last,
-                    "السعر يتحرك ضمن نطاق؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
+        // Range and triangle validation using contraction, horizontal-boundary tolerance and swing separation.
+        val recent = data.takeLast(30)
+        val firstHalf = recent.take(15)
+        val secondHalf = recent.takeLast(15)
+        val ceiling = recent.maxOf { it.high }
+        val floor = recent.minOf { it.low }
+        val range = ceiling - floor
+        if (range > 0.0 && last > 0.0 && range / last < 0.22) {
+            val firstHigh = firstHalf.maxOf { it.high }
+            val secondHigh = secondHalf.maxOf { it.high }
+            val firstLow = firstHalf.minOf { it.low }
+            val secondLow = secondHalf.minOf { it.low }
+            val upperContraction = firstHigh - secondHigh
+            val lowerContraction = secondLow - firstLow
+            val upperFlat = abs(secondHigh - firstHigh) / firstHigh < 0.025
+            val lowerFlat = abs(secondLow - firstLow) / firstLow < 0.025
+            val contracting = upperContraction > range * 0.04 && lowerContraction > range * 0.04
+            val higherLows = secondLow > firstLow + range * 0.04
+            val lowerHighs = secondHigh < firstHigh - range * 0.04
+            val enoughSwings = recent.count { it.high >= ceiling * 0.985 } >= 2 &&
+                recent.count { it.low <= floor * 1.015 } >= 2
+            if (upperFlat && higherLows && enoughSwings) {
+                out += candidate("المثلث الصاعد", "صاعد", ceiling, ceiling + range, floor - range, last,
+                    "مقاومة شبه أفقية مع قيعان صاعدة متتابعة؛ الاختراق والإغلاق فوق المقاومة يؤكد النموذج.")
+            } else if (lowerFlat && lowerHighs && enoughSwings) {
+                out += candidate("المثلث الهابط", "هابط", floor, floor - range, ceiling + range, last,
+                    "دعم شبه أفقي مع قمم هابطة متتابعة؛ الكسر والإغلاق أسفل الدعم يؤكد النموذج.")
+            } else if (contracting) {
+                out += candidate("المثلث المتماثل", "محايد", (ceiling + floor) / 2.0,
+                    ceiling + range, floor - range, last,
+                    "الحد العلوي يهبط والسفلي يصعد مع تقلص النطاق؛ اتجاه النموذج لا يتحدد إلا بالاختراق.")
+            } else if (!upperFlat && !lowerFlat) {
+                out += candidate("المستطيل (النطاق)", "محايد", ceiling, ceiling + range, floor - range, last,
+                    "حركة عرضية بين دعم ومقاومة؛ لا يتأكد الاتجاه قبل اختراق أحد الحدين.")
             }
         }
         // Flag-like pause after a strong directional impulse followed by a compact pullback.
@@ -256,10 +273,16 @@ object ClassicPatternScanner {
             val secondRange = second.maxOf { it.high } - second.minOf { it.low }
             val upper1 = first.maxOf { it.high }; val upper2 = second.maxOf { it.high }
             val lower1 = first.minOf { it.low }; val lower2 = second.minOf { it.low }
-            if (firstRange > 0 && abs(upper2-upper1)/firstRange < .20 && abs(lower2-lower1)/firstRange < .20 && secondMid > firstMid) {
+            val upperShift = upper2 - upper1
+            val lowerShift = lower2 - lower1
+            val parallelShift = firstRange > 0.0 && abs(upperShift - lowerShift) / firstRange < 0.12
+            val rangeStable = firstRange > 0.0 && secondRange / firstRange in 0.65..1.35
+            val channelValid = parallelShift && rangeStable &&
+                abs(upperShift) / firstRange < 0.65 && abs(lowerShift) / firstRange < 0.65
+            if (channelValid && secondMid > firstMid) {
                 out += candidate("القناة الصاعدة","صاعد",upper2,upper2+firstRange,lower2,last,
                     "نطاقان متوازيان تقريبًا وميل متوسط صاعد؛ تجاوز سقف القناة هو مستوى التفعيل المرجعي.")
-            } else if (firstRange > 0 && abs(upper2-upper1)/firstRange < .20 && abs(lower2-lower1)/firstRange < .20 && secondMid < firstMid) {
+            } else if (channelValid && secondMid < firstMid) {
                 out += candidate("القناة الهابطة","هابط",lower2,lower2-firstRange,upper2,last,
                     "نطاقان متوازيان تقريبًا وميل متوسط هابط؛ كسر أرضية القناة هو مستوى التفعيل المرجعي.")
             }
