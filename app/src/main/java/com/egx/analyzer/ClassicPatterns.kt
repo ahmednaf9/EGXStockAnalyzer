@@ -556,29 +556,62 @@ object ClassicPatternScanner {
                     "تماسك نسبي ثم كسر أرضية الجزء الأخير؛ يفضّل تأكيد الكسر بالحجم.")
             }
         }
-        // Adam/Eve composite tops and bottoms: sharp vs rounded pivot approximations.
-        if (highs.size >= 2 && lows.size >= 2) {
-            val h1=highs[highs.size-2]; val h2=highs.last()
-            val low=lows.last()
-            val topTolerance=abs(h1-h2)/maxOf(h1,h2)
-            if (topTolerance<.06 && abs(h1-h2)>last*.002) {
-                val firstSharp = abs(h1-data.takeLast(35).take(17).maxOf{it.high})<last*.015
-                val name=if(firstSharp) "قمة آدم وحواء (Adam & Eve Top)" else "قمة حواء وآدم (Eve & Adam Top)"
-                val trigger=low; val height=((h1+h2)/2)-trigger
-                out += candidate(name,"هابط",trigger,trigger-height,trigger+height,last,
-                    "قمتان متقاربتان مع اختلاف تقريبي في شكل القمم؛ تأكيد بكسر الدعم الفاصل.")
+        // Adam/Eve formations: use three consecutive alternating pivots and local shape.
+        val adamEvePivots = alternating.takeLast(3)
+        if (adamEvePivots.size == 3 &&
+            adamEvePivots[0].second && !adamEvePivots[1].second && adamEvePivots[2].second) {
+            val firstIndex = adamEvePivots[0].first
+            val valleyIndex = adamEvePivots[1].first
+            val secondIndex = adamEvePivots[2].first
+            val firstTop = data[firstIndex].high
+            val valley = data[valleyIndex].low
+            val secondTop = data[secondIndex].high
+            val averageTop = (firstTop + secondTop) / 2.0
+            val height = averageTop - valley
+            val firstShapeCount = (maxOf(0, firstIndex - 3)..minOf(data.lastIndex, firstIndex + 3))
+                .count { data[it].high >= firstTop * 0.99 }
+            val secondShapeCount = (maxOf(0, secondIndex - 3)..minOf(data.lastIndex, secondIndex + 3))
+                .count { data[it].high >= secondTop * 0.99 }
+            val firstIsAdam = firstShapeCount <= 2
+            val secondIsAdam = secondShapeCount <= 2
+            if (secondIndex - firstIndex in 5..35 &&
+                abs(firstTop - secondTop) / maxOf(firstTop, secondTop) < 0.055 &&
+                height > averageTop * 0.025) {
+                val name = when {
+                    firstIsAdam && !secondIsAdam -> "قمة آدم وحواء (Adam & Eve Top)"
+                    !firstIsAdam && secondIsAdam -> "قمة حواء وآدم (Eve & Adam Top)"
+                    else -> "قمة آدم وحواء مزدوجة (Adam/Eve Double Top)"
+                }
+                out += candidate(name, "هابط", valley, valley - height, valley + height, last,
+                    "قمتان متقاربتان يفصل بينهما قاع واضح؛ تم تمييز القمة الحادة (آدم) من المستديرة (حواء). التأكيد بكسر القاع الفاصل.")
             }
         }
-        if (lows.size >= 2 && highs.size >= 2) {
-            val l1=lows[lows.size-2]; val l2=lows.last()
-            val high=highs.last()
-            val bottomTolerance=abs(l1-l2)/minOf(l1,l2)
-            if (bottomTolerance<.06) {
-                val trigger=high; val height=trigger-((l1+l2)/2)
-                val sharpFirst = abs(l1-data.takeLast(35).take(17).minOf{it.low})<last*.015
-                val name=if(sharpFirst) "قاع آدم وحواء (Adam & Eve Bottom)" else "قاع حواء وآدم (Eve & Adam Bottom)"
-                out += candidate(name,"صاعد",trigger,trigger+height,trigger-height,last,
-                    "قاعان متقاربان مع اختلاف تقريبي في شكل القاع؛ تأكيد باختراق المقاومة الفاصلة.")
+        if (adamEvePivots.size == 3 &&
+            !adamEvePivots[0].second && adamEvePivots[1].second && !adamEvePivots[2].second) {
+            val firstIndex = adamEvePivots[0].first
+            val peakIndex = adamEvePivots[1].first
+            val secondIndex = adamEvePivots[2].first
+            val firstBottom = data[firstIndex].low
+            val peak = data[peakIndex].high
+            val secondBottom = data[secondIndex].low
+            val averageBottom = (firstBottom + secondBottom) / 2.0
+            val height = peak - averageBottom
+            val firstShapeCount = (maxOf(0, firstIndex - 3)..minOf(data.lastIndex, firstIndex + 3))
+                .count { data[it].low <= firstBottom * 1.01 }
+            val secondShapeCount = (maxOf(0, secondIndex - 3)..minOf(data.lastIndex, secondIndex + 3))
+                .count { data[it].low <= secondBottom * 1.01 }
+            val firstIsAdam = firstShapeCount <= 2
+            val secondIsAdam = secondShapeCount <= 2
+            if (secondIndex - firstIndex in 5..35 &&
+                abs(firstBottom - secondBottom) / minOf(firstBottom, secondBottom) < 0.055 &&
+                height > averageBottom * 0.025) {
+                val name = when {
+                    firstIsAdam && !secondIsAdam -> "قاع آدم وحواء (Adam & Eve Bottom)"
+                    !firstIsAdam && secondIsAdam -> "قاع حواء وآدم (Eve & Adam Bottom)"
+                    else -> "قاع آدم وحواء مزدوج (Adam/Eve Double Bottom)"
+                }
+                out += candidate(name, "صاعد", peak, peak + height, peak - height, last,
+                    "قاعان متقاربان تفصل بينهما قمة واضحة؛ تم تمييز القاع الحاد (آدم) من المستدير (حواء). التأكيد باختراق القمة الفاصلة.")
             }
         }
         // V-shaped reversal approximations, validated by a strong turn from the extreme.
