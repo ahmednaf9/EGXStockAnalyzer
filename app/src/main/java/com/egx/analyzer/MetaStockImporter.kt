@@ -12,13 +12,13 @@ object MetaStockImporter {
  fun importFolder(resolver:ContentResolver, tree:Uri, requestedSymbol:String=""):Result {
   val children=mutableMapOf<String,Uri>()
   val rootId=DocumentsContract.getTreeDocumentId(tree)
-  val cursor=resolver.query(DocumentsContract.buildChildDocumentsUriUsingTree(tree,rootId),arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME),null,null,null) ?: error("تعذرت قراءة محتويات المجلد")
+  val cursor=resolver.query(DocumentsContract.buildChildDocumentsUriUsingTree(tree,rootId),arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID,DocumentsContract.Document.COLUMN_DISPLAY_NAME),null,null,null) ?: error("تعذرت قراءة محتويات المجلد. تأكد من منح التطبيق صلاحية الوصول إلى مجلد MetaStock.")
   cursor.use { while(it.moveToNext()){val id=it.getString(0);val name=it.getString(1);children[name.uppercase(Locale.ROOT)]=DocumentsContract.buildDocumentUriUsingTree(tree,id)} }
-  val index=children["EMASTER"]?:children["XMASTER"]?:children["MASTER"]?:error("لم يتم العثور على ملف قائمة الأسهم في مجلد MetaStock (EMASTER أو MASTER أو XMASTER)")
+  val index=children["EMASTER"]?:children["XMASTER"]?:children["MASTER"]?:error("لم يتم العثور على ملف فهرس الأسهم داخل المجلد. اختر المجلد الرئيسي الذي يحتوي على أحد الملفات: EMASTER أو MASTER أو XMASTER.")
   val bytes=resolver.openInputStream(index)?.use{it.readBytes()}?:error("تعذرت قراءة ملف قائمة الأسهم")
   val isExtended=index==children["EMASTER"]
   val recordSize=if(isExtended)192 else 53
-  if(bytes.size<recordSize||bytes.size%recordSize!=0)error("حجم ملف قائمة الأسهم غير متوافق مع الصيغة المتوقعة")
+  if(bytes.size<recordSize||bytes.size%recordSize!=0)error("ملف فهرس الأسهم موجود، لكن حجمه لا يتوافق مع صيغة MetaStock المتوقعة. تحقق من اكتمال نسخ ملفات المجلد.")
   val entries=mutableListOf<Entry>()
   for(off in recordSize until bytes.size step recordSize){
    val rec=bytes.copyOfRange(off,off+recordSize)
@@ -30,12 +30,12 @@ object MetaStockImporter {
    if(sym.isNotBlank()&&fileNum>0&&fields>=6)entries.add(Entry(sym,fileNum,fields))
   }
   if(requestedSymbol.isBlank()) return Result("", emptyList(), "تمت قراءة قائمة الأسهم من MetaStock. ابحث عن رمز السهم واختره لتحميل بيانات الأسعار.", entries.map { it.symbol }.distinct().sorted())
-  val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("رمز السهم ${requestedSymbol.trim()} غير موجود ضمن قائمة الأسهم في ملف MetaStock")
+  val selected=entries.firstOrNull{it.symbol.equals(requestedSymbol.trim(),true)}?:error("رمز السهم ${requestedSymbol.trim()} غير موجود في فهرس MetaStock لهذا المجلد. تحقق من كتابة الرمز أو اختر رمزًا من القائمة المعروضة.")
   val dataFileName=if(children.containsKey("F${selected.fileNum}.DAT")) "F${selected.fileNum}.DAT" else "F${selected.fileNum}.MWD"
-  val dataUri=children[dataFileName]?:error("لم يتم العثور على ملف الأسعار F${selected.fileNum}.DAT أو .MWD الخاص بالسهم ${selected.symbol}")
+  val dataUri=children[dataFileName]?:error("لم يتم العثور على ملف الأسعار الخاص بالسهم ${selected.symbol} (F${selected.fileNum}.DAT أو F${selected.fileNum}.MWD). تأكد من وجود جميع ملفات MetaStock في المجلد نفسه.")
   val data=resolver.openInputStream(dataUri)?.use{it.readBytes()}?:error("تعذر قراءة ملف الأسعار")
   val recordBytes=selected.fields*4
-  if(data.size<recordBytes||data.size%recordBytes!=0)error("تنسيق ملف الأسعار لا يتوافق مع عدد الحقول المتوقع (${selected.fields})")
+  if(data.size<recordBytes||data.size%recordBytes!=0)error("تنسيق ملف الأسعار غير متوافق مع الفهرس؛ عدد الحقول المتوقع هو ${selected.fields}. قد يكون الملف ناقصًا أو غير تابع لهذا الفهرس.")
   val candles=mutableListOf<Candle>()
   var scannedRecords=0
   var rejectedRecords=0
@@ -56,7 +56,7 @@ object MetaStockImporter {
    candles.add(Candle(date,o,h,l,c,v))
   }
   val result=candles.sortedBy{it.date}.distinctBy{it.date}
-  if(result.isEmpty())error("تعذر قراءة بيانات الأسعار بصورة سليمة؛ لم يتم العثور على سجلات صالحة للتحليل")
+  if(result.isEmpty())error("لم يتم العثور على جلسات أسعار صالحة للتحليل. قد تكون تواريخ أو أسعار الملف غير سليمة؛ تحقق من ملفات السهم داخل مجلد MetaStock.")
   val duplicateRecords=candles.size-result.size
   val note="MetaStock - السهم: ${selected.symbol} | ملف قائمة الأسهم: ${if(isExtended) "EMASTER" else if(children.containsKey("XMASTER")) "XMASTER" else "MASTER"} | عدد الرموز المفهرسة: ${entries.size} | ملف الأسعار: $dataFileName | السجلات التي تمت مراجعتها: $scannedRecords | السجلات السليمة: ${candles.size} | السجلات المكررة: $duplicateRecords | السجلات المستبعدة: $rejectedRecords (تاريخ غير صالح: $invalidDateRecords، أسعار غير منطقية: $invalidPriceRecords، حجم غير صالح: $invalidVolumeRecords) | عدد الجلسات بعد التنقية: ${result.size}."
   return Result(selected.symbol,result,note,entries.map { it.symbol }.distinct().sorted())
