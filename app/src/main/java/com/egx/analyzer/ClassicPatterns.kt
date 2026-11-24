@@ -475,17 +475,27 @@ object ClassicPatternScanner {
                 }
             }
         }
-        // Spring / Upthrust: false break of a recent range boundary followed by a close back inside.
+        // Spring / Upthrust: false boundary break plus a directional rejection candle closing back inside.
         if (data.size >= 25) {
-            val w=data.takeLast(25); val prior=w.dropLast(3); val tail=w.takeLast(3)
-            val support=prior.minOf{it.low}; val resistance=prior.maxOf{it.high}
-            val spring=tail.minOf{it.low}<support*.995 && tail.last().close>support
-            val upthrust=tail.maxOf{it.high}>resistance*1.005 && tail.last().close<resistance
-            val range= resistance-support
-            if (spring && range>0) out += candidate("Spring (اختراق دعم وهمي)","صاعد",support,support+range*.65,tail.minOf{it.low},last,
-                "اختراق مؤقت أسفل دعم نطاق ثم إغلاق عائد فوقه؛ يظل الحجم والسياق مهمين.")
-            if (upthrust && range>0) out += candidate("Upthrust (اختراق مقاومة وهمي)","هابط",resistance,resistance-range*.65,tail.maxOf{it.high},last,
-                "اختراق مؤقت أعلى المقاومة ثم عودة وإغلاق أسفلها؛ يظل الحجم والسياق مهمين.")
+            val w = data.takeLast(25)
+            val prior = w.dropLast(3)
+            val tail = w.takeLast(3)
+            val support = prior.minOf { it.low }
+            val resistance = prior.maxOf { it.high }
+            val reclaim = tail.last()
+            val candleRange = (reclaim.high - reclaim.low).coerceAtLeast(last * 0.001)
+            val closePosition = (reclaim.close - reclaim.low) / candleRange
+            val spring = tail.minOf { it.low } < support * 0.995 &&
+                reclaim.close > support && reclaim.close > reclaim.open && closePosition >= 0.60
+            val upthrust = tail.maxOf { it.high } > resistance * 1.005 &&
+                reclaim.close < resistance && reclaim.close < reclaim.open && closePosition <= 0.40
+            val range = resistance - support
+            if (spring && range > 0) out += candidate("Spring (اختراق دعم وهمي)", "صاعد",
+                support, support + range * 0.65, tail.minOf { it.low }, last,
+                "كسر مؤقت للدعم ثم استرداده بشمعة صاعدة أغلقت قرب أعلى نطاقها؛ يظل الحجم والسياق مهمين.")
+            if (upthrust && range > 0) out += candidate("Upthrust (اختراق مقاومة وهمي)", "هابط",
+                resistance, resistance - range * 0.65, tail.maxOf { it.high }, last,
+                "اختراق مؤقت للمقاومة ثم رفضها بشمعة هابطة أغلقت قرب أدنى نطاقها؛ يظل الحجم والسياق مهمين.")
         }
         // Inverted cup-and-handle: broad rounded ceiling, balanced support rims and a shallow rebound handle.
         if (data.size >= 55) {
