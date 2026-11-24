@@ -635,16 +635,22 @@ object ClassicPatternScanner {
             val firstVol = first.map { it.volume }.average()
             val secondVol = second.map { it.volume }.average()
             val range = w.maxOf { it.high } - w.minOf { it.low }
-            // A quiet consolidation with a breakout-shaped range expansion candidate.
+            // A quiet consolidation followed by a close outside the range and a volume pickup.
             if (firstVol > 0.0 && secondVol > 0.0 && secondVol < firstVol * 1.35 && range > last * 0.025) {
-                val localHigh = second.maxOf { it.high }
-                val localLow = second.minOf { it.low }
-                if (last > localHigh) out += candidate("اختراق نطاق التماسك", "صاعد", localHigh,
+                val priorBreakoutBars = second.dropLast(1)
+                val priorBreakoutVolume = priorBreakoutBars.map { it.volume }.average()
+                val breakoutVolume = second.last().volume
+                // Volume confirmation is optional when the feed has no usable volume values.
+                val breakoutVolumeValid = priorBreakoutVolume <= 0.0 || breakoutVolume <= 0.0 ||
+                    breakoutVolume >= priorBreakoutVolume * 1.10
+                val localHigh = priorBreakoutBars.maxOf { it.high }
+                val localLow = priorBreakoutBars.minOf { it.low }
+                if (last > localHigh && breakoutVolumeValid) out += candidate("اختراق نطاق التماسك", "صاعد", localHigh,
                     localHigh + range * 0.65, localLow, last,
-                    "تماسك نسبي ثم تجاوز سقف الجزء الأخير؛ يفضّل تأكيد الاختراق بالحجم.")
-                else if (last < localLow) out += candidate("كسر نطاق التماسك", "هابط", localLow,
+                    "تماسك نسبي ثم إغلاق أعلى سقف الجزء السابق مع تحسن حجم شمعة الاختراق عند توافر بياناته.")
+                else if (last < localLow && breakoutVolumeValid) out += candidate("كسر نطاق التماسك", "هابط", localLow,
                     localLow - range * 0.65, localHigh, last,
-                    "تماسك نسبي ثم كسر أرضية الجزء الأخير؛ يفضّل تأكيد الكسر بالحجم.")
+                    "تماسك نسبي ثم إغلاق أسفل أرضية الجزء السابق مع تحسن حجم شمعة الكسر عند توافر بياناته.")
             }
         }
         // Adam/Eve formations: require a prior trend, balanced retests and measurable sharp/rounded shapes.
