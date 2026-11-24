@@ -1004,38 +1004,50 @@ object ClassicPatternScanner {
                     "اتجاه تمهيدي صاعد يعقبه تسارع واضح في الصعود (Bump)، ثم تراجع يكسر دعم منطقة التكوين؛ الهدف النظري يُقاس من ارتفاع مرحلة الاندفاع، والفشل أعلى القمة.")
             }
         }
-        // Broadening formations: require repeated expanding swing highs and lows, not just wider half-window ranges.
+        // Broadening formations: require outward-sloping pivot boundaries and repeated expansion.
         if (data.size >= 35) {
             val startIndex = data.size - 35
             val formationPivots = alternating.filter { it.first >= startIndex }
             val formationHighs = formationPivots.filter { it.second }
             val formationLows = formationPivots.filter { !it.second }
             if (formationHighs.size >= 3 && formationLows.size >= 3) {
+                val firstHigh = formationHighs.first()
+                val lastHigh = formationHighs.last()
+                val firstLow = formationLows.first()
+                val lastLow = formationLows.last()
                 val highValues = formationHighs.map { data[it.first].high }
                 val lowValues = formationLows.map { data[it.first].low }
                 val higherHighCount = highValues.zipWithNext().count { (a, b) -> b > a * 1.002 }
                 val lowerLowCount = lowValues.zipWithNext().count { (a, b) -> b < a * 0.998 }
-                val highSpan = formationHighs.last().first - formationHighs.first().first
-                val lowSpan = formationLows.last().first - formationLows.first().first
+                val highSpan = lastHigh.first - firstHigh.first
+                val lowSpan = lastLow.first - firstLow.first
                 val firstWidth = highValues.first() - lowValues.first()
                 val finalWidth = highValues.last() - lowValues.last()
+                val upperSlope = if (highSpan > 0)
+                    (highValues.last() - highValues.first()) / highSpan.toDouble() else 0.0
+                val lowerSlope = if (lowSpan > 0)
+                    (lowValues.last() - lowValues.first()) / lowSpan.toDouble() else 0.0
                 val expandsOutward = higherHighCount >= 2 && lowerLowCount >= 2 &&
                     highSpan >= 8 && lowSpan >= 8 && firstWidth > 0.0 &&
-                    finalWidth > firstWidth * 1.15
+                    highValues.last() > highValues.first() * 1.01 &&
+                    lowValues.last() < lowValues.first() * 0.99 &&
+                    finalWidth > firstWidth * 1.15 &&
+                    upperSlope > 0.0 && lowerSlope < 0.0
                 if (expandsOutward) {
                     val upper = highValues.last()
                     val lower = lowValues.last()
                     val width = finalWidth
                     val firstMid = (highValues.first() + lowValues.first()) / 2.0
                     val lastMid = (upper + lower) / 2.0
-                    if (lastMid > firstMid * 1.01) {
+                    val midlineSlope = upperSlope + lowerSlope
+                    if (midlineSlope > 0.0 && lastMid > firstMid * 1.01) {
                         out += candidate("الوتد المتسع الصاعد (Broadening Wedge)", "صاعد",
                             upper, upper + width, lower, last,
-                            "قمم محورية أعلى وقيعان أدنى متتابعة مع اتساع الحدود وميل متوسط صاعد؛ اختراق آخر قمة يؤكد النموذج.")
-                    } else if (lastMid < firstMid * 0.99) {
+                            "قمم محورية أعلى وقيعان أدنى متتابعة مع اتساع الحدين وميل متوسط صاعد؛ اختراق آخر قمة يؤكد النموذج.")
+                    } else if (midlineSlope < 0.0 && lastMid < firstMid * 0.99) {
                         out += candidate("الوتد المتسع الهابط (Broadening Wedge)", "هابط",
                             lower, lower - width, upper, last,
-                            "قمم محورية أعلى وقيعان أدنى متتابعة مع اتساع الحدود وميل متوسط هابط؛ كسر آخر قاع يؤكد النموذج.")
+                            "قمم محورية أعلى وقيعان أدنى متتابعة مع اتساع الحدين وميل متوسط هابط؛ كسر آخر قاع يؤكد النموذج.")
                     }
                 }
             }
