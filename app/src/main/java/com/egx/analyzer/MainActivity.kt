@@ -1430,12 +1430,35 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
                 val plotH=bottom-top; val dx=(right-left)/data.size; val bw=(dx*.55f).coerceAtLeast(2f)
                 fun y(v:Double)=bottom-((v-low)/range).toFloat()*plotH
                 fun x(i:Int)=left+(i+.5f)*dx
+                val patternStart = (anchors.minOfOrNull { it.first } ?: 0).minus(1).coerceAtLeast(0)
+                val patternEnd = (anchors.maxOfOrNull { it.first } ?: (data.lastIndex)).plus(1).coerceAtMost(data.lastIndex)
                 data.forEachIndexed { i, candle ->
-                    val xx=x(i); val color=if(candle.close>=candle.open) Green else Red
-                    drawLine(color,Offset(xx,y(candle.high)),Offset(xx,y(candle.low)),strokeWidth=1.4f)
-                    drawRect(color,Offset(xx-bw/2,minOf(y(candle.open),y(candle.close))),androidx.compose.ui.geometry.Size(bw,(abs(y(candle.open)-y(candle.close))).coerceAtLeast(2f))
+                    val xx=x(i)
+                    val inPattern = i in patternStart..patternEnd
+                    val color = if (inPattern) Color.Black else if(candle.close>=candle.open) Green else Red
+                    val bodyColor = if (inPattern && candle.close >= candle.open) Color.White else color
+                    drawLine(color,Offset(xx,y(candle.high)),Offset(xx,y(candle.low)),strokeWidth=if(inPattern) 1.8f else 1.4f)
+                    drawRect(
+                        bodyColor,
+                        Offset(xx-bw/2,minOf(y(candle.open),y(candle.close))),
+                        androidx.compose.ui.geometry.Size(bw,(abs(y(candle.open)-y(candle.close))).coerceAtLeast(2f))
                     )
+                    if (inPattern && candle.close >= candle.open) {
+                        drawRect(Color.Black,Offset(xx-bw/2,minOf(y(candle.open),y(candle.close))),androidx.compose.ui.geometry.Size(bw,(abs(y(candle.open)-y(candle.close))).coerceAtLeast(2f)),style=androidx.compose.ui.graphics.drawscope.Stroke(width=1.2f))
+                    }
                 }
+                // Draw a clear oval around the detected pattern's candle area.
+                val regionLeft = (x(patternStart) - dx * 0.65f).coerceAtLeast(left)
+                val regionRight = (x(patternEnd) + dx * 0.65f).coerceAtMost(right)
+                val patternPrices = data.subList(patternStart, patternEnd + 1).flatMap { listOf(it.high, it.low) }
+                val regionTop = (y(patternPrices.maxOrNull() ?: maxPrice) - 9f).coerceAtLeast(top)
+                val regionBottom = (y(patternPrices.minOrNull() ?: minPrice) + 9f).coerceAtMost(bottom)
+                drawOval(
+                    color = Color(0xFFB7791F),
+                    topLeft = Offset(regionLeft, regionTop),
+                    size = androidx.compose.ui.geometry.Size((regionRight-regionLeft).coerceAtLeast(8f),(regionBottom-regionTop).coerceAtLeast(8f)),
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3f)
+                )
                 // Pattern geometry over the real candle data.
                 anchors.zipWithNext().forEach { (a,b) ->
                     drawLine(Color(0xFFB7791F),Offset(x(a.first),y(a.second)),Offset(x(b.first),y(b.second)),strokeWidth=3f)
