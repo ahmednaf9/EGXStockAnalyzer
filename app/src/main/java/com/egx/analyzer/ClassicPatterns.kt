@@ -326,6 +326,32 @@ object ClassicPatternScanner {
                     "سارية هابطة قوية يتبعها تماسك ضيق مائل عرضيًا أو صاعدًا؛ الكسر أسفل التماسك يفعّل هدفًا يساوي طول السارية.")
             }
         }
+        // High-tight flag: exceptional advance followed by a shallow, compact consolidation.
+        if (data.size >= 45) {
+            val window = data.takeLast(45)
+            val pole = window.take(30)
+            val pause = window.takeLast(15)
+            val poleStart = pole.first().close
+            val poleEnd = pole.last().close
+            val poleHigh = pole.maxOf { it.high }
+            val poleMove = poleHigh - poleStart
+            val pauseHigh = pause.maxOf { it.high }
+            val pauseLow = pause.minOf { it.low }
+            val pauseRange = pauseHigh - pauseLow
+            val retracement = if (poleMove > 0.0) (poleHigh - pauseLow) / poleMove else 1.0
+            val advancePct = if (poleStart > 0.0) poleMove / poleStart else 0.0
+            val pauseContained = pauseHigh <= poleHigh * 1.03 &&
+                pauseLow > poleStart + poleMove * 0.70
+            val compactPause = poleMove > 0.0 && pauseRange <= poleMove * 0.35
+            if (advancePct >= 0.90 && poleEnd > poleStart &&
+                retracement in 0.0..0.30 && pauseContained && compactPause &&
+                pause.last().close > poleStart + poleMove * 0.65) {
+                val trigger = pauseHigh
+                out += candidate("العلم الصاعد عالي الشدّة (High-Tight Flag)", "صاعد",
+                    trigger, trigger + poleMove, pauseLow, last,
+                    "ارتفاع استثنائي يقارب 90% أو أكثر خلال مرحلة السارية، يتبعه تماسك ضحل لا يسترد أكثر من 30% من الاندفاع؛ اختراق قمة التماسك يؤكد النموذج.")
+            }
+        }
         // Additional formations: channel, broadening, pennant and rounded bases.
         if (data.size >= 40) {
             val channelPivots = alternating.filter { it.first >= data.size - 40 }
