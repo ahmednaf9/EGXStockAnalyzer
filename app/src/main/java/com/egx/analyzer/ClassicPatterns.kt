@@ -426,6 +426,11 @@ object ClassicPatternScanner {
             val pauseHigh = pause.maxOf { it.high }
             val pauseLow = pause.minOf { it.low }
             val pauseWidth = pauseHigh - pauseLow
+            val poleAverageVolume = pole.map { it.volume }.average()
+            val pauseAverageVolume = pause.map { it.volume }.average()
+            // Volume contraction supports continuation; skip this filter when volume is unavailable.
+            val volumeContractionValid = poleAverageVolume <= 0.0 || pauseAverageVolume <= 0.0 ||
+                pauseAverageVolume <= poleAverageVolume * 0.95
             val pauseHighPivots = alternating.filter { it.first >= pauseStart && it.second }
             val pauseLowPivots = alternating.filter { it.first >= pauseStart && !it.second }
             val upperConverges = pauseHighPivots.size >= 2 &&
@@ -450,16 +455,16 @@ object ClassicPatternScanner {
                 pause.last().close > poleStart + bullishPoleRange * 0.50
             val bearishPauseValid = bearishRetracement in 0.0..0.50 &&
                 pause.last().close < poleStart - bearishPoleRange * 0.50
-            if (poleStrong && pennantCompact && pennantShape && poleEnd > poleStart &&
-                bullishPauseValid) {
+            if (poleStrong && pennantCompact && pennantShape && volumeContractionValid &&
+                poleEnd > poleStart && bullishPauseValid) {
                 out += candidate("الراية الصاعدة (Pennant)", "صاعد", pauseHigh,
                     pauseHigh + poleMove, pauseLow, last,
-                    "سارية صاعدة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الاختراق أعلى الراية يفعّل هدف طول السارية.")
-            } else if (poleStrong && pennantCompact && pennantShape && poleEnd < poleStart &&
-                bearishPauseValid) {
+                    "سارية صاعدة قوية يعقبها مثلث تماسك متقارب مع انكماش حجم التداول أثناء التماسك عند توافر بياناته؛ الاختراق أعلى الراية يفعّل هدف طول السارية.")
+            } else if (poleStrong && pennantCompact && pennantShape && volumeContractionValid &&
+                poleEnd < poleStart && bearishPauseValid) {
                 out += candidate("الراية الهابطة (Pennant)", "هابط", pauseLow,
                     pauseLow - poleMove, pauseHigh, last,
-                    "سارية هابطة قوية يعقبها مثلث تماسك تتناقص قممه وترتفع قيعانه مع وجود نقاط ارتكاز متباعدة؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
+                    "سارية هابطة قوية يعقبها مثلث تماسك متقارب مع انكماش حجم التداول أثناء التماسك عند توافر بياناته؛ الكسر أسفل الراية يفعّل هدف طول السارية.")
             }
         }
         // Rounded bottom/top: validate a gradual five-stage curve, central extreme and balanced rims.
