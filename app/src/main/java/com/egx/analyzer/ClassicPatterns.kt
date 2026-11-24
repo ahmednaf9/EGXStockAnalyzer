@@ -395,7 +395,7 @@ object ClassicPatternScanner {
             val isBottom = q.map { it.second } == listOf(true, false, true, false, true, false)
             val similarDrives = minOf(drive1, drive2, drive3) > last * .025 &&
                 maxOf(drive1, drive2, drive3) / minOf(drive1, drive2, drive3) < 2.2
-            val validTop = isTop && vals[1] > vals[3 - 2] && vals[3] > vals[1] &&
+            val validTop = isTop && vals[3] > vals[1] && vals[5] > vals[3] &&
                 vals[2] > vals[0] && vals[4] > vals[2]
             val validBottom = isBottom && vals[1] < vals[3] && vals[3] < vals[5] &&
                 vals[2] < vals[0] && vals[4] < vals[2]
