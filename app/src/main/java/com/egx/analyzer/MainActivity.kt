@@ -318,7 +318,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             symbol = loaded.symbol
                             period = prepared.first
                             result = prepared.third
-                            if (prepared.second.size < 35) message = "تم تحميل ${loaded.candles.size} جلسة تداول، لكن يلزم توفر 35 جلسة على الأقل لبدء التحليل."
+                            if (prepared.second.size < 35) message = "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط. يلزم 35 جلسة على الأقل لبدء التحليل؛ جرّب اختيار سهم أو فترة تتوفر لها بيانات تاريخية أكثر."
                         }
                     } catch (e: Exception) {
                         message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
@@ -342,7 +342,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             period = detectDataPeriod(candles)
             val grouped = aggregateCandles(candles, period)
             result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-            if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة، لكن الفترة ${period} تضم ${grouped.size} جلسة فقط. يلزم 35 جلسة على الأقل لإجراء التحليل."
+            if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة من البيانات، لكن بعد تجميعها على الفترة ${period} أصبح المتاح ${grouped.size} جلسة فقط. يلزم 35 جلسة على الأقل لإجراء التحليل؛ اختر فترة أقصر أو وفّر بيانات تاريخية أوسع."
         }
     }
 
@@ -441,7 +441,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                         symbol = loaded.symbol.ifBlank { code }
                                         period = prep.first
                                         result = prep.third
-                                        message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول؛ يلزم 35 جلسة على الأقل لبدء التحليل." else loaded.note
+                                        message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط؛ يلزم 35 جلسة على الأقل لبدء التحليل. تحقق من نطاق البيانات التاريخية للسهم." else loaded.note
                                     } catch (e: Exception) {
                                         message = "تعذر تحميل $code: ${e.message ?: "خطأ"}"
                                         candles = emptyList()
@@ -663,7 +663,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                                 symbol = loaded.symbol
                                                 period = analysisData.first
                                                 result = analysisData.third
-                                                message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول؛ يلزم 35 جلسة على الأقل لبدء التحليل." else loaded.note
+                                                message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط؛ يلزم 35 جلسة على الأقل لبدء التحليل. تحقق من نطاق البيانات التاريخية للسهم." else loaded.note
                                             } catch (e: Exception) {
                                                 message = "تعذر تحميل $ticker: ${e.message ?: "خطأ"}"
                                             }
@@ -715,9 +715,9 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 if (grouped.size >= 35) {
                                     period = p
                                     result = TechnicalAnalyzer.analyze(grouped)
-                                    message = "الفترة $p: تتوفر ${grouped.size} جلسة، وهي جاهزة للتحليل."
+                                    message = "الفترة $p: تتوفر ${grouped.size} جلسة بعد تجميع البيانات، وهي كافية لبدء التحليل."
                                 } else {
-                                    message = "الفترة $p تضم ${grouped.size} جلسة فقط، بينما يلزم 35 جلسة على الأقل. لذلك احتفظ البرنامج بالفترة الحالية."
+                                    message = "الفترة $p تضم ${grouped.size} جلسة فقط بعد تجميع الأسعار، بينما يحتاج التحليل إلى 35 جلسة على الأقل. لم يغيّر البرنامج الفترة المختارة؛ اختر فترة زمنية أقصر لتوفير عدد جلسات أكبر."
                                 }
                             },
                             label = { Text(p) },
@@ -837,7 +837,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         )
                         Spacer(Modifier.height(9.dp))
                         Text(
-                            if (a.sessions < 50) "تنبيه: أقل من 50 جلسة؛ اتجاه SMA50 غير متاح والتقييم مبدئي." else "عدد الجلسات: ${a.sessions} جلسة${if (a.volumeAvailable) " • بيانات الحجم متاحة" else " • بيانات الحجم غير مكتملة"}",
+                            if (a.sessions < 50) "عدد الجلسات: ${a.sessions}. أقل من 50 جلسة؛ لذلك لا يتوفر SMA 50 (متوسط آخر 50 جلسة)، ويظل التقييم الفني مبدئيًا." else "عدد الجلسات: ${a.sessions} جلسة${if (a.volumeAvailable) " • بيانات حجم التداول متاحة" else " • بيانات حجم التداول غير مكتملة؛ لذلك لا يمكن الاعتماد عليها لتأكيد الإشارات"}",
                             color = Amber, fontSize = 11.sp, lineHeight = 16.sp
                         )
                         Spacer(Modifier.height(6.dp))
@@ -1059,7 +1059,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         Text("درجة الثقة الوصفية: مرتفعة من 70%، متوسطة من 50% إلى أقل من 70%، ومنخفضة أقل من 50%. هذه درجة تقديرية وليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp)
                         Spacer(Modifier.height(8.dp))
                         if (filteredClassicPatterns.isEmpty()) {
-                            Text(if (classicPatterns.isEmpty()) "لا توجد نماذج كلاسيكية واضحة وفق شروط الفحص الحالي أو البيانات غير كافية." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+                            Text(if (classicPatterns.isEmpty()) "لم يرصد الفحص نموذجًا كلاسيكيًا مستوفيًا للشروط. قد يكون السبب عدم اكتمال شكل النموذج أو عدم كفاية البيانات؛ لا يعني ذلك بالضرورة عدم وجود نموذج على الرسم." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
                         } else {
                             filteredClassicPatterns.forEachIndexed { i, item ->
                                 val p = item.first
