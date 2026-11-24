@@ -267,7 +267,7 @@ class MainActivity : ComponentActivity() {
 fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var symbol by remember { mutableStateOf("") }
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
-    var message by remember { mutableStateOf("اكتب كود السهم واستورد ملف الأسعار التاريخية CSV.") }
+    var message by remember { mutableStateOf("اكتب رمز السهم، ثم اختر مصدر بيانات الأسعار التاريخية.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
     var period by remember { mutableStateOf("يومي") }
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
@@ -288,7 +288,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     indexedSymbols = loaded.indexedSymbols
                     message = loaded.note
                 } catch (e: Exception) {
-                    message = "تعذر إعادة قراءة فهرس MetaStock المحفوظ: ${e.message ?: "خطأ"}"
+                    message = "تعذرت إعادة قراءة قائمة الأسهم المحفوظة في مجلد MetaStock: ${e.message ?: "خطأ"}"
                 }
             }
         }
@@ -300,7 +300,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().putString("treeUri", tree.toString()).apply()
                 metastockTree = tree.toString()
                 indexSearch = ""
-                message = "جارٍ قراءة فهرس MetaStock..."
+                message = "جارٍ قراءة قائمة الأسهم من MetaStock..."
                 scope.launch {
                     try {
                         val loaded = withContext(Dispatchers.IO) {
@@ -318,7 +318,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             symbol = loaded.symbol
                             period = prepared.first
                             result = prepared.third
-                            if (prepared.second.size < 35) message = "تم استيراد ${loaded.candles.size} جلسة لكن يلزم 35 جلسة على الأقل."
+                            if (prepared.second.size < 35) message = "تم تحميل ${loaded.candles.size} جلسة تداول، لكن يلزم توفر 35 جلسة على الأقل لبدء التحليل."
                         }
                     } catch (e: Exception) {
                         message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
@@ -342,7 +342,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
             period = detectDataPeriod(candles)
             val grouped = aggregateCandles(candles, period)
             result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-            if (grouped.size < 35) message = "تم استيراد ${candles.size} شمعة، لكن الفترة ${period} تحتوي على ${grouped.size} شمعة فقط؛ يلزم 35 شمعة على الأقل للتحليل."
+            if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة، لكن الفترة ${period} تضم ${grouped.size} جلسة فقط. يلزم 35 جلسة على الأقل لإجراء التحليل."
         }
     }
 
@@ -423,9 +423,9 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             val code = symbol.trim().uppercase(Locale.ROOT)
                             val treeString = metastockTree
                             if (code.isBlank()) message = "اكتب كود السهم أولاً."
-                            else if (treeString == null) message = "اختر مجلد MetaStock أولاً."
+                            else if (treeString == null) message = "اختر مجلد بيانات MetaStock أولاً."
                             else {
-                                message = "جارٍ تحميل $code من MetaStock..."
+                                message = "جارٍ تحميل بيانات السهم $code من MetaStock..."
                                 result = null
                                 scope.launch {
                                     try {
@@ -441,7 +441,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                         symbol = loaded.symbol.ifBlank { code }
                                         period = prep.first
                                         result = prep.third
-                                        message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة؛ يلزم 35 جلسة على الأقل." else loaded.note
+                                        message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول؛ يلزم 35 جلسة على الأقل لبدء التحليل." else loaded.note
                                     } catch (e: Exception) {
                                         message = "تعذر تحميل $code: ${e.message ?: "خطأ"}"
                                         candles = emptyList()
@@ -533,7 +533,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("قائمة أسهم ميتاستوك", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            Text(if (indexedSymbols.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedSymbols.size} رمزًا متاحًا للاختيار والتحميل", color = Muted, fontSize = 12.sp)
+                            Text(if (indexedSymbols.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedSymbols.size} رمز سهم موجود في المجلد ويمكن البحث عنه وتحميل بياناته", color = Muted, fontSize = 12.sp)
                         }
                         Button(
                             onClick = { indexExpanded = !indexExpanded },
@@ -558,7 +558,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         BasicTextField(value = indexSearch, onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
                             modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp), singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
-                            decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث بكود السهم أو اسم الشركة", color = Muted); inner() } })
+                            decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث برمز السهم أو اسم الشركة", color = Muted); inner() } })
                         Spacer(Modifier.height(8.dp))
                         val stockNames = mapOf(
                             "COMI" to "البنك التجاري الدولي",
@@ -663,12 +663,12 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                                 symbol = loaded.symbol
                                                 period = analysisData.first
                                                 result = analysisData.third
-                                                message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة؛ يلزم 35 جلسة على الأقل." else loaded.note
+                                                message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول؛ يلزم 35 جلسة على الأقل لبدء التحليل." else loaded.note
                                             } catch (e: Exception) {
                                                 message = "تعذر تحميل $ticker: ${e.message ?: "خطأ"}"
                                             }
                                         }
-                                    } else message = "اختر مجلد MetaStock أولاً."
+                                    } else message = "اختر مجلد بيانات MetaStock أولاً."
                                 }, modifier = Modifier.fillMaxWidth()) {
                         Column(horizontalAlignment = Alignment.Start) {
                                         Text(ticker, color = Green, fontWeight = FontWeight.Bold)
@@ -700,7 +700,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Feature("الرسوم البيانية", "رسوم توضح حركة السعر والشموع اليابانية والمؤشرات لتسهيل متابعة الاتجاه.")
                 Feature("التقييم الفني الشامل", "يجمع إشارات عدة مؤشرات معًا حتى لا يعتمد التقييم على مؤشر واحد فقط.")
                 Spacer(Modifier.height(8.dp))
-                Text("الأعمدة المطلوبة: Date, Open, High, Low, Close, Volume", color = Muted, fontSize = 11.sp)
+                Text("ترتيب الأعمدة المطلوب: Date (التاريخ)، Open (الفتح)، High (أعلى سعر)، Low (أقل سعر)، Close (الإغلاق)، Volume (حجم التداول).", color = Muted, fontSize = 11.sp)
                 Spacer(Modifier.height(4.dp))
                 Text("التحليل مبني على البيانات التاريخية المستوردة، وهو أداة مساعدة وليس توصية شراء أو بيع.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
             } else {
@@ -715,9 +715,9 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 if (grouped.size >= 35) {
                                     period = p
                                     result = TechnicalAnalyzer.analyze(grouped)
-                                    message = "الفترة $p: ${grouped.size} شمعة جاهزة للتحليل."
+                                    message = "الفترة $p: تتوفر ${grouped.size} جلسة، وهي جاهزة للتحليل."
                                 } else {
-                                    message = "الفترة $p تحتوي على ${grouped.size} شمعة فقط؛ يلزم 35 شمعة على الأقل. تم الاحتفاظ بالفترة الحالية."
+                                    message = "الفترة $p تضم ${grouped.size} جلسة فقط، بينما يلزم 35 جلسة على الأقل. لذلك احتفظ البرنامج بالفترة الحالية."
                                 }
                             },
                             label = { Text(p) },
