@@ -384,21 +384,31 @@ object ClassicPatternScanner {
                     "شمعتان كبيرتان متعاكستان قرب قمة نطاق؛ الكسر أسفل قاعهما يؤكد بصورة أولية.")
             }
         }
-        // Three Drives heuristic: three successively extended swings with exhaustion-style slowing.
+        // Three Drives: validate both the three impulse extremes and the intervening reaction pivots.
         if (alternating.size >= 6) {
-            val q=alternating.takeLast(6)
-            val vals=q.map{ if(it.second) data[it.first].high else data[it.first].low }
-            val drive1=abs(vals[1]-vals[0]); val drive2=abs(vals[3]-vals[2]); val drive3=abs(vals[5]-vals[4])
-            val highsDrive=q.last().second
-            if (drive1>last*.025 && drive2>last*.025 && drive3>last*.025 &&
-                maxOf(drive1,drive2,drive3)/minOf(drive1,drive2,drive3)<2.2 &&
-                (if(highsDrive) vals[5]>vals[3] && vals[3]>vals[1] else vals[5]<vals[3] && vals[3]<vals[1])) {
-                val trigger=if(highsDrive) vals[5] else vals[5]
-                val target=if(highsDrive) trigger-drive3 else trigger+drive3
-                out += candidate(if(highsDrive) "Three Drives — قمة" else "Three Drives — قاع",
-                    if(highsDrive) "هابط" else "صاعد",trigger,target,
-                    if(highsDrive) trigger+drive3 else trigger-drive3,last,
-                    "ثلاث دفعات ممتدة متقاربة نسبيًا؛ النموذج تقديري ويحتاج تحقق هندسي من نسب الارتداد.")
+            val q = alternating.takeLast(6)
+            val vals = q.map { if (it.second) data[it.first].high else data[it.first].low }
+            val drive1 = abs(vals[1] - vals[0])
+            val drive2 = abs(vals[3] - vals[2])
+            val drive3 = abs(vals[5] - vals[4])
+            val isTop = q.map { it.second } == listOf(false, true, false, true, false, true)
+            val isBottom = q.map { it.second } == listOf(true, false, true, false, true, false)
+            val similarDrives = minOf(drive1, drive2, drive3) > last * .025 &&
+                maxOf(drive1, drive2, drive3) / minOf(drive1, drive2, drive3) < 2.2
+            val validTop = isTop && vals[1] > vals[3 - 2] && vals[3] > vals[1] &&
+                vals[2] > vals[0] && vals[4] > vals[2]
+            val validBottom = isBottom && vals[1] < vals[3] && vals[3] < vals[5] &&
+                vals[2] < vals[0] && vals[4] < vals[2]
+            if (similarDrives && validTop) {
+                val trigger = vals[4]
+                out += candidate("Three Drives — قمة", "هابط", trigger, trigger - drive3,
+                    vals[5] + drive3 * .25, last,
+                    "ثلاث دفعات صاعدة مع قيعان ارتداد أعلى؛ كسر قاع الارتداد الأخير يؤكد النموذج بصورة أولية.")
+            } else if (similarDrives && validBottom) {
+                val trigger = vals[3]
+                out += candidate("Three Drives — قاع", "صاعد", trigger, trigger + drive3,
+                    vals[4] - drive3 * .25, last,
+                    "ثلاث دفعات هابطة مع قمم ارتداد أدنى؛ اختراق قمة الارتداد الأخيرة يؤكد النموذج بصورة أولية.")
             }
         }
         // ABCD geometric approximation: similar AB and CD legs after alternating swing points.
