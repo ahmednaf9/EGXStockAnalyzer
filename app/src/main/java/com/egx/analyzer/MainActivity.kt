@@ -973,10 +973,13 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                 }
                 Spacer(Modifier.height(12.dp))
-                val egxReportCandles = aggregateCandles(candles, period)
-                val egxDiagnostics = EgyptMarketAnalyzer.inspect(egxReportCandles)
-                val egxClassicPatterns = ClassicPatternScanner.scan(egxReportCandles)
-                val egxReport = EgyptMarketAnalyzer.buildReport(egxReportCandles, a, egxClassicPatterns, egxDiagnostics)
+                // Cache expensive report calculations: typing in the symbol field must not rerun analysis.
+                val egxReportCandles = remember(candles, period) { aggregateCandles(candles, period) }
+                val egxDiagnostics = remember(egxReportCandles) { EgyptMarketAnalyzer.inspect(egxReportCandles) }
+                val egxClassicPatterns = remember(egxReportCandles) { ClassicPatternScanner.scan(egxReportCandles) }
+                val egxReport = remember(egxReportCandles, a, egxClassicPatterns, egxDiagnostics) {
+                    EgyptMarketAnalyzer.buildReport(egxReportCandles, a, egxClassicPatterns, egxDiagnostics)
+                }
                 SectionTitle("التقرير الاحترافي للسهم — EGX")
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
@@ -1010,28 +1013,32 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج الكلاسيكية")
-                val classicData = aggregateCandles(candles, period)
-                val volumeBaseline = classicData.takeLast(21).dropLast(1).map { it.volume }.filter { it > 0.0 }
-                val averageVolume = volumeBaseline.average().takeIf { it.isFinite() && it > 0.0 } ?: 0.0
-                val currentVolumeRatio = if (averageVolume > 0.0) classicData.last().volume / averageVolume else 0.0
-                val classicPatterns = ClassicPatternScanner.scan(classicData).map { p ->
-                    val distancePct = if (p.trigger > 0.0) abs(classicData.last().close - p.trigger) / p.trigger * 100.0 else 100.0
-                    val proximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
-                    val volumeBonus = when {
-                        currentVolumeRatio >= 1.5 -> 8.0
-                        currentVolumeRatio >= 1.2 -> 5.0
-                        currentVolumeRatio >= 1.0 -> 2.0
-                        else -> 0.0
-                    }
-                    val adjustedScore = (p.confidence + proximityBonus + volumeBonus).coerceIn(0.0, 100.0)
-                    Triple(p, distancePct, adjustedScore)
-                }.sortedByDescending { it.third }
-                val filteredClassicPatterns = classicPatterns.filter { item ->
-                    when (classicFilter) {
-                        "قوي" -> item.third >= 70.0
-                        "متوسط" -> item.third >= 50.0 && item.third < 70.0
-                        "ضعيف" -> item.third < 50.0
-                        else -> true
+                val classicData = egxReportCandles
+                val classicPatterns = remember(classicData) {
+                    val volumeBaseline = classicData.takeLast(21).dropLast(1).map { it.volume }.filter { it > 0.0 }
+                    val averageVolume = volumeBaseline.average().takeIf { it.isFinite() && it > 0.0 } ?: 0.0
+                    val currentVolumeRatio = if (averageVolume > 0.0 && classicData.isNotEmpty()) classicData.last().volume / averageVolume else 0.0
+                    ClassicPatternScanner.scan(classicData).map { p ->
+                        val distancePct = if (p.trigger > 0.0 && classicData.isNotEmpty()) abs(classicData.last().close - p.trigger) / p.trigger * 100.0 else 100.0
+                        val proximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
+                        val volumeBonus = when {
+                            currentVolumeRatio >= 1.5 -> 8.0
+                            currentVolumeRatio >= 1.2 -> 5.0
+                            currentVolumeRatio >= 1.0 -> 2.0
+                            else -> 0.0
+                        }
+                        val adjustedScore = (p.confidence + proximityBonus + volumeBonus).coerceIn(0.0, 100.0)
+                        Triple(p, distancePct, adjustedScore)
+                    }.sortedByDescending { it.third }
+                }
+                val filteredClassicPatterns = remember(classicPatterns, classicFilter) {
+                    classicPatterns.filter { item ->
+                        when (classicFilter) {
+                            "قوي" -> item.third >= 70.0
+                            "متوسط" -> item.third >= 50.0 && item.third < 70.0
+                            "ضعيف" -> item.third < 50.0
+                            else -> true
+                        }
                     }
                 }
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
