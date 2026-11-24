@@ -1150,6 +1150,58 @@ object ClassicPatternScanner {
 
         }
 
+        // Piercing Line and Dark Cloud Cover: two-candle reversals with trend context.
+        val previousMid = (previousCandle.open + previousCandle.close) / 2.0
+        val piercingLine = priorTrendDown &&
+            previousCandle.close < previousCandle.open &&
+            currentCandle.close > currentCandle.open &&
+            currentCandle.open < previousCandle.close &&
+            currentCandle.close > previousMid &&
+            currentCandle.close < previousCandle.open
+        if (piercingLine) {
+            out += candidate("خط الاختراق الشرائي (Piercing Line)", "صاعد",
+                currentCandle.high, currentCandle.high + averageRecentRange * 1.6,
+                minOf(previousCandle.low, currentCandle.low), last,
+                "شمعة صاعدة تفتح أسفل إغلاق السابقة الهابطة ثم تغلق فوق منتصف جسمها بعد اتجاه هابط.")
+        }
+        val darkCloudCover = priorTrendUp &&
+            previousCandle.close > previousCandle.open &&
+            currentCandle.close < currentCandle.open &&
+            currentCandle.open > previousCandle.close &&
+            currentCandle.close < previousMid &&
+            currentCandle.close > previousCandle.open
+        if (darkCloudCover) {
+            out += candidate("الغطاء السحابي الداكن (Dark Cloud Cover)", "هابط",
+                currentCandle.low, currentCandle.low - averageRecentRange * 1.6,
+                maxOf(previousCandle.high, currentCandle.high), last,
+                "شمعة هابطة تفتح أعلى إغلاق السابقة الصاعدة ثم تغلق أسفل منتصف جسمها بعد اتجاه صاعد.")
+        }
+
+        // Harami patterns identify contraction inside the previous real body.
+        val previousBodyHigh = maxOf(previousCandle.open, previousCandle.close)
+        val previousBodyLow = minOf(previousCandle.open, previousCandle.close)
+        val currentBodyHigh = maxOf(currentCandle.open, currentCandle.close)
+        val currentBodyLow = minOf(currentCandle.open, currentCandle.close)
+        val bodyInsidePrevious = currentBodyHigh <= previousBodyHigh &&
+            currentBodyLow >= previousBodyLow &&
+            currentBody < previousBody * 0.65
+        val bullishHarami = priorTrendDown && previousCandle.close < previousCandle.open &&
+            currentCandle.close > currentCandle.open && bodyInsidePrevious
+        if (bullishHarami) {
+            out += candidate("هارامي شرائي (Bullish Harami)", "صاعد",
+                currentCandle.high, currentCandle.high + averageRecentRange * 1.4,
+                minOf(previousCandle.low, currentCandle.low), last,
+                "جسم الشمعة الحالية الصغيرة داخل جسم شمعة هابطة كبيرة بعد اتجاه هابط؛ ينتظر تأكيدًا باختراق القمة.")
+        }
+        val bearishHarami = priorTrendUp && previousCandle.close > previousCandle.open &&
+            currentCandle.close < currentCandle.open && bodyInsidePrevious
+        if (bearishHarami) {
+            out += candidate("هارامي بيعي (Bearish Harami)", "هابط",
+                currentCandle.low, currentCandle.low - averageRecentRange * 1.4,
+                maxOf(previousCandle.high, currentCandle.high), last,
+                "جسم الشمعة الحالية الصغيرة داخل جسم شمعة صاعدة كبيرة بعد اتجاه صاعد؛ ينتظر تأكيدًا بكسر القاع.")
+        }
+
         // Hammer and shooting-star shapes are accepted only with directional context.
         val hammerShape = lowerShadow(currentCandle) >= currentBody * 2.0 &&
             upperShadow(currentCandle) <= currentBody * 0.8 &&
