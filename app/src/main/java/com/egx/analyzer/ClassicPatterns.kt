@@ -425,26 +425,54 @@ object ClassicPatternScanner {
                     "اتساع نطاق مع تحرك الحدود لأسفل؛ كسر أدنى الحد الأخير يحتاج تأكيد.")
             }
         }
-        // Further classic formations: diamond reversals and measured-move structures.
+        // Diamond reversals: require expanding then contracting swing boundaries and a prior trend.
         if (data.size >= 50) {
             val d = data.takeLast(50)
-            val first = d.take(20); val middle = d.drop(15).take(20); val lastPart = d.takeLast(15)
-            val firstRange = first.maxOf { it.high } - first.minOf { it.low }
-            val midRange = middle.maxOf { it.high } - middle.minOf { it.low }
-            val finalRange = lastPart.maxOf { it.high } - lastPart.minOf { it.low }
-            val earlyMid = (first.maxOf { it.high } + first.minOf { it.low }) / 2.0
-            val lateMid = (lastPart.maxOf { it.high } + lastPart.minOf { it.low }) / 2.0
-            if (firstRange > 0 && midRange > firstRange * 1.12 && finalRange < midRange * .88 &&
-                lateMid < earlyMid && lastPart.maxOf { it.high } < middle.maxOf { it.high }) {
-                val trigger = lastPart.minOf { it.low }
-                out += candidate("الماسية القمة (Diamond Top)", "هابط", trigger, trigger-(midRange*.7), lastPart.maxOf{it.high}, last,
-                    "اتساع تدريجي ثم تضييق مع انحياز هابط؛ كسر الحد السفلي هو إشارة التأكيد.")
-            }
-            if (firstRange > 0 && midRange > firstRange * 1.12 && finalRange < midRange * .88 &&
-                lateMid > earlyMid && lastPart.minOf { it.low } > middle.minOf { it.low }) {
-                val trigger = lastPart.maxOf { it.high }
-                out += candidate("الماسية القاع (Diamond Bottom)", "صاعد", trigger, trigger+(midRange*.7), lastPart.minOf{it.low}, last,
-                    "اتساع تدريجي ثم تضييق مع انحياز صاعد؛ اختراق الحد العلوي هو إشارة التأكيد.")
+            val offset = data.size - d.size
+            val diamondPivots = alternating.filter { it.first >= offset }
+            val pivotHighs = diamondPivots.filter { it.second }
+            val pivotLows = diamondPivots.filter { !it.second }
+            if (pivotHighs.size >= 3 && pivotLows.size >= 3) {
+                val firstHighs = pivotHighs.take(2).map { data[it.first].high }
+                val lastHighs = pivotHighs.takeLast(2).map { data[it.first].high }
+                val firstLows = pivotLows.take(2).map { data[it.first].low }
+                val lastLows = pivotLows.takeLast(2).map { data[it.first].low }
+                val highExpansion = firstHighs.last() > firstHighs.first() * 1.005
+                val lowExpansion = firstLows.last() < firstLows.first() * 0.995
+                val highContraction = lastHighs.last() < lastHighs.first() * 0.995
+                val lowContraction = lastLows.last() > lastLows.first() * 1.005
+                val firstRange = d.take(18).let { it.maxOf { c -> c.high } - it.minOf { c -> c.low } }
+                val middleRange = d.drop(12).take(26).let { it.maxOf { c -> c.high } - it.minOf { c -> c.low } }
+                val finalRange = d.takeLast(12).let { it.maxOf { c -> c.high } - it.minOf { c -> c.low } }
+                val rangeShape = firstRange > 0.0 && middleRange > firstRange * 1.10 &&
+                    finalRange < middleRange * 0.82
+                val enoughSpacing = pivotHighs.last().first - pivotHighs.first().first >= 12 &&
+                    pivotLows.last().first - pivotLows.first().first >= 12
+                val highValues = pivotHighs.map { data[it.first].high }
+                val lowValues = pivotLows.map { data[it.first].low }
+                val expandedThenContracted = highExpansion && lowExpansion &&
+                    highContraction && lowContraction &&
+                    highValues.maxOrNull()!! > firstHighs.maxOrNull()!! * 1.015 &&
+                    lowValues.minOrNull()!! < firstLows.minOrNull()!! * 0.985
+                val prior = d.take(12)
+                val priorUp = prior.last().close > prior.first().close * 1.04
+                val priorDown = prior.last().close < prior.first().close * 0.96
+                val shapeValid = rangeShape && enoughSpacing && expandedThenContracted
+                if (shapeValid && priorUp) {
+                    val trigger = d.takeLast(12).minOf { it.low }
+                    val invalidation = d.takeLast(12).maxOf { it.high }
+                    val height = (middleRange * 0.70).coerceAtLeast(last * 0.025)
+                    out += candidate("الماسية القمة (Diamond Top)", "هابط", trigger,
+                        trigger - height, invalidation, last,
+                        "اتساع موثق بقمم أعلى وقيعان أدنى ثم انكماش بقمم أدنى وقيعان أعلى بعد اتجاه صاعد؛ كسر قاع التكوين يؤكد الانعكاس.")
+                } else if (shapeValid && priorDown) {
+                    val trigger = d.takeLast(12).maxOf { it.high }
+                    val invalidation = d.takeLast(12).minOf { it.low }
+                    val height = (middleRange * 0.70).coerceAtLeast(last * 0.025)
+                    out += candidate("الماسية القاع (Diamond Bottom)", "صاعد", trigger,
+                        trigger + height, invalidation, last,
+                        "اتساع موثق بقمم أعلى وقيعان أدنى ثم انكماش بقمم أدنى وقيعان أعلى بعد اتجاه هابط؛ اختراق قمة التكوين يؤكد الانعكاس.")
+                }
             }
         }
         if (data.size >= 45) {
