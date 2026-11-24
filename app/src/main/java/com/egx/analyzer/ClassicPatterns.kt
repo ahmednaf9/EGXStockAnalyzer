@@ -475,25 +475,65 @@ object ClassicPatternScanner {
                 }
             }
         }
-        if (data.size >= 45) {
-            val w=data.takeLast(45); val first=w.take(22); val second=w.takeLast(23)
-            val move1=first.last().close-first.first().close
-            val move2=second.last().close-second.first().close
-            val firstVol=first.map{it.volume}.average(); val secondVol=second.map{it.volume}.average()
-            val high=w.maxOf{it.high}; val low=w.minOf{it.low}; val range=high-low
-            if (move1>last*.06 && abs(move2)<move1*.45 && second.last().close>second.first().close*.96 && range>0) {
-                out += candidate("الحركة المقاسة الصاعدة (Measured Move)", "صاعد", high, high+move1, low, last,
-                    "اندفاع صاعد أول ثم فترة تصحيح/تماسك؛ الهدف النظري إسقاط طول الحركة الأولى بعد الاختراق.")
-            } else if (move1< -last*.06 && abs(move2)<abs(move1)*.45 && second.last().close<second.first().close*1.04 && range>0) {
-                out += candidate("الحركة المقاسة الهابطة (Measured Move)", "هابط", low, low-abs(move1), high, last,
-                    "اندفاع هابط أول ثم فترة تصحيح/تماسك؛ الهدف النظري إسقاط طول الحركة الأولى بعد الكسر.")
+        // Measured Move: require a clear impulse, a controlled retracement, and a lower/higher correction pivot.
+        if (alternating.size >= 4) {
+            val q = alternating.takeLast(4)
+            val values = q.map { if (it.second) data[it.first].high else data[it.first].low }
+            val spacingValid = q.zipWithNext().all { (a, b) -> b.first - a.first >= 3 }
+            val bullishShape = q.map { it.second } == listOf(false, true, false, true)
+            val bearishShape = q.map { it.second } == listOf(true, false, true, false)
+            if (spacingValid && bullishShape) {
+                val a = values[0]; val b = values[1]; val c = values[2]; val d = values[3]
+                val impulse = b - a
+                val retracement = if (impulse > 0.0) (b - c) / impulse else 0.0
+                val correctionRecovery = if (impulse > 0.0) (d - c) / impulse else 0.0
+                val impulseDuration = q[1].first - q[0].first
+                val correctionDuration = q[3].first - q[2].first
+                val validImpulse = impulse > last * 0.06 && impulseDuration >= 4
+                val validCorrection = retracement in 0.25..0.65 &&
+                    correctionRecovery in 0.15..0.75 && c > a && d < b
+                val balancedTiming = correctionDuration >= 3 &&
+                    correctionDuration <= impulseDuration * 2
+                if (validImpulse && validCorrection && balancedTiming) {
+                    out += candidate("الحركة المقاسة الصاعدة (Measured Move)", "صاعد", b,
+                        b + impulse, c, last,
+                        "موجة اندفاع صاعدة واضحة من A إلى B، يتبعها تصحيح مضبوط إلى C وارتداد تكويني إلى D؛ تجاوز B يؤكد استكمال الحركة، والهدف إسقاط طول AB.")
+                }
+            } else if (spacingValid && bearishShape) {
+                val a = values[0]; val b = values[1]; val c = values[2]; val d = values[3]
+                val impulse = a - b
+                val retracement = if (impulse > 0.0) (c - b) / impulse else 0.0
+                val correctionDecline = if (impulse > 0.0) (c - d) / impulse else 0.0
+                val impulseDuration = q[1].first - q[0].first
+                val correctionDuration = q[3].first - q[2].first
+                val validImpulse = impulse > last * 0.06 && impulseDuration >= 4
+                val validCorrection = retracement in 0.25..0.65 &&
+                    correctionDecline in 0.15..0.75 && c < a && d > b
+                val balancedTiming = correctionDuration >= 3 &&
+                    correctionDuration <= impulseDuration * 2
+                if (validImpulse && validCorrection && balancedTiming) {
+                    out += candidate("الحركة المقاسة الهابطة (Measured Move)", "هابط", b,
+                        b - impulse, c, last,
+                        "موجة اندفاع هابطة واضحة من A إلى B، يتبعها ارتداد تصحيحي إلى C ثم عودة هابطة إلى D؛ كسر B يؤكد استكمال الحركة، والهدف إسقاط طول AB.")
+                }
             }
+        }
+        if (data.size >= 45) {
+            val w = data.takeLast(45)
+            val first = w.take(22)
+            val second = w.takeLast(23)
+            val firstVol = first.map { it.volume }.average()
+            val secondVol = second.map { it.volume }.average()
+            val range = w.maxOf { it.high } - w.minOf { it.low }
             // A quiet consolidation with a breakout-shaped range expansion candidate.
-            if (firstVol>0 && secondVol>0 && secondVol<firstVol*1.35 && range>last*.025) {
-                val localHigh=second.maxOf{it.high}; val localLow=second.minOf{it.low}
-                if (last>localHigh) out += candidate("اختراق نطاق التماسك","صاعد",localHigh,localHigh+range*.65,localLow,last,
+            if (firstVol > 0.0 && secondVol > 0.0 && secondVol < firstVol * 1.35 && range > last * 0.025) {
+                val localHigh = second.maxOf { it.high }
+                val localLow = second.minOf { it.low }
+                if (last > localHigh) out += candidate("اختراق نطاق التماسك", "صاعد", localHigh,
+                    localHigh + range * 0.65, localLow, last,
                     "تماسك نسبي ثم تجاوز سقف الجزء الأخير؛ يفضّل تأكيد الاختراق بالحجم.")
-                else if (last<localLow) out += candidate("كسر نطاق التماسك","هابط",localLow,localLow-range*.65,localHigh,last,
+                else if (last < localLow) out += candidate("كسر نطاق التماسك", "هابط", localLow,
+                    localLow - range * 0.65, localHigh, last,
                     "تماسك نسبي ثم كسر أرضية الجزء الأخير؛ يفضّل تأكيد الكسر بالحجم.")
             }
         }
