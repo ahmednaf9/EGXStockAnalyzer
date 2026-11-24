@@ -385,6 +385,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
+                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("تحميل مجلد الميتاستوك", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
+                    Spacer(Modifier.height(14.dp))
                     BasicTextField(
                         value = symbol,
                         onValueChange = { symbol = it.uppercase(Locale.ROOT) },
@@ -414,22 +416,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             }
                         }
                     )
+
                     Spacer(Modifier.height(14.dp))
-                    Button(
-                        onClick = {
-                            picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
-                        },
-                        modifier = Modifier.fillMaxWidth().height(66.dp),
-                        shape = RoundedCornerShape(34.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF00C82B),
-                            contentColor = Color.White
-                        ),
-                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
-                    ) {
-                        Text("Excel/CSV تحميل ملف السهم", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
-                    }
-                    Button(onClick = { folderPicker.launch(null) }, modifier = Modifier.fillMaxWidth().height(60.dp), shape = RoundedCornerShape(30.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF075C20), contentColor = Color.White)) { Text("تحميل مجلد الميتاستوك", fontSize = 18.sp, fontWeight = FontWeight.Bold) }
                     Button(
                         onClick = {
                             val code = symbol.trim().uppercase(Locale.ROOT)
@@ -466,6 +454,21 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         shape = RoundedCornerShape(28.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Green)
                     ) { Text("تحميل السهم من ملف الميتاستوك", fontSize = 17.sp, fontWeight = FontWeight.Bold) }
+                    Spacer(Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            picker.launch(arrayOf("text/*","text/csv","application/vnd.ms-excel","application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                        },
+                        modifier = Modifier.fillMaxWidth().height(66.dp),
+                        shape = RoundedCornerShape(34.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF00C82B),
+                            contentColor = Color.White
+                        ),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 7.dp)
+                    ) {
+                        Text("Excel/CSV تحميل ملف السهم", fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+                    }
                     Spacer(Modifier.height(14.dp))
                     Button(
                         onClick = {
