@@ -1310,7 +1310,6 @@ object ClassicPatternScanner {
             else -> "لم يتجاوز السعر مستوى التفعيل بعد (أساس 54)"
         }
         val distanceReason = "المسافة من مستوى التفعيل ${String.format(java.util.Locale.US, "%.2f", distancePct)}%، خصم المسافة ${distancePenalty} نقطة، وخصم الامتداد ${extensionPenalty} نقطة"
-        val details = "$baseReason؛ $distanceReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
         // Keep invalidation separate from the opposite measured-move projection.
         // Use a directionally valid reference and limit extreme projection distances
         // so the invalidation marker remains a nearby reference, not a remote target.
@@ -1321,6 +1320,25 @@ object ClassicPatternScanner {
                 minOf(targetFailure, trigger * 1.15) else trigger * 1.08
             else -> targetFailure
         }
+        // Show the theoretical reward-to-risk ratio only when both distances
+        // are positive and directionally meaningful; never invent a ratio for neutral setups.
+        val reward = when (bias) {
+            "صاعد" -> targetSuccess - trigger
+            "هابط" -> trigger - targetSuccess
+            else -> 0.0
+        }
+        val risk = when (bias) {
+            "صاعد" -> trigger - invalidation
+            "هابط" -> invalidation - trigger
+            else -> 0.0
+        }
+        val riskRewardReason = if (reward > 0.0 && risk > 0.0) {
+            val ratio = reward / risk
+            "العائد النظري إلى المخاطرة ${String.format(java.util.Locale.US, "%.2f", ratio)}:1"
+        } else {
+            "نسبة العائد إلى المخاطرة غير متاحة لهذا النموذج"
+        }
+        val details = "$baseReason؛ $distanceReason؛ $riskRewardReason؛ الحالة: $qualityLabel. الدرجة تقدير heuristic وليست احتمال نجاح إحصائيًا."
         return ClassicPatternResult(name,bias,status,trigger,targetSuccess,targetFailure,invalidation,explanation,confidence,details)
     }
 }
