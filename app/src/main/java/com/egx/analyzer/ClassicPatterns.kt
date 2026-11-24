@@ -1108,10 +1108,119 @@ object ClassicPatternScanner {
             }
         }
 
-        return out.distinctBy { it.name }.sortedWith(
+        // Context-aware Japanese candlestick formations. Requiring a preceding trend
+        // avoids labeling every hammer/star as a reversal in a sideways market.
+        val candleWindow = data.takeLast(20)
+        fun candleBody(c: Candle) = abs(c.close - c.open)
+        fun candleRange(c: Candle) = (c.high - c.low).coerceAtLeast(0.0000001)
+        fun upperShadow(c: Candle) = c.high - maxOf(c.open, c.close)
+        fun lowerShadow(c: Candle) = minOf(c.open, c.close) - c.low
+        val trendReference = data.getOrNull((data.size - 11).coerceAtLeast(0))?.close ?: last
+        val priorTrendUp = last > trendReference * 1.025
+        val priorTrendDown = last < trendReference * 0.975
+        val currentCandle = data.last()
+        val currentBody = candleBody(currentCandle)
+        val currentRange = candleRange(currentCandle)
+        val previousCandle = data[data.lastIndex - 1]
+        val previousBody = candleBody(previousCandle)
+        val averageRecentRange = candleWindow.map { candleRange(it) }.average().coerceAtLeast(0.0000001)
+
+        // Bullish/bearish engulfing: current real body engulfs the prior real body.
+        val bullishEngulfing = previousCandle.close < previousCandle.open &&
+            currentCandle.close > currentCandle.open &&
+            currentCandle.open <= previousCandle.close &&
+            currentCandle.close >= previousCandle.open &&
+            currentBody >= previousBody * 1.05 && priorTrendDown
+        if (bullishEngulfing) {
+            out += candidate("الابتلاع الشرائي (Bullish Engulfing)", "صاعد",
+                currentCandle.high, currentCandle.high + averageRecentRange * 1.8,
+                currentCandle.low, last,
+                "شمعة صاعدة ابتلعت جسم الشمعة السابقة بعد اتجاه هابط؛ التفعيل بإغلاق أعلى القمة.")
+        }
+        val bearishEngulfing = previousCandle.close > previousCandle.open &&
+            currentCandle.close < currentCandle.open &&
+            currentCandle.open >= previousCandle.close &&
+            currentCandle.close <= previousCandle.open &&
+            currentBody >= previousBody * 1.05 && priorTrendUp
+        if (bearishEngulfing) {
+            out += candidate("الابتلاع البيعي (Bearish Engulfing)", "هابط",
+                currentCandle.low, currentCandle.low - averageRecentRange * 1.8,
+                currentCandle.high, last,
+                "شمعة هابطة ابتلعت جسم الشمعة السابقة بعد اتجاه صاعد؛ التفعيل بإغلاق أسفل القاع.")
+
+        }
+
+        // Hammer and shooting-star shapes are accepted only with directional context.
+        val hammerShape = lowerShadow(currentCandle) >= currentBody * 2.0 &&
+            upperShadow(currentCandle) <= currentBody * 0.8 &&
+            currentBody / currentRange <= 0.38
+        if (hammerShape && priorTrendDown) {
+            out += candidate("المطرقة (Hammer)", "صاعد", currentCandle.high,
+                currentCandle.high + averageRecentRange * 1.5, currentCandle.low, last,
+                "جسم صغير وظل سفلي طويل بعد اتجاه هابط؛ يلزم اختراق قمة المطرقة للتأكيد.")
+        }
+        val shootingStarShape = upperShadow(currentCandle) >= currentBody * 2.0 &&
+            lowerShadow(currentCandle) <= currentBody * 0.8 &&
+            currentBody / currentRange <= 0.38
+        if (shootingStarShape && priorTrendUp) {
+            out += candidate("الشهاب (Shooting Star)", "هابط", currentCandle.low,
+                currentCandle.low - averageRecentRange * 1.5, currentCandle.high, last,
+                "جسم صغير وظل علوي طويل بعد اتجاه صاعد؛ يلزم كسر قاع الشهاب للتأكيد.")
+        }
+
+        // Three-candle morning/evening stars use a compact middle candle and
+        // a decisive third candle closing beyond the midpoint of the first body.
+        if (data.size >= 3) {
+            val first = data[data.lastIndex - 2]
+            val middle = data[data.lastIndex - 1]
+            val third = data.last()
+            val firstMid = (first.open + first.close) / 2.0
+            val middleSmall = candleBody(middle) <= candleBody(first) * 0.55
+            val bullishMorningStar = priorTrendDown &&
+                first.close < first.open && middleSmall &&
+                third.close > third.open && third.close > firstMid
+            if (bullishMorningStar) {
+                out += candidate("نجمة الصباح (Morning Star)", "صاعد", third.high,
+                    third.high + averageRecentRange * 2.0, minOf(first.low, middle.low, third.low), last,
+                    "ثلاث شموع: هبوط قوي ثم تردد ثم تعافٍ يغلق فوق منتصف جسم الشمعة الأولى.")
+            }
+            val bearishEveningStar = priorTrendUp &&
+                first.close > first.open && middleSmall &&
+                third.close < third.open && third.close < firstMid
+            if (bearishEveningStar) {
+                out += candidate("نجمة المساء (Evening Star)", "هابط", third.low,
+                    third.low - averageRecentRange * 2.0, maxOf(first.high, middle.high, third.high), last,
+                    "ثلاث شموع: صعود قوي ثم تردد ثم هبوط يغلق أسفل منتصف جسم الشمعة الأولى.")
+            }
+        }
+
+        // A doji is a pause/indecision signal, not a directional reversal by itself.
+        if (currentBody / currentRange <= 0.08 && currentRange >= averageRecentRange * 0.65) {
+            out += candidate("دوجي (Doji) — تردد سعري", "محايد", currentCandle.close,
+                currentCandle.close + averageRecentRange, currentCandle.close - averageRecentRange, last,
+                "تقارب الافتتاح والإغلاق مع مدى سعري ملحوظ؛ لا يُعامل كإشارة شراء أو بيع دون تأكيد لاحق.")
+        }
+
+        // Keep the strongest instance of each pattern name, then suppress near-identical
+        // directional alerts around practically the same trigger level.
+        val bestByName = out.groupBy { it.name }.values.mapNotNull { group ->
+            group.maxByOrNull { it.confidence }
+        }
+        val ranked = bestByName.sortedWith(
             compareByDescending<ClassicPatternResult> { it.confidence }
                 .thenByDescending { it.bias != "محايد" }
-        ).take(50)
+        )
+        val filtered = mutableListOf<ClassicPatternResult>()
+        ranked.forEach { item ->
+            val duplicate = filtered.any { kept ->
+                kept.bias == item.bias &&
+                    abs(kept.trigger - item.trigger) / maxOf(kept.trigger, item.trigger, 0.0000001) < 0.006 &&
+                    (kept.name.contains("اختراق") || kept.name.contains("كسر") ||
+                     item.name.contains("اختراق") || item.name.contains("كسر"))
+            }
+            if (!duplicate) filtered += item
+        }
+        return filtered.take(50)
     }
 
     private fun candidate(name:String,bias:String,trigger:Double,targetSuccess:Double,targetFailure:Double,last:Double,explanation:String):ClassicPatternResult {
