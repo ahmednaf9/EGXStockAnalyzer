@@ -851,7 +851,7 @@ object ClassicPatternScanner {
                 }
             }
         }
-        // Spring / Upthrust: false boundary break plus a directional rejection candle closing back inside.
+        // Spring / Upthrust: require a shallow false break followed by a prompt, decisive reclaim.
         if (data.size >= 25) {
             val w = data.takeLast(25)
             val prior = w.dropLast(3)
@@ -859,19 +859,31 @@ object ClassicPatternScanner {
             val support = prior.minOf { it.low }
             val resistance = prior.maxOf { it.high }
             val reclaim = tail.last()
+            val range = resistance - support
             val candleRange = (reclaim.high - reclaim.low).coerceAtLeast(last * 0.001)
             val closePosition = (reclaim.close - reclaim.low) / candleRange
-            val spring = tail.minOf { it.low } < support * 0.995 &&
-                reclaim.close > support && reclaim.close > reclaim.open && closePosition >= 0.60
-            val upthrust = tail.maxOf { it.high } > resistance * 1.005 &&
-                reclaim.close < resistance && reclaim.close < reclaim.open && closePosition <= 0.40
-            val range = resistance - support
-            if (spring && range > 0) out += candidate("Spring (اختراق دعم وهمي)", "صاعد",
-                support, support + range * 0.65, tail.minOf { it.low }, last,
-                "كسر مؤقت للدعم ثم استرداده بشمعة صاعدة أغلقت قرب أعلى نطاقها؛ يظل الحجم والسياق مهمين.")
-            if (upthrust && range > 0) out += candidate("Upthrust (اختراق مقاومة وهمي)", "هابط",
-                resistance, resistance - range * 0.65, tail.maxOf { it.high }, last,
-                "اختراق مؤقت للمقاومة ثم رفضها بشمعة هابطة أغلقت قرب أدنى نطاقها؛ يظل الحجم والسياق مهمين.")
+            val springBreak = tail.minByOrNull { it.low } ?: reclaim
+            val upthrustBreak = tail.maxByOrNull { it.high } ?: reclaim
+            val springDepthPct = if (support > 0.0) (support - springBreak.low) / support * 100.0 else 100.0
+            val upthrustDepthPct = if (resistance > 0.0) (upthrustBreak.high - resistance) / resistance * 100.0 else 100.0
+            val springBreakPrecedesReclaim = springBreak !== reclaim
+            val upthrustBreakPrecedesReclaim = upthrustBreak !== reclaim
+            val springDepthValid = springDepthPct in 0.5..3.5
+            val upthrustDepthValid = upthrustDepthPct in 0.5..3.5
+            val springReclaimControlled = reclaim.close <= support + range * 0.35
+            val upthrustRejectionControlled = reclaim.close >= resistance - range * 0.35
+            val spring = range > 0.0 && springBreakPrecedesReclaim && springDepthValid &&
+                springReclaimControlled && reclaim.close > support &&
+                reclaim.close > reclaim.open && closePosition >= 0.65
+            val upthrust = range > 0.0 && upthrustBreakPrecedesReclaim && upthrustDepthValid &&
+                upthrustRejectionControlled && reclaim.close < resistance &&
+                reclaim.close < reclaim.open && closePosition <= 0.35
+            if (spring) out += candidate("Spring (اختراق دعم وهمي)", "صاعد",
+                support, support + range * 0.65, springBreak.low, last,
+                "اختراق هابط محدود للدعم بنسبة \${String.format(java.util.Locale.US, "%.2f", springDepthPct)}%، أعقبه استرداد خلال ثلاث شموع بشمعة صاعدة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+            if (upthrust) out += candidate("Upthrust (اختراق مقاومة وهمي)", "هابط",
+                resistance, resistance - range * 0.65, upthrustBreak.high, last,
+                "اختراق صاعد محدود للمقاومة بنسبة \${String.format(java.util.Locale.US, "%.2f", upthrustDepthPct)}%، أعقبه رفض خلال ثلاث شموع بشمعة هابطة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
         }
         // Inverted cup-and-handle: broad rounded ceiling, balanced support rims and a shallow rebound handle.
         if (data.size >= 55) {
