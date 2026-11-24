@@ -66,57 +66,89 @@ object ClassicPatternScanner {
         val highs = alternating.filter { it.second }.takeLast(7).map { data[it.first].high }
         val lows = alternating.filter { !it.second }.takeLast(7).map { data[it.first].low }
 
-        // Double top / bottom: two similar pivots and a valley/peak between them.
-        if (highs.size >= 2) {
-            val a=highs[highs.size-2]; val b=highs.last()
-            if (abs(a-b)/maxOf(a,b) < 0.045 && lows.isNotEmpty()) {
-                val trigger=lows.last(); val h=((a+b)/2)-trigger
-                out += candidate("القمة المزدوجة","هابط",trigger,trigger-h,trigger+h,last,
-                    "قمتان متقاربتان؛ تأكيد هابط بإغلاق أسفل مستوى الفاصل بينهما.")
+        // Reversal formations are evaluated from consecutive chronological pivots.
+        // This prevents unrelated highs/lows from being paired across different swings.
+        val recent3 = alternating.takeLast(3)
+        if (recent3.size == 3 && recent3[0].second && !recent3[1].second && recent3[2].second) {
+            val firstTop = data[recent3[0].first].high
+            val valley = data[recent3[1].first].low
+            val secondTop = data[recent3[2].first].high
+            val averageTop = (firstTop + secondTop) / 2.0
+            val height = averageTop - valley
+            if (height > 0.0 && abs(firstTop - secondTop) / maxOf(firstTop, secondTop) < 0.045) {
+                out += candidate("القمة المزدوجة", "هابط", valley, valley - height, valley + height, last,
+                    "قمتان متقاربتان يفصل بينهما قاع واضح؛ التأكيد الهابط بإغلاق أسفل القاع الفاصل.")
             }
         }
-        if (lows.size >= 2) {
-            val a=lows[lows.size-2]; val b=lows.last()
-            if (abs(a-b)/minOf(a,b) < 0.045 && highs.isNotEmpty()) {
-                val trigger=highs.last(); val h=trigger-((a+b)/2)
-                out += candidate("القاع المزدوج","صاعد",trigger,trigger+h,trigger-h,last,
-                    "قاعان متقاربان؛ تأكيد صاعد بإغلاق أعلى القمة الفاصلة.")
+        if (recent3.size == 3 && !recent3[0].second && recent3[1].second && !recent3[2].second) {
+            val firstBottom = data[recent3[0].first].low
+            val peak = data[recent3[1].first].high
+            val secondBottom = data[recent3[2].first].low
+            val averageBottom = (firstBottom + secondBottom) / 2.0
+            val height = peak - averageBottom
+            if (height > 0.0 && abs(firstBottom - secondBottom) / maxOf(firstBottom, secondBottom) < 0.045) {
+                out += candidate("القاع المزدوج", "صاعد", peak, peak + height, peak - height, last,
+                    "قاعان متقاربان يفصل بينهما ارتفاع واضح؛ التأكيد الصاعد باختراق القمة الفاصلة.")
             }
         }
-        // Triple top / bottom using three recent similar pivots.
-        if (highs.size >= 3 && lows.size >= 2) {
-            val a=highs[highs.size-3]; val b=highs[highs.size-2]; val d=highs.last()
-            if (maxOf(a,b,d)-minOf(a,b,d) < maxOf(a,b,d)*.05) {
-                val valley=lows.takeLast(2).minOrNull() ?: 0.0
-                val height=((a+b+d)/3)-valley
-                out += candidate("القمة الثلاثية","هابط",valley,valley-height,valley+height,last,
-                    "ثلاث قمم متقاربة؛ تأكيد النموذج بكسر الدعم الفاصل.")
+
+        val recent5 = alternating.takeLast(5)
+        if (recent5.size == 5 && recent5.map { it.second } == listOf(true, false, true, false, true)) {
+            val leftShoulder = data[recent5[0].first].high
+            val firstNeck = data[recent5[1].first].low
+            val head = data[recent5[2].first].high
+            val secondNeck = data[recent5[3].first].low
+            val rightShoulder = data[recent5[4].first].high
+            val neck = (firstNeck + secondNeck) / 2.0
+            val height = head - neck
+            val shouldersSimilar = abs(leftShoulder - rightShoulder) / maxOf(leftShoulder, rightShoulder) < 0.08
+            if (head > leftShoulder && head > rightShoulder && shouldersSimilar && height > 0.0) {
+                out += candidate("الرأس والكتفين", "هابط", neck, neck - height, neck + height, last,
+                    "قمم مرتبة زمنيًا: كتف أيسر ثم رأس أعلى ثم كتف أيمن متقارب؛ التأكيد بكسر خط الرقبة.")
             }
         }
-        if (lows.size >= 3 && highs.size >= 2) {
-            val a=lows[lows.size-3]; val b=lows[lows.size-2]; val d=lows.last()
-            if (maxOf(a,b,d)-minOf(a,b,d) < minOf(a,b,d)*.05) {
-                val peak=highs.takeLast(2).maxOrNull() ?: 0.0
-                val height=peak-((a+b+d)/3)
-                out += candidate("القاع الثلاثي","صاعد",peak,peak+height,peak-height,last,
-                    "ثلاثة قيعان متقاربة؛ تأكيد النموذج باختراق المقاومة الفاصلة.")
+        if (recent5.size == 5 && recent5.map { it.second } == listOf(false, true, false, true, false)) {
+            val leftShoulder = data[recent5[0].first].low
+            val firstNeck = data[recent5[1].first].high
+            val head = data[recent5[2].first].low
+            val secondNeck = data[recent5[3].first].high
+            val rightShoulder = data[recent5[4].first].low
+            val neck = (firstNeck + secondNeck) / 2.0
+            val height = neck - head
+            val shouldersSimilar = abs(leftShoulder - rightShoulder) / maxOf(leftShoulder, rightShoulder) < 0.08
+            if (head < leftShoulder && head < rightShoulder && shouldersSimilar && height > 0.0) {
+                out += candidate("الرأس والكتفين المقلوب", "صاعد", neck, neck + height, neck - height, last,
+                    "قيعان مرتبة زمنيًا: كتف أيسر ثم رأس أدنى ثم كتف أيمن متقارب؛ التأكيد باختراق خط الرقبة.")
             }
         }
-        // Head & shoulders / inverse: use the last three alternating same-type pivots.
-        if (highs.size >= 3) {
-            val l=highs[highs.size-3]; val h=highs[highs.size-2]; val r=highs.last()
-            if (h>l && h>r && abs(l-r)/h < .08 && lows.size>=2) {
-                val neck=(lows[lows.size-2]+lows.last())/2; val height=h-neck
-                out += candidate("الرأس والكتفين","هابط",neck,neck-height,neck+height,last,
-                    "رأس أعلى من الكتفين؛ التأكيد بكسر خط الرقبة.")
+
+        // Triple tops/bottoms require five consecutive alternating pivots.
+        if (recent5.size == 5 && recent5.map { it.second } == listOf(true, false, true, false, true)) {
+            val top1 = data[recent5[0].first].high
+            val valley1 = data[recent5[1].first].low
+            val top2 = data[recent5[2].first].high
+            val valley2 = data[recent5[3].first].low
+            val top3 = data[recent5[4].first].high
+            val averageTop = (top1 + top2 + top3) / 3.0
+            val valley = minOf(valley1, valley2)
+            val height = averageTop - valley
+            if (height > 0.0 && (maxOf(top1, top2, top3) - minOf(top1, top2, top3)) / averageTop < 0.05) {
+                out += candidate("القمة الثلاثية", "هابط", valley, valley - height, valley + height, last,
+                    "ثلاث قمم متقاربة يفصل بينها قاعان؛ التأكيد بكسر منطقة الدعم بين القمم.")
             }
         }
-        if (lows.size >= 3) {
-            val l=lows[lows.size-3]; val h=lows[lows.size-2]; val r=lows.last()
-            if (h<l && h<r && abs(l-r)/maxOf(l,r) < .08 && highs.size>=2) {
-                val neck=(highs[highs.size-2]+highs.last())/2; val height=neck-h
-                out += candidate("الرأس والكتفين المقلوب","صاعد",neck,neck+height,neck-height,last,
-                    "رأس أدنى من الكتفين؛ التأكيد باختراق خط الرقبة.")
+        if (recent5.size == 5 && recent5.map { it.second } == listOf(false, true, false, true, false)) {
+            val bottom1 = data[recent5[0].first].low
+            val peak1 = data[recent5[1].first].high
+            val bottom2 = data[recent5[2].first].low
+            val peak2 = data[recent5[3].first].high
+            val bottom3 = data[recent5[4].first].low
+            val averageBottom = (bottom1 + bottom2 + bottom3) / 3.0
+            val peak = maxOf(peak1, peak2)
+            val height = peak - averageBottom
+            if (height > 0.0 && (maxOf(bottom1, bottom2, bottom3) - minOf(bottom1, bottom2, bottom3)) / averageBottom < 0.05) {
+                out += candidate("القاع الثلاثي", "صاعد", peak, peak + height, peak - height, last,
+                    "ثلاثة قيعان متقاربة تفصل بينها قمتان؛ التأكيد باختراق منطقة المقاومة بين القيعان.")
             }
         }
         // Cup-and-handle approximation: rounded multi-week base, then a shallow handle.
