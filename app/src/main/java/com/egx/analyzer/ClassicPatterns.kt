@@ -858,6 +858,13 @@ object ClassicPatternScanner {
             val tail = w.takeLast(3)
             val support = prior.minOf { it.low }
             val resistance = prior.maxOf { it.high }
+            // A valid level should have been tested at least twice, with separated contacts.
+            val supportTouchIndices = prior.indices.filter { prior[it].low <= support * 1.015 }
+            val resistanceTouchIndices = prior.indices.filter { prior[it].high >= resistance * 0.985 }
+            val supportWasTested = supportTouchIndices.size >= 2 &&
+                supportTouchIndices.last() - supportTouchIndices.first() >= 4
+            val resistanceWasTested = resistanceTouchIndices.size >= 2 &&
+                resistanceTouchIndices.last() - resistanceTouchIndices.first() >= 4
             val reclaim = tail.last()
             val range = resistance - support
             val candleRange = (reclaim.high - reclaim.low).coerceAtLeast(last * 0.001)
@@ -872,20 +879,20 @@ object ClassicPatternScanner {
             val upthrustDepthValid = upthrustDepthPct in 0.5..3.5
             val springReclaimControlled = reclaim.close <= support + range * 0.35
             val upthrustRejectionControlled = reclaim.close >= resistance - range * 0.35
-            val spring = range > 0.0 && springBreakPrecedesReclaim && springDepthValid &&
+            val spring = range > 0.0 && supportWasTested && springBreakPrecedesReclaim && springDepthValid &&
                 springReclaimControlled && reclaim.close > support &&
                 reclaim.close > reclaim.open && closePosition >= 0.65
-            val upthrust = range > 0.0 && upthrustBreakPrecedesReclaim && upthrustDepthValid &&
+            val upthrust = range > 0.0 && resistanceWasTested && upthrustBreakPrecedesReclaim && upthrustDepthValid &&
                 upthrustRejectionControlled && reclaim.close < resistance &&
                 reclaim.close < reclaim.open && closePosition <= 0.35
             val springDepthText = String.format(java.util.Locale.US, "%.2f", springDepthPct)
             val upthrustDepthText = String.format(java.util.Locale.US, "%.2f", upthrustDepthPct)
             if (spring) out += candidate("Spring (اختراق دعم وهمي)", "صاعد",
                 support, support + range * 0.65, springBreak.low, last,
-                "اختراق هابط محدود للدعم بنسبة $springDepthText%، أعقبه استرداد خلال ثلاث شموع بشمعة صاعدة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+                "دعم اختُبر مرتين على الأقل، ثم اختراق هابط محدود بنسبة $springDepthText% أعقبه استرداد خلال ثلاث شموع بشمعة صاعدة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
             if (upthrust) out += candidate("Upthrust (اختراق مقاومة وهمي)", "هابط",
                 resistance, resistance - range * 0.65, upthrustBreak.high, last,
-                "اختراق صاعد محدود للمقاومة بنسبة $upthrustDepthText%، أعقبه رفض خلال ثلاث شموع بشمعة هابطة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
+                "مقاومة اختُبرت مرتين على الأقل، ثم اختراق صاعد محدود بنسبة $upthrustDepthText% أعقبه رفض خلال ثلاث شموع بشمعة هابطة قوية؛ يظل تأكيد الحجم والسياق مهمًا.")
         }
         // Inverted cup-and-handle: broad rounded ceiling, balanced support rims and a shallow rebound handle.
         if (data.size >= 55) {
