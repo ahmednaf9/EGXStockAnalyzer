@@ -797,23 +797,23 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 ResultCard(
                     "الدعوم: ${supportText}\n" +
                     "المقاومات: ${resistanceText}\n" +
-                    "وقف الخسارة المقترح: ${money(a.invalidation)} (إغلاق أسفل المستوى)\n\n" +
-                    "المستهدفات السعرية:\n" +
+                    "مستوى إبطال السيناريو (وقف الخسارة المقترح): ${money(a.invalidation)}؛ إغلاق السعر أسفل هذا المستوى يعني أن السيناريو الصاعد لم يعد صالحًا.\n\n" +
+                    "الأهداف السعرية التقديرية (وليست مضمونة):\n" +
                     "قريب: ${money(a.targets[0])}\n" +
                     "متوسط: ${money(a.targets[1])}\n" +
                     "بعيد: ${money(a.targets[2])}\n\n" +
                     "خطة التعامل في الصعود:\n" +
-                    "شراء اختراق: ${money(breakoutBuy)} بعد إغلاق أعلى المقاومة وتأكيد حجم التداول.\n" +
-                    "شراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"} بشرط ظهور ارتداد واضح.\n" +
-                    "بيع/جني ربح: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"} ثم المستهدف القريب ${money(a.targets[0])}.\n\n" +
+                    "سيناريو الشراء بعد الاختراق: ${money(breakoutBuy)}، بشرط إغلاق السعر أعلى المقاومة مع نشاط تداول يؤكد الاختراق.\n" +
+                    "سيناريو الشراء من الدعم: ${supportBuy?.let(::money) ?: "لا يوجد دعم قريب محدد"}، بشرط ظهور ارتداد واضح وتأكيده؛ مجرد ملامسة الدعم لا تكفي.\n" +
+                    "منطقة محتملة لجني الربح أو تخفيف الكمية: قرب المقاومة ${nearestResistance?.let(::money) ?: "غير متاحة"}، مع متابعة الهدف القريب ${money(a.targets[0])}.\n\n" +
                     "خطة التعامل في الهبوط:\n" +
-                    "بيع أو تخفيف: عند كسر الدعم والإغلاق أسفل ${money(breakdownExit)}.\n" +
+                    "سيناريو الخروج أو تخفيف الكمية: عند كسر الدعم وإغلاق السعر أسفل ${money(breakdownExit)}.\n" +
                     "شراء بعد الهبوط: راقب الدعم ${nearestSupport?.let(::money) ?: "غير متاح"}؛ لا يتم الشراء إلا بعد ارتداد وتأكيد انعكاس، وليس لمجرد ملامسة الدعم.\n" +
                     "المقاومة التالية للبيع: ${secondResistance?.let(::money) ?: nearestResistance?.let(::money) ?: "غير متاحة"}."
                 )
                 Spacer(Modifier.height(7.dp))
                 Text(
-                    "المستويات تقديرية ومحسوبة آليًا من البيانات التاريخية والفترة المختارة. نقاط الاختراق والارتداد تحتاج تأكيدًا بالإغلاق والسيولة؛ لا توجد ضمانات، ووقف الخسارة قد يتأثر بالفجوات السعرية.",
+                    "كل المستويات والأهداف تقديرات آلية مبنية على البيانات التاريخية والفترة المختارة، وليست أسعارًا مضمونة. لا تعتمد على اختراق أو ارتداد قبل تأكيده بإغلاق السعر وحجم التداول. وقد يتجاوز السعر مستوى وقف الخسارة عند حدوث فجوة سعرية.",
                     color = Muted, fontSize = 11.sp, lineHeight = 17.sp
                 )
 
@@ -824,7 +824,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Column(Modifier.fillMaxWidth().padding(15.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
-                                Text("التقييم الفني العام (من 100)", color = Muted, fontSize = 12.sp)
+                                Text("التقييم الفني العام (من 100) — مجموع نقاط عدة عوامل فنية", color = Muted, fontSize = 12.sp)
                                 Text("${a.score} / 100", color = scoreColor(a.scoreLabel), fontSize = 30.sp, fontWeight = FontWeight.ExtraBold)
                             }
                             Text(a.scoreLabel, color = scoreColor(a.scoreLabel), fontWeight = FontWeight.Bold)
@@ -868,7 +868,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         Spacer(Modifier.height(4.dp))
                         Text(a.technicalClassificationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(9.dp))
-                        Text("الخلاصة العملية للتحليل", color = Muted, fontSize = 12.sp)
+                        Text("الخلاصة العملية: ماذا تعني الإشارات حاليًا؟", color = Muted, fontSize = 12.sp)
                         val recommendationColor = when (a.executionRecommendation) {
                             "شراء", "شراء تدريجي" -> Green
                             "تجنب" -> Red
@@ -878,7 +878,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         Text(a.executionRecommendationReason, color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
                         Spacer(Modifier.height(5.dp))
                         Text(
-                            "العائد إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "غير متاح"}",
+                            "نسبة العائد المحتمل إلى المخاطرة: ${a.riskReward?.let { String.format(java.util.Locale.US, "%.2f", it) + " إلى 1" } ?: "غير متاحة"} — أي مقارنة الهدف المحتمل بالمسافة إلى مستوى إبطال السيناريو، وليست ضمانًا للربح.",
                             color = Muted, fontSize = 11.sp
                         )
                     }
@@ -1056,7 +1056,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             }
                         }
                         Spacer(Modifier.height(5.dp))
-                        Text("درجة الثقة الوصفية: مرتفعة من 70%، متوسطة من 50% إلى أقل من 70%، ومنخفضة أقل من 50%. هذه درجة تقديرية وليست احتمال نجاح إحصائيًا.", color = Muted, fontSize = 10.sp)
+                        Text("مستوى تقييم النموذج: مرتفع عند 70% فأكثر، متوسط من 50% إلى أقل من 70%، ومنخفض أقل من 50%. هذه درجة فنية لترتيب النماذج وليست احتمالًا إحصائيًا لنجاحها.", color = Muted, fontSize = 10.sp)
                         Spacer(Modifier.height(8.dp))
                         if (filteredClassicPatterns.isEmpty()) {
                             Text(if (classicPatterns.isEmpty()) "لم يرصد الفحص نموذجًا كلاسيكيًا مستوفيًا للشروط. قد يكون السبب عدم اكتمال شكل النموذج أو عدم كفاية البيانات؛ لا يعني ذلك بالضرورة عدم وجود نموذج على الرسم." else "لا توجد نماذج ضمن مستوى الفلتر المختار.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
@@ -1115,14 +1115,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 Spacer(Modifier.height(3.dp))
                                 Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
                                 Spacer(Modifier.height(4.dp))
-                                Text("السعر الذي يؤكد النموذج عند الوصول إليه: ${money(p.trigger)}", color = Navy, fontSize = 11.sp)
-                                Text("الهدف السعري النظري إذا تحقق التأكيد: ${money(p.targetSuccess)}", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("المستوى النظري المقابل إذا فشل السيناريو أو انعكس: ${money(p.targetFailure)}", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("السعر المرجعي الذي عنده يفقد النموذج صلاحيته: ${money(p.invalidation)}", color = Muted, fontSize = 10.sp)
+                                Text("سعر تأكيد النموذج: ${money(p.trigger)} — يلزم أن يصل السعر إليه ويغلق بعده في اتجاه الاختراق.", color = Navy, fontSize = 11.sp)
+                                Text("الهدف النظري بعد تحقق التأكيد: ${money(p.targetSuccess)} — مستوى حسابي محتمل وليس سعرًا مضمونًا.", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المستوى المقابل في حالة فشل السيناريو أو انعكاسه: ${money(p.targetFailure)}.", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("مستوى إبطال النموذج: ${money(p.invalidation)} — تجاوزه عكس اتجاه النموذج يعني أن السيناريو لم يعد صالحًا وفق شروط الفحص.", color = Muted, fontSize = 10.sp)
                                 val successMovePct = if (closeNow > 0.0) (p.targetSuccess / closeNow - 1.0) * 100.0 else 0.0
                                 val failureMovePct = if (closeNow > 0.0) (p.targetFailure / closeNow - 1.0) * 100.0 else 0.0
-                                Text("التغير المطلوب من آخر إغلاق للوصول إلى الهدف النظري: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                                Text("التغير من آخر إغلاق للوصول إلى المستوى المقابل: ${String.format(Locale.US, "%+.2f", failureMovePct)}%", color = Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المسافة السعرية من آخر إغلاق إلى الهدف النظري: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text("المسافة السعرية من آخر إغلاق إلى مستوى فشل السيناريو: ${String.format(Locale.US, "%+.2f", failureMovePct)}%", color = Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                                 ClassicPatternChart(aggregateCandles(candles, period).takeLast(55), p)
                             }
                         }
@@ -1258,11 +1258,11 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("سيناريوهات محتملة لحركة السعر")
                 ResultCard(
-                    "قصير المدى: ${money(a.targets[0])}\n" +
-                    "متوسط المدى: ${money(a.targets[1])}\n" +
-                    "طويل المدى: ${money(a.targets[2])}\n" +
-                    "مستوى إبطال السيناريو: ${money(a.invalidation)}\n" +
-                    "العائد المحتمل / المخاطرة: ${a.riskReward?.let(::one) ?: "غير متاح"}"
+                    "الهدف التقديري قصير المدى: ${money(a.targets[0])}\n" +
+                    "الهدف التقديري متوسط المدى: ${money(a.targets[1])}\n" +
+                    "الهدف التقديري طويل المدى: ${money(a.targets[2])}\n" +
+                    "مستوى إبطال السيناريو (مراجعة الفكرة عند تجاوزه): ${money(a.invalidation)}\n" +
+                    "نسبة العائد المحتمل إلى المخاطرة: ${a.riskReward?.let { one(it) + " إلى 1" } ?: "غير متاحة"}"
                 )
                 Spacer(Modifier.height(8.dp))
                 Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
