@@ -89,16 +89,16 @@ object EgyptMarketAnalyzer {
             val above = last >= it
             if (above) positive++ else negative++
             reasons += "سعر الإغلاق الأخير " + (if (above) "أعلى من" else "أقل من") + " متوسط أسعار الإغلاق خلال آخر 20 جلسة (SMA 20)، وقيمة المتوسط " + fmt(it) + "."
-        } ?: run { reasons += "المتوسط المتحرك لـ20 جلسة (SMA 20) غير متاح." }
+        } ?: run { reasons += "المتوسط المتحرك لـ20 جلسة (SMA 20) غير متاح؛ لأنه يحتاج إلى 20 جلسة سعرية على الأقل." }
 
         analysis.sma50?.let {
             val above = last >= it
             if (above) positive++ else negative++
             reasons += "سعر الإغلاق الأخير " + (if (above) "أعلى من" else "أقل من") + " متوسط أسعار الإغلاق خلال آخر 50 جلسة (SMA 50)، وقيمة المتوسط " + fmt(it) + "."
-        } ?: run { reasons += "المتوسط المتحرك لـ50 جلسة (SMA 50) غير متاح لأن عدد الجلسات المستوردة لا يكفي." }
+        } ?: run { reasons += "المتوسط المتحرك لـ50 جلسة (SMA 50) غير متاح؛ لأنه يحتاج إلى 50 جلسة سعرية على الأقل." }
 
         when {
-            analysis.rsi >= 55.0 -> { positive++; reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس سرعة وقوة تغير السعر، يميل إلى دعم الحركة الصاعدة (" + fmt(analysis.rsi) + ")." }
+            analysis.rsi >= 55.0 -> { positive++; reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس قوة وسرعة تغير السعر خلال الفترة الأخيرة، يميل إلى دعم الحركة الصاعدة (" + fmt(analysis.rsi) + ")." }
             analysis.rsi <= 45.0 -> { negative++; reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس سرعة وقوة تغير السعر، يشير إلى ضعف الحركة (" + fmt(analysis.rsi) + ")." }
             else -> reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس سرعة وقوة تغير السعر، في المنطقة الوسطى ولا يعطي ميلًا واضحًا (" + fmt(analysis.rsi) + ")."
         }
@@ -106,8 +106,8 @@ object EgyptMarketAnalyzer {
         if (analysis.macd != null && analysis.macdSignal != null) {
             val bullish = analysis.macd >= analysis.macdSignal
             if (bullish) positive++ else negative++
-            reasons += "مؤشر MACD، الذي يقارن متوسطات السعر لقياس اتجاه الزخم، " + (if (bullish) "أعلى من" else "أقل من") + " خط الإشارة؛ ما يشير إلى " + (if (bullish) "زخم صاعد أفضل نسبيًا" else "زخم أضعف نسبيًا") + "."
-        } else reasons += "لا تتوفر بيانات كافية لحساب مؤشر MACD أو خط الإشارة."
+            reasons += "مؤشر MACD، الذي يقارن متوسطين أسيين للسعر لقياس اتجاه الزخم، " + (if (bullish) "أعلى من" else "أقل من") + " خط الإشارة؛ ما يشير إلى " + (if (bullish) "زخم إيجابي نسبيًا" else "زخم سلبي نسبيًا") + ". وتُقرأ هذه الإشارة مع موقع المؤشر من خط الصفر وبقية المؤشرات."
+        } else reasons += "لا تتوفر بيانات كافية لحساب مؤشر MACD أو خط الإشارة؛ لذلك لا يدخل هذا المؤشر في تأكيد الاتجاه."
 
         val patternBias = classicPatterns.count { it.bias == "صاعد" } - classicPatterns.count { it.bias == "هابط" }
         val candleBullish = analysis.recentPatterns.count { it.direction == "إيجابي" }
