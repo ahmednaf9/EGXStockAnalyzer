@@ -29,8 +29,8 @@ object EgyptMarketAnalyzer {
     fun inspect(input: List<Candle>): EgyptMarketDiagnostics {
         val rows = input.sortedBy { dateKey(it.date) }
         if (rows.isEmpty()) return EgyptMarketDiagnostics(
-            true, null, "لا توجد بيانات كافية لفحص السيولة.",
-            listOf("تعذر تقييم جودة السلسلة الزمنية.")
+            true, null, "لا توجد بيانات كافية لمقارنة حجم التداول.",
+            listOf("تعذر فحص انتظام تواريخ جلسات التداول.")
         )
 
         val warnings = mutableListOf<String>()
@@ -39,11 +39,11 @@ object EgyptMarketAnalyzer {
         val ratio = averageVolume?.let { rows.last().volume / it }
         val lowLiquidity = ratio == null || ratio < 0.35
         val liquiditySummary = when {
-            ratio == null -> "بيانات حجم التداول غير كافية للحكم على نشاط السيولة، لذلك لا نعتبر الحجم عامل تأكيد للإشارة."
-            ratio < 0.35 -> "حجم تداول آخر جلسة يساوي " + fmt(ratio) + " مرة من متوسط الجلسات السابقة؛ وهذا يشير إلى نشاط تداول منخفض نسبيًا."
-            ratio < 0.70 -> "حجم التداول أقل من متوسطه المعتاد (" + fmt(ratio) + " مرة من المتوسط)."
-            ratio <= 1.30 -> "حجم التداول قريب من مستواه المعتاد (" + fmt(ratio) + " مرة من المتوسط)."
-            else -> "حجم التداول أعلى من متوسطه المعتاد (" + fmt(ratio) + " مرة من المتوسط)."
+            ratio == null -> "بيانات حجم التداول غير كافية لمعرفة ما إذا كان النشاط أعلى أو أقل من المعتاد؛ لذلك لا نستخدم الحجم لتأكيد الإشارة."
+            ratio < 0.35 -> "حجم تداول آخر جلسة يساوي " + fmt(ratio) + " مرة من متوسط آخر 20 جلسة متاحة؛ وهذا يعني أن عدد الأسهم المتداولة أقل من المعتاد بوضوح."
+            ratio < 0.70 -> "حجم التداول أقل من متوسط آخر 20 جلسة متاحة (" + fmt(ratio) + " مرة من المتوسط)."
+            ratio <= 1.30 -> "حجم التداول قريب من متوسط آخر 20 جلسة متاحة (" + fmt(ratio) + " مرة من المتوسط)."
+            else -> "حجم التداول أعلى من متوسط آخر 20 جلسة متاحة (" + fmt(ratio) + " مرة من المتوسط)، ما يعني نشاطًا أكبر من المعتاد."
         }
 
         val dated = rows.mapNotNull { candle -> dateMillis(candle.date)?.let { it to candle } }
@@ -53,7 +53,7 @@ object EgyptMarketAnalyzer {
             val days = ((second.first - first.first) / 86_400_000L).toInt()
             if (days > 7) {
                 warnings += "فاصل " + days + " يومًا بين " + first.second.date + " و" + second.second.date +
-                    "؛ قد يرجع ذلك إلى عطلة أو توقف التداول أو نقص البيانات. لا يمكن تحديد السبب من الأسعار وأحجام التداول وحدها."
+                    "؛ وقد يرجع ذلك إلى عطلة أو توقف التداول أو نقص البيانات المستوردة. لا يمكن الجزم بالسبب من الأسعار وأحجام التداول وحدها."
             }
         }
 
@@ -65,12 +65,12 @@ object EgyptMarketAnalyzer {
             if (abs(movePct) >= 15.0 || abs(openingGapPct) >= 12.0) {
                 warnings += "حركة/فجوة سعرية غير معتادة في " + current.date + " (الإغلاق " +
                     fmtSigned(movePct) + "%، فجوة الافتتاح " + fmtSigned(openingGapPct) +
-                    "%). قبل اعتبارها إشارة فنية، راجع ما إذا حدثت تجزئة أو توزيعات نقدية أو زيادة في رأس المال أو خبر مؤثر على السهم."
+                    "%). قد تنتج هذه الحركة عن تجزئة للسهم أو توزيع نقدي أو زيادة في رأس المال أو خبر مؤثر. راجع بيانات الشركة قبل اعتبارها إشارة فنية."
             }
         }
 
-        if (lowLiquidity) warnings += "ضعف حجم التداول أو نقص بياناته قد يجعل اختراق مستويات السعر أقل موثوقية؛ لذلك تعامل مع الإشارة بحذر وانتظر إغلاقًا يؤكدها."
-        if (warnings.isEmpty()) warnings += "لم يرصد الفحص فجوات زمنية طويلة أو تغيرات سعرية استثنائية وفق الحدود المستخدمة. لكن ذلك لا يؤكد عدم وجود أحداث مؤثرة على الشركة."
+        if (lowLiquidity) warnings += "انخفاض حجم التداول أو نقص بياناته يقلل من قوة تأكيد الاختراق؛ لذلك تعامل مع الإشارة بحذر وانتظر إغلاقًا واضحًا يدعمها."
+        if (warnings.isEmpty()) warnings += "لم يرصد الفحص فواصل زمنية طويلة أو تغيرات سعرية استثنائية تتجاوز الحدود المحددة. وهذا لا يعني بالضرورة عدم وجود أحداث مؤثرة على الشركة."
         return EgyptMarketDiagnostics(lowLiquidity, ratio, liquiditySummary, warnings.distinct().take(8))
     }
 
@@ -88,25 +88,25 @@ object EgyptMarketAnalyzer {
         analysis.sma20?.let {
             val above = last >= it
             if (above) positive++ else negative++
-            reasons += "آخر سعر إغلاق " + (if (above) "أعلى من" else "أقل من") + " المتوسط المتحرك لـ20 جلسة (SMA 20) عند " + fmt(it) + "."
+            reasons += "سعر الإغلاق الأخير " + (if (above) "أعلى من" else "أقل من") + " متوسط أسعار الإغلاق خلال آخر 20 جلسة (SMA 20)، وقيمة المتوسط " + fmt(it) + "."
         } ?: run { reasons += "المتوسط المتحرك لـ20 جلسة (SMA 20) غير متاح." }
 
         analysis.sma50?.let {
             val above = last >= it
             if (above) positive++ else negative++
-            reasons += "آخر سعر إغلاق " + (if (above) "أعلى من" else "أقل من") + " المتوسط المتحرك لـ50 جلسة (SMA 50) عند " + fmt(it) + "."
+            reasons += "سعر الإغلاق الأخير " + (if (above) "أعلى من" else "أقل من") + " متوسط أسعار الإغلاق خلال آخر 50 جلسة (SMA 50)، وقيمة المتوسط " + fmt(it) + "."
         } ?: run { reasons += "المتوسط المتحرك لـ50 جلسة (SMA 50) غير متاح لأن عدد الجلسات المستوردة لا يكفي." }
 
         when {
-            analysis.rsi >= 55.0 -> { positive++; reasons += "مؤشر القوة النسبية (RSI) يميل إلى دعم الحركة الصاعدة (" + fmt(analysis.rsi) + ")." }
-            analysis.rsi <= 45.0 -> { negative++; reasons += "مؤشر القوة النسبية (RSI) يميل إلى ضعف الحركة (" + fmt(analysis.rsi) + ")." }
-            else -> reasons += "مؤشر القوة النسبية (RSI) في المنطقة الوسطى، ولا يعطي ميلًا واضحًا (" + fmt(analysis.rsi) + ")."
+            analysis.rsi >= 55.0 -> { positive++; reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس سرعة وقوة تغير السعر، يميل إلى دعم الحركة الصاعدة (" + fmt(analysis.rsi) + ")." }
+            analysis.rsi <= 45.0 -> { negative++; reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس سرعة وقوة تغير السعر، يشير إلى ضعف الحركة (" + fmt(analysis.rsi) + ")." }
+            else -> reasons += "مؤشر القوة النسبية (RSI)، الذي يقيس سرعة وقوة تغير السعر، في المنطقة الوسطى ولا يعطي ميلًا واضحًا (" + fmt(analysis.rsi) + ")."
         }
 
         if (analysis.macd != null && analysis.macdSignal != null) {
             val bullish = analysis.macd >= analysis.macdSignal
             if (bullish) positive++ else negative++
-            reasons += "مؤشر MACD " + (if (bullish) "أعلى من" else "أقل من") + " خط الإشارة، ما يشير إلى " + (if (bullish) "زخم أفضل نسبيًا" else "زخم أضعف نسبيًا") + "."
+            reasons += "مؤشر MACD، الذي يقارن متوسطات السعر لقياس اتجاه الزخم، " + (if (bullish) "أعلى من" else "أقل من") + " خط الإشارة؛ ما يشير إلى " + (if (bullish) "زخم صاعد أفضل نسبيًا" else "زخم أضعف نسبيًا") + "."
         } else reasons += "لا تتوفر بيانات كافية لحساب مؤشر MACD أو خط الإشارة."
 
         val patternBias = classicPatterns.count { it.bias == "صاعد" } - classicPatterns.count { it.bias == "هابط" }
@@ -114,8 +114,8 @@ object EgyptMarketAnalyzer {
         val candleBearish = analysis.recentPatterns.count { it.direction == "سلبي" }
         val totalPatternBias = patternBias + candleBullish - candleBearish
         if (totalPatternBias > 0) positive++ else if (totalPatternBias < 0) negative++
-        reasons += "حصيلة النماذج: رصد البرنامج " + classicPatterns.size + " نموذجًا سعريًا كلاسيكيًا و" +
-            analysis.recentPatterns.size + " إشارة مرتبطة بأشكال الشموع ضمن البيانات التي تم فحصها."
+        reasons += "حصيلة الفحص: رصد البرنامج " + classicPatterns.size + " نموذجًا سعريًا كلاسيكيًا و" +
+            analysis.recentPatterns.size + " إشارة من نماذج الشموع اليابانية ضمن البيانات التي تم فحصها."
 
         val alignment = when {
             positive >= 3 && negative == 0 -> "متوافق إيجابيًا"
@@ -134,11 +134,11 @@ object EgyptMarketAnalyzer {
         val targets = analysis.targets.take(3).map { fmt(it) }.joinToString(" / ").ifBlank { "غير متاحة" }
         val supports = analysis.supports.take(3).map { fmt(it) }.joinToString(" / ").ifBlank { "غير متاحة" }
         val resistances = analysis.resistances.take(3).map { fmt(it) }.joinToString(" / ").ifBlank { "غير متاحة" }
-        val reasonSummary = "حصل السهم على تقييم فني " + analysis.score + " من 100 (" + analysis.scoreLabel + ")؛ " +
+        val reasonSummary = "بلغ التقييم الفني للسهم " + analysis.score + " من 100، وتصنيفه " + analysis.scoreLabel + "؛ " +
             analysis.finalRatingReason + " " +
             (if (diagnostics.lowLiquidity) "حجم التداول منخفض نسبيًا أو بياناته غير مكتملة؛ لذلك يلزم الحذر عند قراءة الإشارات."
              else "تمت مراجعة حجم التداول والفجوات الزمنية والتغيرات السعرية غير المعتادة.")
-        val summary = "اتجاه السهم: " + analysis.trend + "؛ التقييم الفني: " + analysis.score +
+        val summary = "الاتجاه الفني للسهم: " + analysis.trend + "؛ ودرجته الفنية: " + analysis.score +
             " من 100؛ ومدى اتفاق المؤشرات والنماذج: " + alignment + ". والخلاصة الفنية: " +
             analysis.finalRating + ". مستويات الأسعار المعروضة للمراقبة الفنية فقط، وليست أمرًا بالشراء أو البيع."
         return EgyptProfessionalReport(
