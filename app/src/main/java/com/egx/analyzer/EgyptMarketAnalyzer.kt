@@ -52,7 +52,7 @@ object EgyptMarketAnalyzer {
             val second = pair.second
             val days = ((second.first - first.first) / 86_400_000L).toInt()
             if (days > 7) {
-                warnings += "فاصل " + days + " يومًا بين " + first.second.date + " و" + second.second.date +
+                warnings += "فترة انقطاع مدتها " + days + " يومًا بين جلستي التداول " + first.second.date + " و" + second.second.date +
                     "؛ وقد يرجع ذلك إلى عطلة أو توقف التداول أو نقص البيانات المستوردة. لا يمكن الجزم بالسبب من الأسعار وأحجام التداول وحدها."
             }
         }
@@ -63,14 +63,14 @@ object EgyptMarketAnalyzer {
             val movePct = if (previous.close > 0.0) (current.close / previous.close - 1.0) * 100.0 else 0.0
             val openingGapPct = if (previous.close > 0.0) (current.open / previous.close - 1.0) * 100.0 else 0.0
             if (abs(movePct) >= 15.0 || abs(openingGapPct) >= 12.0) {
-                warnings += "حركة/فجوة سعرية غير معتادة في " + current.date + " (الإغلاق " +
+                warnings += "حركة أو فجوة سعرية غير معتادة في جلسة " + current.date + " (الإغلاق " +
                     fmtSigned(movePct) + "%، فجوة الافتتاح " + fmtSigned(openingGapPct) +
                     "%). قد تنتج هذه الحركة عن تجزئة للسهم أو توزيع نقدي أو زيادة في رأس المال أو خبر مؤثر. راجع بيانات الشركة قبل اعتبارها إشارة فنية."
             }
         }
 
         if (lowLiquidity) warnings += "انخفاض حجم التداول أو نقص بياناته يقلل من قوة تأكيد الاختراق؛ لذلك تعامل مع الإشارة بحذر وانتظر إغلاقًا واضحًا يدعمها."
-        if (warnings.isEmpty()) warnings += "لم يرصد الفحص فواصل زمنية طويلة أو تغيرات سعرية استثنائية تتجاوز الحدود المحددة. وهذا لا يعني بالضرورة عدم وجود أحداث مؤثرة على الشركة."
+        if (warnings.isEmpty()) warnings += "لم يرصد الفحص انقطاعات زمنية طويلة أو تغيرات سعرية استثنائية تتجاوز الحدود المحددة. ولا يعني ذلك بالضرورة عدم وجود أحداث مؤثرة على الشركة."
         return EgyptMarketDiagnostics(lowLiquidity, ratio, liquiditySummary, warnings.distinct().take(8))
     }
 
