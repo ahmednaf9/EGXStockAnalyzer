@@ -269,6 +269,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var candles by remember { mutableStateOf(emptyList<Candle>()) }
     var message by remember { mutableStateOf("ابدأ بكتابة رمز السهم، ثم اختر مصدر بياناته: مجلد MetaStock أو ملف Excel/CSV.") }
     var result by remember { mutableStateOf<Analysis?>(null) }
+    var isLoading by remember { mutableStateOf(false) }
     var period by remember { mutableStateOf("يومي") }
     var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
     var indexSearch by remember { mutableStateOf("") }
@@ -350,15 +351,33 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
         }
     }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri != null) {
-            val loaded = importFile(uri)
-            candles = loaded.candles
-            message = loaded.message
-            symbol = loaded.symbol
-            period = detectDataPeriod(candles)
-            val grouped = aggregateCandles(candles, period)
-            result = if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
-            if (grouped.size < 35) message = "تم تحميل ${candles.size} جلسة من البيانات، لكن بعد تجميعها على الفترة ${period} أصبح المتاح ${grouped.size} جلسة فقط. يلزم 35 جلسة على الأقل لإجراء التحليل؛ اختر فترة أقصر أو وفّر بيانات تاريخية أوسع."
+        if (uri != null && !isLoading) {
+            isLoading = true
+            result = null
+            message = "جارٍ قراءة الملف وتحليل البيانات..."
+            scope.launch {
+                try {
+                    val loaded = withContext(Dispatchers.IO) { importFile(uri) }
+                    val prepared = withContext(Dispatchers.Default) {
+                        val detected = detectDataPeriod(loaded.candles)
+                        val grouped = aggregateCandles(loaded.candles, detected)
+                        Triple(detected, grouped, if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null)
+                    }
+                    candles = loaded.candles
+                    symbol = loaded.symbol
+                    period = prepared.first
+                    result = prepared.third
+                    message = if (prepared.second.size < 35) {
+                        "تم تحميل ${loaded.candles.size} جلسة من البيانات، لكن بعد تجميعها على الفترة ${prepared.first} أصبح المتاح ${prepared.second.size} جلسة فقط. يلزم 35 جلسة على الأقل لإجراء التحليل؛ اختر فترة أقصر أو وفّر بيانات تاريخية أوسع."
+                    } else loaded.message
+                } catch (e: Exception) {
+                    candles = emptyList()
+                    result = null
+                    message = "تعذر استيراد الملف أو تحليل بياناته. تحقق من صيغة الملف وترتيب الأعمدة ثم حاول مرة أخرى."
+                } finally {
+                    isLoading = false
+                }
+            }
         }
     }
 
@@ -551,6 +570,21 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Text(message, color = Muted, fontSize = 12.sp)
                 }
             }
+            if (isLoading) {
+                Row(
+                    Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Green,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(Modifier.width(9.dp))
+                    Text("جارٍ تجهيز التحليل...", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                }
+            }
             Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(14.dp)) {
                 Column(Modifier.fillMaxWidth().padding(13.dp)) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -661,15 +695,32 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         FilterChip(
                             selected = period == p,
                             onClick = {
-                                val grouped = aggregateCandles(candles, p)
-                                if (grouped.size >= 35) {
-                                    period = p
-                                    result = TechnicalAnalyzer.analyze(grouped)
-                                    message = "الفترة $p: تتوفر ${grouped.size} جلسة بعد تجميع البيانات، وهي كافية لبدء التحليل."
-                                } else {
-                                    message = "الفترة $p تضم ${grouped.size} جلسة فقط بعد تجميع الأسعار، بينما يحتاج التحليل إلى 35 جلسة على الأقل. لم يغيّر البرنامج الفترة المختارة؛ اختر فترة زمنية أقصر لتوفير عدد جلسات أكبر."
+                                if (!isLoading && period != p) {
+                                    isLoading = true
+                                    message = "جارٍ إعادة التحليل على الفترة $p..."
+                                    val sourceCandles = candles
+                                    scope.launch {
+                                        try {
+                                            val prepared = withContext(Dispatchers.Default) {
+                                                val grouped = aggregateCandles(sourceCandles, p)
+                                                grouped to if (grouped.size >= 35) TechnicalAnalyzer.analyze(grouped) else null
+                                            }
+                                            if (prepared.first.size >= 35) {
+                                                period = p
+                                                result = prepared.second
+                                                message = "الفترة $p: تتوفر ${prepared.first.size} جلسة بعد تجميع البيانات، وهي كافية لبدء التحليل."
+                                            } else {
+                                                message = "الفترة $p تضم ${prepared.first.size} جلسة فقط بعد تجميع الأسعار، بينما يحتاج التحليل إلى 35 جلسة على الأقل. لم يغيّر البرنامج الفترة المختارة؛ اختر فترة زمنية أقصر لتوفير عدد جلسات أكبر."
+                                            }
+                                        } catch (e: Exception) {
+                                            message = "تعذر إعادة التحليل على الفترة المختارة. حاول مرة أخرى."
+                                        } finally {
+                                            isLoading = false
+                                        }
+                                    }
                                 }
                             },
+                            enabled = !isLoading,
                             label = { Text(p) },
                             colors = FilterChipDefaults.filterChipColors(
                                 selectedContainerColor = Color(0xFFD5BCEB),
