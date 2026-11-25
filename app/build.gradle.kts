@@ -12,7 +12,7 @@ val hasReleaseSigning = listOf(keystorePath, keystorePassword, keyAliasValue, ke
     .all { !it.isNullOrBlank() }
 
 android {
-    namespace = "com.egx.analyzer"
+    namespace = "com.multimarket.analyzer"
     compileSdk = 36
 
     defaultConfig {
