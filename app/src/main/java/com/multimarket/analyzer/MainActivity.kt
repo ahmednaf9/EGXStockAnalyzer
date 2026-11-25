@@ -663,6 +663,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Text("الفترة الزمنية للتحليل: ${period}",color=Muted,fontSize=11.sp)
 
                 Spacer(Modifier.height(12.dp))
+                SectionTitle("التقييم الفني النهائي وأسبابه")
                 Card(
                     colors = CardDefaults.cardColors(containerColor = Color.White),
                     shape = RoundedCornerShape(16.dp),
