@@ -741,7 +741,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     )
                 }
             }
-            }
                 Spacer(Modifier.height(12.dp))
 
 
@@ -1282,6 +1281,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(8.dp))
                 Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
 
+            }
             Spacer(Modifier.height(18.dp))
             Text(
                 "مصدر البيانات: ملف CSV أو Excel الذي تستورده يدويًا. البيانات تاريخية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
