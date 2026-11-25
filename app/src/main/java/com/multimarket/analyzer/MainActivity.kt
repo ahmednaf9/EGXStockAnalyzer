@@ -697,6 +697,50 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         )
                     }
                 }
+                Spacer(Modifier.height(10.dp))
+                Card(
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Column(Modifier.fillMaxWidth().padding(15.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("مدى توافق المؤشرات الفنية مع بعضها", color = Muted, fontSize = 11.sp)
+                            Text(
+                                a.finalRating,
+                                color = finalRatingColor(a.finalRating),
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                        Text(
+                            (if (a.finalRatingScore > 0) "+" else "") + a.finalRatingScore + " / 100",
+                            color = finalRatingColor(a.finalRating),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    LinearProgressIndicator(
+                        progress = { ((a.finalRatingScore + 100) / 200f).coerceIn(0f, 1f) },
+                        modifier = Modifier.fillMaxWidth().height(7.dp),
+                        color = finalRatingColor(a.finalRating),
+                        trackColor = Page
+                    )
+                    Spacer(Modifier.height(9.dp))
+                    Text(a.finalRatingReason, color = Navy, fontSize = 12.sp, lineHeight = 19.sp)
+                    Spacer(Modifier.height(8.dp))
+                    a.finalRatingFactors.forEach { factor ->
+                        Text("• $factor", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+                    }
+                    Spacer(Modifier.height(7.dp))
+                    Text(
+                        "التصنيف قراءة فنية آلية وليست أمر شراء أو بيع أو ضمانًا للربح.",
+                        color = Muted, fontSize = 10.sp, lineHeight = 15.sp
+                    )
+                }
+            }
+            }
                 Spacer(Modifier.height(12.dp))
 
 
@@ -1236,51 +1280,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Text("السيناريوهات حسابات فنية افتراضية وليست توصية شراء أو بيع. قد تفشل المؤشرات في توقع حركة السعر.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
-            Spacer(Modifier.height(14.dp))
-            SectionTitle("التقييم الفني النهائي وأسبابه")
-            Card(
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Column(Modifier.fillMaxWidth().padding(15.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("مدى توافق المؤشرات الفنية مع بعضها", color = Muted, fontSize = 11.sp)
-                            Text(
-                                a.finalRating,
-                                color = finalRatingColor(a.finalRating),
-                                fontSize = 22.sp,
-                                fontWeight = FontWeight.ExtraBold
-                            )
-                        }
-                        Text(
-                            (if (a.finalRatingScore > 0) "+" else "") + a.finalRatingScore + " / 100",
-                            color = finalRatingColor(a.finalRating),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    LinearProgressIndicator(
-                        progress = { ((a.finalRatingScore + 100) / 200f).coerceIn(0f, 1f) },
-                        modifier = Modifier.fillMaxWidth().height(7.dp),
-                        color = finalRatingColor(a.finalRating),
-                        trackColor = Page
-                    )
-                    Spacer(Modifier.height(9.dp))
-                    Text(a.finalRatingReason, color = Navy, fontSize = 12.sp, lineHeight = 19.sp)
-                    Spacer(Modifier.height(8.dp))
-                    a.finalRatingFactors.forEach { factor ->
-                        Text("• $factor", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
-                    }
-                    Spacer(Modifier.height(7.dp))
-                    Text(
-                        "التصنيف قراءة فنية آلية وليست أمر شراء أو بيع أو ضمانًا للربح.",
-                        color = Muted, fontSize = 10.sp, lineHeight = 15.sp
-                    )
-                }
-            }
-            }
+
             Spacer(Modifier.height(18.dp))
             Text(
                 "مصدر البيانات: ملف CSV أو Excel الذي تستورده يدويًا. البيانات تاريخية؛ تحقق من تاريخها وتغطيتها قبل قراءة التحليل.",
