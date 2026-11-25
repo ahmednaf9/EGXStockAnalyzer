@@ -560,84 +560,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
                             decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث برمز السهم أو اسم الشركة", color = Muted); inner() } })
                         Spacer(Modifier.height(8.dp))
-                        val stockNames = mapOf(
-                            "COMI" to "البنك التجاري الدولي",
-                            "EFIH" to "إي فاينانس للاستثمارات المالية والرقمية",
-                            "TMGH" to "مجموعة طلعت مصطفى",
-                            "FWRY" to "فوري لتكنولوجيا البنوك والمدفوعات",
-                            "ETEL" to "المصرية للاتصالات",
-                            "EAST" to "الشرقية للدخان",
-                            "SWDY" to "السويدي إليكتريك",
-                            "HRHO" to "المجموعة المالية هيرميس",
-                            "ABUK" to "أبو قير للأسمدة",
-                            "AMOC" to "الإسكندرية للزيوت المعدنية",
-                            "ORAS" to "أوراسكوم للإنشاءات",
-                            "ORHD" to "أوراسكوم للتنمية مصر",
-                            "PHAR" to "إيبيكو",
-                            "JUFO" to "جهينة للصناعات الغذائية",
-                            "CLHO" to "كليوباترا للمستشفيات",
-                            "ESRS" to "حديد عز",
-                            "EMFD" to "إعمار مصر للتنمية",
-                            "MNHD" to "مدينة مصر للإسكان والتعمير",
-                            "ADIB" to "مصرف أبو ظبي الإسلامي مصر",
-                            "ADCI" to "العربية للأدوية",
-                            "ALEX" to "الإسكندرية لتداول الحاويات",
-                            "ALCN" to "الإسكندرية للزيوت والصابون",
-                            "ALUM" to "مصر للألومنيوم",
-                            "APSW" to "الأهرام للطباعة والتغليف",
-                            "ARCC" to "العربية للأسمنت",
-                            "ASCM" to "أسيك للتعدين",
-                            "AUTO" to "جي بي كورب",
-                            "BTFH" to "بلتون القابضة",
-                            "CCAP" to "القابضة للاستثمارات المالية",
-                            "CIEB" to "البنك التجاري الدولي للاستثمار",
-                            "COSG" to "كوكاكولا مصر",
-                            "DCRC" to "الدلتا للسكر",
-                            "DSCW" to "الدلتا للصلب",
-                            "EGAL" to "مصر للألومنيوم",
-                            "EGCH" to "المصرية للكيماويات",
-                            "EGTS" to "المصرية للسياحة",
-                            "EXPA" to "البنك المصري لتنمية الصادرات",
-                            "FAIT" to "بنك فيصل الإسلامي المصري",
-                            "GBCO" to "جي بي كورب",
-                            "GDR" to "العربية للصناعات الهندسية",
-                            "GOLD" to "جولد للاستثمار",
-                            "GTWL" to "جيت واي للاستثمار",
-                            "ICFC" to "العربية لحليج الأقطان",
-                            "IDHC" to "ابن سينا فارما",
-                            "ISPH" to "ابن سينا فارما",
-                            "KABO" to "النصر للملابس والمنسوجات",
-                            "KIMA" to "كيما",
-                            "KRDI" to "القاهرة للاستثمار والتنمية العقارية",
-                            "LCSW" to "ليسكو",
-                            "MICH" to "مصر لصناعة الكيماويات",
-                            "MFPC" to "موبكو",
-                            "MTIE" to "ام ام جروب",
-                            "NCCW" to "الأسمنت الوطنية",
-                            "NEDA" to "نهر الخير",
-                            "NINV" to "نايل للاستثمار",
-                            "OLFI" to "عبور لاند",
-                            "OIH" to "أوراسكوم للاستثمار القابضة",
-                            "OPTI" to "المصرية للأعمال الهندسية",
-                            "PHDC" to "بالم هيلز",
-                            "POUL" to "القاهرة للدواجن",
-                            "PRCL" to "القاهرة للأدوية",
-                            "RAYA" to "راية القابضة",
-                            "RMDA" to "راميدا",
-                            "SAUD" to "المصرية السعودية للاستثمار",
-                            "SKPC" to "سيدي كرير للبتروكيماويات",
-                            "SPIN" to "سبينالكس",
-                            "SUGR" to "الدلتا للسكر",
-                            "TAQA" to "طاقة عربية",
-                            "TALM" to "تعليم لخدمات الإدارة",
-                            "UEGC" to "المتحدة للإسكان",
-                            "UNIT" to "المتحدة للإسكان",
-                            "VACS" to "فالي للاستثمار",
-                            "ZEOT" to "الزيوت المستخلصة"
-                        )
                         val filteredSymbols = indexedSymbols.filter { ticker ->
-                            ticker.contains(indexSearch.trim(), ignoreCase = true) ||
-                                stockNames[ticker]?.contains(indexSearch.trim(), ignoreCase = true) == true
+                            ticker.contains(indexSearch.trim(), ignoreCase = true)
                         }
                         Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
                             filteredSymbols.forEach { ticker ->
@@ -672,7 +596,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 }, modifier = Modifier.fillMaxWidth()) {
                         Column(horizontalAlignment = Alignment.Start) {
                                         Text(ticker, color = Green, fontWeight = FontWeight.Bold)
-                                        stockNames[ticker]?.let { Text(it, color = Muted, fontSize = 12.sp) }
+                                        Text("رمز السهم", color = Muted, fontSize = 12.sp)
                                     }
                                 }
                                 Divider(color = Page)
@@ -1020,46 +944,46 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 }
                 Spacer(Modifier.height(12.dp))
                 // Cache expensive report calculations: typing in the symbol field must not rerun analysis.
-                val egxReportCandles = remember(candles, period) { aggregateCandles(candles, period) }
-                val egxDiagnostics = remember(egxReportCandles) { EgyptMarketAnalyzer.inspect(egxReportCandles) }
-                val egxClassicPatterns = remember(egxReportCandles) { ClassicPatternScanner.scan(egxReportCandles) }
-                val egxReport = remember(egxReportCandles, a, egxClassicPatterns, egxDiagnostics) {
-                    EgyptMarketAnalyzer.buildReport(egxReportCandles, a, egxClassicPatterns, egxDiagnostics)
+                val reportCandles = remember(candles, period) { aggregateCandles(candles, period) }
+                val marketDiagnostics = remember(reportCandles) { MarketAnalyzer.inspect(reportCandles) }
+                val detectedClassicPatterns = remember(reportCandles) { ClassicPatternScanner.scan(reportCandles) }
+                val marketReport = remember(reportCandles, a, detectedClassicPatterns, marketDiagnostics) {
+                    MarketAnalyzer.buildReport(reportCandles, a, detectedClassicPatterns, marketDiagnostics)
                 }
-                SectionTitle("التقرير التفصيلي للسهم — EGX")
+                SectionTitle("التقرير الفني التفصيلي للسهم")
                 Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
                     Column(Modifier.fillMaxWidth().padding(14.dp)) {
                         Text("ملخص التحليل", color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(5.dp))
-                        Text(egxReport.summary, color = Navy, fontSize = 12.sp, lineHeight = 18.sp)
+                        Text(marketReport.summary, color = Navy, fontSize = 12.sp, lineHeight = 18.sp)
                         Spacer(Modifier.height(8.dp))
                         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                            Metric("الاتجاه العام", egxReport.trend, Modifier.weight(1f))
+                            Metric("الاتجاه العام", marketReport.trend, Modifier.weight(1f))
                             Metric("قوة التقييم", a.score.toString() + "/100", Modifier.weight(1f))
-                            Metric("توافق الإشارات", egxReport.alignment, Modifier.weight(1f))
+                            Metric("توافق الإشارات", marketReport.alignment, Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(8.dp))
                         Text("مدى توافق المؤشرات الفنية مع بعضها", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        egxReport.indicatorReasons.forEach { reason ->
+                        marketReport.indicatorReasons.forEach { reason ->
                             Text("• " + reason, color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                         }
                         Spacer(Modifier.height(7.dp))
                         Text("النماذج السعرية التي رصدها البرنامج", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text(egxReport.patternSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
+                        Text(marketReport.patternSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
                         Spacer(Modifier.height(7.dp))
                         Text("مستويات الأسعار المهمة للمتابعة", color = Navy, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                        Text("سعر تأكيد الإشارة أو مستوى المتابعة: " + egxReport.triggerText, color = Color(0xFF315E9B), fontSize = 11.sp)
-                        Text("الأهداف السعرية المحتملة (حسابات نظرية): " + egxReport.targetsText, color = Green, fontSize = 11.sp)
+                        Text("سعر تأكيد الإشارة أو مستوى المتابعة: " + marketReport.triggerText, color = Color(0xFF315E9B), fontSize = 11.sp)
+                        Text("الأهداف السعرية المحتملة (حسابات نظرية): " + marketReport.targetsText, color = Green, fontSize = 11.sp)
                         Text("مستوى إبطال السيناريو: " + money(a.invalidation), color = Red, fontSize = 11.sp)
-                        Text("مناطق الدعم: " + egxReport.supportText, color = Muted, fontSize = 10.sp)
-                        Text("مناطق المقاومة: " + egxReport.resistanceText, color = Muted, fontSize = 10.sp)
+                        Text("مناطق الدعم: " + marketReport.supportText, color = Muted, fontSize = 10.sp)
+                        Text("مناطق المقاومة: " + marketReport.resistanceText, color = Muted, fontSize = 10.sp)
                         Spacer(Modifier.height(7.dp))
-                        Text("لماذا حصل السهم على هذا التقييم؟ " + egxReport.reasonSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
+                        Text("لماذا حصل السهم على هذا التقييم؟ " + marketReport.reasonSummary, color = Muted, fontSize = 10.sp, lineHeight = 16.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
                 SectionTitle("النماذج الكلاسيكية")
-                val classicData = egxReportCandles
+                val classicData = reportCandles
                 val averageVolume = remember(classicData) {
                     val volumeBaseline = classicData.takeLast(21).dropLast(1).map { it.volume }.filter { it > 0.0 }
                     volumeBaseline.average().takeIf { it.isFinite() && it > 0.0 } ?: 0.0
@@ -1067,8 +991,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 val currentVolumeRatio = remember(classicData, averageVolume) {
                     if (averageVolume > 0.0 && classicData.isNotEmpty()) classicData.last().volume / averageVolume else 0.0
                 }
-                val classicPatterns = remember(classicData, currentVolumeRatio, egxClassicPatterns) {
-                    egxClassicPatterns.map { p ->
+                val classicPatterns = remember(classicData, currentVolumeRatio, detectedClassicPatterns) {
+                    detectedClassicPatterns.map { p ->
                         val distancePct = if (p.trigger > 0.0 && classicData.isNotEmpty()) abs(classicData.last().close - p.trigger) / p.trigger * 100.0 else 100.0
                         val proximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
                         val volumeBonus = when {
