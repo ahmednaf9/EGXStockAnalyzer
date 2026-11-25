@@ -287,8 +287,13 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                     indexedSymbols = loaded.indexedSymbols
                     message = loaded.note
+                } catch (e: SecurityException) {
+                    context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().remove("treeUri").apply()
+                    metastockTree = null
+                    indexedSymbols = emptyList()
+                    message = "انتهت صلاحية الوصول إلى مجلد MetaStock. اختر المجلد مرة أخرى من زر تحميل مجلد الميتاستوك."
                 } catch (e: Exception) {
-                    message = "تعذرت إعادة قراءة قائمة الأسهم المحفوظة في مجلد MetaStock: ${e.message ?: "خطأ"}"
+                    message = "تعذرت قراءة قائمة الأسهم المحفوظة. اختر مجلد MetaStock مرة أخرى وتأكد من احتوائه على ملفات الفهرس."
                 }
             }
         }
@@ -320,14 +325,25 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             result = prepared.third
                             if (prepared.second.size < 35) message = "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط. يلزم 35 جلسة على الأقل لبدء التحليل؛ جرّب اختيار سهم أو فترة تتوفر لها بيانات تاريخية أكثر."
                         }
+                    } catch (e: SecurityException) {
+                        context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().remove("treeUri").apply()
+                        metastockTree = null
+                        indexedSymbols = emptyList()
+                        message = "لا توجد صلاحية للوصول إلى هذا المجلد. اختر مجلد MetaStock مرة أخرى."
+                        result = null
+                        candles = emptyList()
                     } catch (e: Exception) {
-                        message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
+                        message = "تعذرت قراءة مجلد MetaStock. تأكد من اختيار المجلد الرئيسي الذي يحتوي على ملفات الفهرس وبيانات الأسهم."
                         result = null
                         candles = emptyList()
                     }
                 }
+            } catch (e: SecurityException) {
+                message = "لم يتم منح صلاحية الوصول إلى المجلد. اختر مجلد MetaStock ووافق على السماح بالوصول إليه."
+                result = null
+                candles = emptyList()
             } catch (e: Exception) {
-                message = "MetaStock: ${e.message ?: "خطأ في قراءة المجلد"}"
+                message = "تعذر فتح مجلد MetaStock. حاول اختياره مرة أخرى."
                 result = null
                 candles = emptyList()
             }
