@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.egx.analyzer"
+    namespace = "com.multimarket.analyzer"
     compileSdk = 36
 
     defaultConfig {
