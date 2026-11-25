@@ -458,8 +458,15 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                         period = prep.first
                                         result = prep.third
                                         message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط؛ يلزم 35 جلسة على الأقل لبدء التحليل. تحقق من نطاق البيانات التاريخية للسهم." else loaded.note
+                                    } catch (e: SecurityException) {
+                                        context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().remove("treeUri").apply()
+                                        metastockTree = null
+                                        indexedSymbols = emptyList()
+                                        message = "انتهت صلاحية الوصول إلى مجلد MetaStock. اختر المجلد مرة أخرى."
+                                        candles = emptyList()
+                                        result = null
                                     } catch (e: Exception) {
-                                        message = "تعذر تحميل $code: ${e.message ?: "خطأ"}"
+                                        message = "تعذر تحميل بيانات السهم من MetaStock. تحقق من ملفات السهم داخل المجلد ثم حاول مرة أخرى."
                                         candles = emptyList()
                                         result = null
                                     }
