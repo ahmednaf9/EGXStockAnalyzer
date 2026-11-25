@@ -889,6 +889,45 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     color = Muted, fontSize = 11.sp, lineHeight = 17.sp
                 )
 
+                val bullishSetup = a.finalRating == "شراء قوي" || a.finalRating == "شراء بحذر"
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        Text("توصيات حسب مستوى المخاطرة", color = Navy, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                        Text("اختر الأسلوب الذي يناسب قدرتك على تحمل تقلبات السعر؛ وتظل المستويات تقديرية.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                        Spacer(Modifier.height(9.dp))
+                        Text("LOW RISK — مخاطرة منخفضة", color = Green, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (bullishSetup) "الشراء: انتظر إغلاقًا أعلى من المقاومة عند ${money(breakoutBuy)} مع تأكيد حجم التداول. لا تطارد السعر قبل التأكيد.\nالبيع وجني الربح: راقب الهدف الأول ${money(a.targets[0])} ثم الهدف الثاني ${money(a.targets[1])}.\nوقف الخسارة: إغلاق أسفل ${money(a.invalidation)}."
+                            else "الشراء: انتظار؛ لا توجد حاليًا إشارة شراء نهائية. لا تدخل إلا بعد تحسن التقييم واختراق المقاومة ${money(nearestResistance ?: breakoutBuy)} بإغلاق مؤكد.\nالبيع: راقب كسر الدعم وإغلاقًا أسفل ${money(breakdownExit)} لتأكيد استمرار الضعف.\nالمستهدفات: تُراجع بعد ظهور إشارة صعود مؤكدة.",
+                            color = Muted, fontSize = 11.sp, lineHeight = 17.sp
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        Divider(color = Page)
+                        Spacer(Modifier.height(8.dp))
+                        Text("MEDIUM RISK — مخاطرة متوسطة", color = Amber, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (bullishSetup) "الشراء: دخول تدريجي بعد ارتداد مؤكد من منطقة الدعم ${supportBuy?.let(::money) ?: "غير محددة"}، أو بعد اختراق ${money(breakoutBuy)} بإغلاق.\nالبيع وجني الربح: تخفيف جزء من الكمية عند ${money(a.targets[0])}، ومتابعة ${money(a.targets[1])} كهدف تالٍ.\nوقف الخسارة: إغلاق أسفل ${money(a.invalidation)}."
+                            else "الشراء: انتظر تأكيد انعكاس صاعد عند الدعم ${nearestSupport?.let(::money) ?: "غير متاح"} أو اختراق المقاومة؛ لا تشترِ لمجرد ملامسة الدعم.\nالبيع: خفف المراكز عند كسر الدعم، وتابع مستوى ${money(breakdownExit)}.\nالمستهدفات: لا تُفعّل قبل تأكيد سيناريو الصعود.",
+                            color = Muted, fontSize = 11.sp, lineHeight = 17.sp
+                        )
+                        Spacer(Modifier.height(9.dp))
+                        Divider(color = Page)
+                        Spacer(Modifier.height(8.dp))
+                        Text("HIGH RISK — مخاطرة مرتفعة", color = Red, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                        Text(
+                            if (bullishSetup) "الشراء: للمضاربة وبكمية محدودة فقط؛ يمكن مراقبة ارتداد مؤكد قرب الدعم ${supportBuy?.let(::money) ?: "غير محدد"}، مع عدم تعزيز المركز إلا بعد تأكيد الاختراق.\nالبيع وجني الربح: أهداف متدرجة عند ${money(a.targets[0])} ثم ${money(a.targets[1])} ثم ${money(a.targets[2])}.\nوقف الخسارة: الالتزام بمستوى إبطال السيناريو ${money(a.invalidation)} دون توسيعه."
+                            else "الشراء: لا يُنصح بدخول مضاربي قبل ظهور انعكاس صاعد واضح وتغير التقييم النهائي إلى إيجابي.\nالبيع: تجنب زيادة المراكز، وراقب كسر الدعم وإغلاقًا أسفل ${money(breakdownExit)}.\nالمستهدفات: تُحدد من جديد عند ظهور إشارة صعود مؤكدة.",
+                            color = Muted, fontSize = 11.sp, lineHeight = 17.sp
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text("التوصيات آلية وتعليمية وليست ضمانًا للربح. قد تحدث فجوات سعرية تتجاوز وقف الخسارة، لذلك راجع السيولة والأخبار وبيانات الشركة قبل اتخاذ القرار.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
                                 PriceTrendChart(aggregateCandles(candles, period))
 
                 SectionTitle("ملخص التحليل الفني")
