@@ -275,6 +275,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var indexSearch by remember { mutableStateOf("") }
     var indexExpanded by remember { mutableStateOf(false) }
     var classicFilter by remember { mutableStateOf("الكل") }
+    var historicalClassicPatterns by remember { mutableStateOf(emptyList<HistoricalClassicPattern>()) }
+    var historicalPatternsLoading by remember { mutableStateOf(false) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
@@ -1068,6 +1070,13 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 val reportCandles = remember(candles, period) { aggregateCandles(candles, period) }
                 val marketDiagnostics = remember(reportCandles) { MarketAnalyzer.inspect(reportCandles) }
                 val detectedClassicPatterns = remember(reportCandles) { ClassicPatternScanner.scan(reportCandles) }
+                LaunchedEffect(reportCandles) {
+                    historicalPatternsLoading = true
+                    historicalClassicPatterns = withContext(Dispatchers.Default) {
+                        HistoricalClassicPatternScanner.scan(reportCandles)
+                    }
+                    historicalPatternsLoading = false
+                }
                 val marketReport = remember(reportCandles, a, detectedClassicPatterns, marketDiagnostics) {
                     MarketAnalyzer.buildReport(reportCandles, a, detectedClassicPatterns, marketDiagnostics)
                 }
@@ -1165,6 +1174,52 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         }
                         Spacer(Modifier.height(7.dp))
                         Text("تنبيه: يكتشف البرنامج النماذج بصورة تقريبية اعتمادًا على قمم وقيعان السعر. لا يُعد النموذج مؤكدًا إلا بعد إغلاق السعر خارج مستوى التأكيد، والأهداف قياسات نظرية لا تضمن وصول السعر إليها.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(12.dp))
+                SectionTitle("النماذج الكلاسيكية على كامل الشارت التاريخي")
+                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
+                        if (historicalPatternsLoading) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Green, strokeWidth = 2.dp)
+                                Spacer(Modifier.width(8.dp))
+                                Text("جارٍ فحص الشارت التاريخي من أوله إلى آخره...", color = Muted, fontSize = 11.sp)
+                            }
+                        } else if (reportCandles.size < 40) {
+                            Text("يلزم توفر 40 جلسة صالحة على الأقل لفحص النماذج التاريخية.", color = Muted, fontSize = 12.sp)
+                        } else if (historicalClassicPatterns.isEmpty()) {
+                            Text("لم يرصد المحرك نماذج مستوفية للشروط على البيانات التاريخية.", color = Muted, fontSize = 12.sp)
+                        } else {
+                            Text("عدد الإشارات التاريخية: " + historicalClassicPatterns.size, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Spacer(Modifier.height(8.dp))
+                            HistoricalPatternTimelineChart(reportCandles, historicalClassicPatterns)
+                            Spacer(Modifier.height(8.dp))
+                            historicalClassicPatterns.asReversed().forEachIndexed { index, pattern ->
+                                if (index > 0) {
+                                    Spacer(Modifier.height(8.dp))
+                                    Divider(color = Page)
+                                    Spacer(Modifier.height(8.dp))
+                                }
+                                val statusColor = when (pattern.status) {
+                                    "نجح" -> Green
+                                    "فشل" -> Red
+                                    else -> Amber
+                                }
+                                Text(classicPatternBilingualName(pattern.name), color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(3.dp))
+                                Text("تاريخ الرصد: " + pattern.detectionDate + "  •  الاتجاه: " + pattern.bias, color = Muted, fontSize = 10.sp)
+                                Text("مستهدف النجاح: " + money(pattern.targetSuccess), color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Text("مستهدف الفشل: " + money(pattern.targetFailure), color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("الحالة: " + pattern.status, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    pattern.outcomeDate?.let { Text("  •  تاريخ النتيجة: " + it, color = Muted, fontSize = 10.sp) }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Text("يُسجَّل النموذج عند أول رصد مستوفٍ للشروط، وتُقيَّم نتيجته بالشموع التالية فقط. إذا لامس السعر مستهدفي النجاح والفشل داخل الشمعة نفسها، يُسجَّل الفشل كتصنيف احترازي. المستهدفات تقديرية.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
