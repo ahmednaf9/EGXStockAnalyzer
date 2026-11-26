@@ -47,8 +47,8 @@ object HistoricalClassicPatternScanner {
                     val duplicate = previous != null &&
                         end - previous.first <= DUPLICATE_COOLDOWN &&
                         relativeDistance(previous.second, candidate.trigger) <= 0.006
+                    recentByName[candidate.name] = end to candidate.trigger
                     if (!duplicate) {
-                        recentByName[candidate.name] = end to candidate.trigger
                         detections += HistoricalClassicPattern(
                             name = candidate.name,
                             bias = candidate.bias,
@@ -81,6 +81,14 @@ object HistoricalClassicPatternScanner {
 
         for (i in signal.detectionIndex + 1 until data.size) {
             val candle = data[i]
+            val failed = if (signal.bias == "صاعد") {
+                candle.low <= signal.targetFailure
+            } else {
+                candle.high >= signal.targetFailure
+            }
+            // Invalidation can fail a setup even before its breakout is confirmed.
+            if (failed) return signal.copy(status = "فشل", outcomeDate = candle.date)
+
             if (!activated) {
                 activated = if (signal.bias == "صاعد") {
                     candle.close > signal.trigger
@@ -90,20 +98,11 @@ object HistoricalClassicPatternScanner {
                 if (!activated) continue
             }
 
-            val failed = if (signal.bias == "صاعد") {
-                candle.low <= signal.targetFailure
-            } else {
-                candle.high >= signal.targetFailure
-            }
             val succeeded = if (signal.bias == "صاعد") {
                 candle.high >= signal.targetSuccess
             } else {
                 candle.low <= signal.targetSuccess
             }
-
-            // If both levels fall inside one candle and their order is unknown,
-            // use the conservative classification: failure takes precedence.
-            if (failed) return signal.copy(status = "فشل", outcomeDate = candle.date)
             if (succeeded) return signal.copy(status = "نجح", outcomeDate = candle.date)
         }
 
