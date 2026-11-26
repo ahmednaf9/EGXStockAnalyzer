@@ -275,9 +275,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var indexSearch by remember { mutableStateOf("") }
     var indexExpanded by remember { mutableStateOf(false) }
     var classicFilter by remember { mutableStateOf("الكل") }
-    var historicalClassicPatterns by remember { mutableStateOf(emptyList<HistoricalClassicPattern>()) }
-    var historicalPatternsLoading by remember { mutableStateOf(false) }
-    var historicalVisibleCount by remember { mutableStateOf(30) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
@@ -1071,14 +1068,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 val reportCandles = remember(candles, period) { aggregateCandles(candles, period) }
                 val marketDiagnostics = remember(reportCandles) { MarketAnalyzer.inspect(reportCandles) }
                 val detectedClassicPatterns = remember(reportCandles) { ClassicPatternScanner.scan(reportCandles) }
-                LaunchedEffect(reportCandles) {
-                    historicalPatternsLoading = true
-                    historicalVisibleCount = 30
-                    historicalClassicPatterns = withContext(Dispatchers.Default) {
-                        HistoricalClassicPatternScanner.scan(reportCandles)
-                    }
-                    historicalPatternsLoading = false
-                }
                 val marketReport = remember(reportCandles, a, detectedClassicPatterns, marketDiagnostics) {
                     MarketAnalyzer.buildReport(reportCandles, a, detectedClassicPatterns, marketDiagnostics)
                 }
@@ -1176,63 +1165,6 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         }
                         Spacer(Modifier.height(7.dp))
                         Text("تنبيه: يكتشف البرنامج النماذج بصورة تقريبية اعتمادًا على قمم وقيعان السعر. لا يُعد النموذج مؤكدًا إلا بعد إغلاق السعر خارج مستوى التأكيد، والأهداف قياسات نظرية لا تضمن وصول السعر إليها.", color = Amber, fontSize = 10.sp, lineHeight = 15.sp)
-                    }
-                }
-                Spacer(Modifier.height(12.dp))
-                Spacer(Modifier.height(12.dp))
-                SectionTitle("النماذج الكلاسيكية على كامل الشارت التاريخي")
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White), shape = RoundedCornerShape(16.dp)) {
-                    Column(Modifier.fillMaxWidth().padding(14.dp)) {
-                        if (historicalPatternsLoading) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Green, strokeWidth = 2.dp)
-                                Spacer(Modifier.width(8.dp))
-                                Text("جارٍ فحص الشارت التاريخي من أوله إلى آخره...", color = Muted, fontSize = 11.sp)
-                            }
-                        } else if (reportCandles.size < 40) {
-                            Text("يلزم توفر 40 جلسة صالحة على الأقل لفحص النماذج التاريخية.", color = Muted, fontSize = 12.sp)
-                        } else if (historicalClassicPatterns.isEmpty()) {
-                            Text("لم يرصد المحرك نماذج مستوفية للشروط على البيانات التاريخية.", color = Muted, fontSize = 12.sp)
-                        } else {
-                            Text("عدد الإشارات التاريخية: " + historicalClassicPatterns.size, color = Navy, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                            Spacer(Modifier.height(8.dp))
-                            HistoricalPatternTimelineChart(reportCandles, historicalClassicPatterns)
-                            Spacer(Modifier.height(8.dp))
-                            historicalClassicPatterns.asReversed().take(historicalVisibleCount).forEachIndexed { index, pattern ->
-                                if (index > 0) {
-                                    Spacer(Modifier.height(8.dp))
-                                    Divider(color = Page)
-                                    Spacer(Modifier.height(8.dp))
-                                }
-                                val statusColor = when (pattern.status) {
-                                    "نجح" -> Green
-                                    "فشل" -> Red
-                                    else -> Amber
-                                }
-                                Text(classicPatternBilingualName(pattern.name), color = Navy, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-                                Spacer(Modifier.height(3.dp))
-                                Text("تاريخ الرصد: " + pattern.detectionDate + "  •  الاتجاه: " + pattern.bias, color = Muted, fontSize = 10.sp)
-                                Text("مستهدف النجاح: " + money(pattern.targetSuccess), color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("مستهدف الفشل: " + money(pattern.targetFailure), color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("الحالة: " + pattern.status, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                    pattern.outcomeDate?.let { Text("  •  تاريخ النتيجة: " + it, color = Muted, fontSize = 10.sp) }
-                                }
-                            }
-                            if (historicalVisibleCount < historicalClassicPatterns.size) {
-                                Spacer(Modifier.height(10.dp))
-                                Button(
-                                    onClick = { historicalVisibleCount = (historicalVisibleCount + 30).coerceAtMost(historicalClassicPatterns.size) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    colors = ButtonDefaults.buttonColors(containerColor = Navy)
-                                ) {
-                                    Text("عرض ${minOf(30, historicalClassicPatterns.size - historicalVisibleCount)} إشارة إضافية")
-                                }
-                                Text("المعروض ${minOf(historicalVisibleCount, historicalClassicPatterns.size)} من إجمالي ${historicalClassicPatterns.size} إشارة", color = Muted, fontSize = 10.sp)
-                            }
-                        }
-                        Spacer(Modifier.height(6.dp))
-                        Text("يُسجَّل النموذج عند أول رصد مستوفٍ للشروط، وتُقيَّم نتيجته بالشموع التالية فقط. إذا لامس السعر مستهدفي النجاح والفشل داخل الشمعة نفسها، يُسجَّل الفشل كتصنيف احترازي. المستهدفات تقديرية.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
                     }
                 }
                 Spacer(Modifier.height(12.dp))
@@ -1601,65 +1533,6 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 Text("مستهدف نجاح النموذج: ${money(pattern.targetSuccess)}",color=Green,fontSize=10.sp,fontWeight=FontWeight.Bold)
                 Text("مستهدف فشل النموذج: ${money(pattern.targetFailure)}",color=Red,fontSize=10.sp,fontWeight=FontWeight.Bold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun HistoricalPatternTimelineChart(
-    data: List<Candle>,
-    patterns: List<HistoricalClassicPattern>
-) {
-    if (data.size < 2) return
-    val low = data.minOf { it.low }
-    val high = data.maxOf { it.high }
-    val range = (high - low).coerceAtLeast(0.000001)
-    val step = kotlin.math.ceil(data.size / 260f).toInt().coerceAtLeast(1)
-    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFBFDFC)), shape = RoundedCornerShape(12.dp)) {
-        Column(Modifier.fillMaxWidth().padding(8.dp)) {
-            Text("الشارت التاريخي الكامل ومواقع رصد النماذج", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Canvas(Modifier.fillMaxWidth().height(220.dp)) {
-                val left = 5f
-                val right = size.width - 5f
-                val top = 8f
-                val bottom = size.height - 8f
-                val plotHeight = bottom - top
-                val dx = (right - left) / data.size
-                val bodyWidth = (dx * step * 0.55f).coerceIn(1f, 5f)
-                fun x(index: Int) = left + (index + 0.5f) * dx
-                fun y(price: Double) = bottom - ((price - low) / range).toFloat() * plotHeight
-
-                var i = 0
-                while (i < data.size) {
-                    val candle = data[i]
-                    val xx = x(i)
-                    val color = if (candle.close >= candle.open) Green else Red
-                    drawLine(color, Offset(xx, y(candle.high)), Offset(xx, y(candle.low)), strokeWidth = 1f)
-                    drawRect(
-                        color,
-                        Offset(xx - bodyWidth / 2f, minOf(y(candle.open), y(candle.close))),
-                        androidx.compose.ui.geometry.Size(bodyWidth, (abs(y(candle.open) - y(candle.close))).coerceAtLeast(1.5f))
-                    )
-                    i += step
-                }
-                patterns.forEach { pattern ->
-                    val index = pattern.detectionIndex.coerceIn(0, data.lastIndex)
-                    val candle = data[index]
-                    val xx = x(index)
-                    val markerColor = if (pattern.bias == "صاعد") Green else Red
-                    drawLine(markerColor.copy(alpha = 0.55f), Offset(xx, top), Offset(xx, bottom), strokeWidth = 1f)
-                    drawCircle(markerColor, radius = 3.2f, center = Offset(xx, y(candle.close)))
-                }
-            }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(data.first().date, color = Muted, fontSize = 9.sp)
-                Text(data.size.toString() + " جلسة", color = Muted, fontSize = 9.sp)
-                Text(data.last().date, color = Muted, fontSize = 9.sp)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("● رصد نموذج صاعد", color = Green, fontSize = 9.sp)
-                Text("● رصد نموذج هابط", color = Red, fontSize = 9.sp)
             }
         }
     }
