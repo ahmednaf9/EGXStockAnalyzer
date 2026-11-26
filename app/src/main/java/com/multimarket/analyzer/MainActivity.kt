@@ -1158,62 +1158,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 val priority = item.third
                                 if (i > 0) { Spacer(Modifier.height(8.dp)); Divider(color = Page); Spacer(Modifier.height(8.dp)) }
                                 val pc = when(p.bias) { "صاعد" -> Green; "هابط" -> Red; else -> Amber }
-                                Text(p.name, color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                                Text("الاتجاه: ${p.bias}  •  الحالة: ${p.status}", color = pc, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("مؤشر أولوية متابعة النموذج (تقديري): ${String.format(Locale.US, "%.1f", priority)}%", color = if (priority >= 70.0) Green else if (priority >= 50.0) Amber else Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("هذا المؤشر يجمع جودة شكل النموذج، ومدى قرب السعر من مستوى تأكيده، ونشاط التداول. يساعدك على ترتيب النماذج التي تستحق المتابعة أولًا؛ ولا يمثل احتمال نجاح النموذج.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
-                                val shownProximityBonus = (10.0 - distancePct).coerceIn(0.0, 10.0)
-                                val shownVolumeBonus = when { currentVolumeRatio >= 1.5 -> 8.0; currentVolumeRatio >= 1.2 -> 5.0; currentVolumeRatio >= 1.0 -> 2.0; else -> 0.0 }
-                                Text("تفصيل المؤشر: القرب من سعر التأكيد +${String.format(Locale.US, "%.1f", shownProximityBonus)} نقطة • نشاط التداول +${String.format(Locale.US, "%.1f", shownVolumeBonus)} نقطة", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
-                                Spacer(Modifier.height(3.dp))
-                                Text("سبب التقييم: ${p.confidenceDetails}", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
-                                val priorityLabel = when {
-                                    p.bias == "محايد" -> "انتظار اتجاه"
-                                    priority >= 80.0 -> "متابعة بأولوية مرتفعة"
-                                    priority >= 65.0 -> "متابعة متوسطة"
-                                    else -> "متابعة منخفضة"
-                                }
-                                val priorityColor = when {
-                                    p.bias == "محايد" -> Amber
-                                    priority >= 80.0 -> Green
-                                    priority >= 65.0 -> Amber
-                                    else -> Muted
-                                }
-                                Text("أولوية المتابعة: ${String.format(Locale.US, "%.1f", priority)} • $priorityLabel • بُعد السعر عن مستوى التأكيد: ${String.format(Locale.US, "%.2f", distancePct)}%", color = priorityColor, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                                val closeNow = classicData.last().close
-                                val isInvalidated = (p.bias == "صاعد" && closeNow <= p.invalidation) ||
-                                    (p.bias == "هابط" && closeNow >= p.invalidation)
-                                val isTriggered = p.status.contains("تأكيد")
-                                val volumeQualified = currentVolumeRatio >= 1.2
-                                val readiness = when {
-                                    p.bias == "محايد" -> "محايد — ينتظر تحديد الاتجاه"
-                                    isInvalidated -> "السعر تجاوز مستوى إبطال النموذج — أعد تقييمه"
-                                    isTriggered && volumeQualified -> "وصل السعر إلى مستوى التأكيد المبدئي، وحجم التداول يدعم الحركة"
-                                    isTriggered -> "وصل السعر إلى مستوى التأكيد المبدئي، لكن حجم التداول لا يقدم دعمًا كافيًا"
-                                    distancePct <= 2.0 -> "السعر قريب من المستوى المطلوب لتأكيد النموذج"
-                                    else -> "النموذج ما زال في طور التكوين ولم يتحقق شرط التأكيد"
-                                }
-                                val patternStage = when {
-                                    p.bias == "محايد" -> "انتظار خروج السعر من أحد جانبي النطاق لتحديد الاتجاه"
-                                    isInvalidated -> if (p.bias == "صاعد") "السيناريو الصاعد فقد شرط صلاحيته مبدئيًا" else "السيناريو الهابط فقد شرط صلاحيته مبدئيًا"
-                                    isTriggered -> "تفعيل مبدئي"
-                                    else -> "نموذج غير مكتمل"
-                                }
-                                Text("مرحلة النموذج: $patternStage", color = when { patternStage.contains("مُبطَل") -> Red; patternStage.contains("تفعيل") -> Green; else -> Amber }, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                                Text("حالة الاستعداد: $readiness", color = pc, fontSize = 10.sp)
-                                Text("حجم تداول آخر جلسة مقارنة بمتوسط 20 جلسة: ${if (averageVolume > 0.0) String.format(Locale.US, "%.2f", currentVolumeRatio) + " مرة" else "غير متاح"}", color = if (currentVolumeRatio >= 1.2) Green else Muted, fontSize = 10.sp)
-                                Text("ترتيب مساعد لتحديد النماذج الأجدر بالمتابعة حسب جودة الشكل، وقرب السعر من التأكيد، ونشاط التداول؛ وليس نسبة نجاح إحصائية.", color = Muted, fontSize = 9.sp, lineHeight = 13.sp)
-                                Spacer(Modifier.height(3.dp))
-                                Text(p.explanation, color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
-                                Spacer(Modifier.height(4.dp))
-                                Text("سعر تأكيد النموذج: ${money(p.trigger)} — يلزم أن يصل السعر إليه ويغلق بعده في اتجاه الاختراق.", color = Navy, fontSize = 11.sp)
-                                Text("الهدف النظري بعد تحقق التأكيد: ${money(p.targetSuccess)} — مستوى حسابي محتمل وليس سعرًا مضمونًا.", color = Green, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("المستوى المقابل في حالة فشل السيناريو أو انعكاسه: ${money(p.targetFailure)}.", color = Red, fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                                Text("مستوى إبطال النموذج: ${money(p.invalidation)} — تجاوزه عكس اتجاه النموذج يعني أن السيناريو لم يعد صالحًا وفق شروط الفحص.", color = Muted, fontSize = 10.sp)
-                                val successMovePct = if (closeNow > 0.0) (p.targetSuccess / closeNow - 1.0) * 100.0 else 0.0
-                                val failureMovePct = if (closeNow > 0.0) (p.targetFailure / closeNow - 1.0) * 100.0 else 0.0
-                                Text("المسافة السعرية من آخر إغلاق إلى الهدف النظري: ${String.format(Locale.US, "%+.2f", successMovePct)}%", color = Green, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
-                                Text("المسافة السعرية من آخر إغلاق إلى مستوى فشل السيناريو: ${String.format(Locale.US, "%+.2f", failureMovePct)}%", color = Red, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+                                Text(classicPatternBilingualName(p.name), color = Navy, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Spacer(Modifier.height(5.dp))
                                 ClassicPatternChart(aggregateCandles(candles, period).takeLast(55), p)
                             }
                         }
@@ -1424,10 +1370,73 @@ private fun aggregateCandles(input: List<Candle>, period: String): List<Candle> 
     }
 }
 
+private fun classicPatternBilingualName(name: String): String {
+    val english = mapOf(
+        "القمة المزدوجة" to "Double Top",
+        "القاع المزدوج" to "Double Bottom",
+        "الرأس والكتفين" to "Head and Shoulders",
+        "الرأس والكتفين المقلوب" to "Inverse Head and Shoulders",
+        "القمة الثلاثية" to "Triple Top",
+        "القاع الثلاثي" to "Triple Bottom",
+        "الكوب والعروة" to "Cup and Handle",
+        "الوتد الصاعد" to "Rising Wedge",
+        "الوتد الهابط" to "Falling Wedge",
+        "المثلث الصاعد" to "Ascending Triangle",
+        "المثلث الهابط" to "Descending Triangle",
+        "المثلث المتماثل" to "Symmetrical Triangle",
+        "المستطيل (النطاق)" to "Rectangle",
+        "العلم الصاعد" to "Bullish Flag",
+        "العلم الهابط" to "Bearish Flag",
+        "العلم الصاعد عالي الشدّة (High-Tight Flag)" to "High-Tight Bull Flag",
+        "القناة الصاعدة" to "Ascending Channel",
+        "القناة الهابطة" to "Descending Channel",
+        "التشكيل المتسع (Broadening)" to "Broadening Formation",
+        "الراية الصاعدة (Pennant)" to "Bullish Pennant",
+        "الراية الهابطة (Pennant)" to "Bearish Pennant",
+        "القاع المستدير (قاعدة صحن)" to "Rounding Bottom",
+        "القمة المستديرة" to "Rounding Top",
+        "التشكيل المتسع الصاعد" to "Bullish Broadening Formation",
+        "التشكيل المتسع الهابط" to "Bearish Broadening Formation",
+        "الماسية القمة (Diamond Top)" to "Diamond Top",
+        "الماسية القاع (Diamond Bottom)" to "Diamond Bottom",
+        "الحركة المقاسة الصاعدة (Measured Move)" to "Bullish Measured Move",
+        "الحركة المقاسة الهابطة (Measured Move)" to "Bearish Measured Move",
+        "اختراق نطاق التماسك" to "Consolidation Breakout",
+        "كسر نطاق التماسك" to "Consolidation Breakdown",
+        "القاع حرف V (V Bottom)" to "V Bottom",
+        "القمة حرف V المقلوب (Inverted V)" to "Inverted V Top",
+        "القاع الأنبوبي (Pipe Bottom)" to "Pipe Bottom",
+        "القمة الأنبوبية (Pipe Top)" to "Pipe Top",
+        "نموذج ثلاث دفعات — قمة (Three Drives)" to "Three Drives Top",
+        "نموذج ثلاث دفعات — قاع (Three Drives)" to "Three Drives Bottom",
+        "ABCD (نموذج فيبوناتشي)" to "ABCD Pattern",
+        "الجزيرة الانعكاسية الهابطة (Island)" to "Bearish Island Reversal",
+        "الجزيرة الانعكاسية الصاعدة (Island)" to "Bullish Island Reversal",
+        "Spring (اختراق دعم وهمي)" to "Spring",
+        "Upthrust (اختراق مقاومة وهمي)" to "Upthrust",
+        "الكوب والعروة المقلوب" to "Inverted Cup and Handle",
+        "Bump-and-Run (انعكاس هابط)" to "Bump-and-Run Reversal",
+        "الوتد المتسع الصاعد (Broadening Wedge)" to "Rising Broadening Wedge",
+        "الوتد المتسع الهابط (Broadening Wedge)" to "Falling Broadening Wedge",
+        "الابتلاع الشرائي (Bullish Engulfing)" to "Bullish Engulfing",
+        "الابتلاع البيعي (Bearish Engulfing)" to "Bearish Engulfing",
+        "خط الاختراق الشرائي (Piercing Line)" to "Piercing Line",
+        "الغطاء السحابي الداكن (Dark Cloud Cover)" to "Dark Cloud Cover",
+        "هارامي شرائي (Bullish Harami)" to "Bullish Harami",
+        "هارامي بيعي (Bearish Harami)" to "Bearish Harami",
+        "المطرقة (Hammer)" to "Hammer",
+        "الشهاب (Shooting Star)" to "Shooting Star",
+        "نجمة الصباح (Morning Star)" to "Morning Star",
+        "نجمة المساء (Evening Star)" to "Evening Star",
+        "دوجي (Doji) — تردد سعري" to "Doji"
+    )
+    return "$name — ${english[name] ?: name}"
+}
+
 @Composable
 private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResult) {
     if (data.size < 3) return
-    val levels = listOf("تفعيل" to pattern.trigger, "هدف" to pattern.targetSuccess, "مقابل" to pattern.targetFailure)
+    val levels = listOf("نجاح" to pattern.targetSuccess, "فشل" to pattern.targetFailure)
     val prices = data.flatMap { listOf(it.high, it.low) } + levels.map { it.second }
     val minPrice = prices.minOrNull() ?: return
     val maxPrice = prices.maxOrNull() ?: return
@@ -1517,16 +1526,14 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
                 }
                 anchors.forEach { (i,p) -> drawCircle(Color(0xFFB7791F),radius=4f,center=Offset(x(i),y(p))) }
                 levels.forEach { (label,price) ->
-                    val yy=y(price); val color=when(label){"تفعيل"->Color(0xFF315E9B);"هدف"->Green;else->Red}
+                    val yy=y(price); val color=when(label){"نجاح"->Green;else->Red}
                     var xx=left; while(xx<right){drawLine(color,Offset(xx,yy),Offset((xx+6f).coerceAtMost(right),yy),strokeWidth=1.3f);xx+=10f}
                 }
             }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                Text("تفعيل ${money(pattern.trigger)}",color=Color(0xFF315E9B),fontSize=9.sp)
-                Text("هدف ${money(pattern.targetSuccess)}",color=Green,fontSize=9.sp)
-                Text("سيناريو مقابل ${money(pattern.targetFailure)}",color=Red,fontSize=9.sp)
+                Text("مستهدف النجاح: ${money(pattern.targetSuccess)}",color=Green,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                Text("مستهدف الفشل: ${money(pattern.targetFailure)}",color=Red,fontSize=10.sp,fontWeight=FontWeight.Bold)
             }
-            Text("الخط الذهبي يوضح الشكل التقريبي للنموذج على الشموع المعروضة.",color=Muted,fontSize=9.sp)
         }
     }
 }
