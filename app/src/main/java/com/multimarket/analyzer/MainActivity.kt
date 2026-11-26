@@ -1295,10 +1295,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                 if (pattern.targets.isNotEmpty()) {
                                     Text(
                                         "المستهدفات النظرية: م1 ${money(pattern.targets[0])}   •   م2 ${money(pattern.targets[1])}   •   م3 ${money(pattern.targets[2])}",
-                                        color = Color(0xFF1565C0),
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        lineHeight = 16.sp
+                                        color = if (pattern.direction == "إيجابي") Green else Red,
+                                        fontSize = 10.sp, lineHeight = 16.sp
                                     )
                                 } else {
                                     Text("النموذج المحايد لا يملك مستهدفًا اتجاهيًا قبل تأكيد الاختراق.", color = Amber, fontSize = 10.sp)
