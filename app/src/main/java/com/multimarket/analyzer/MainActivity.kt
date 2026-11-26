@@ -1532,7 +1532,7 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
             }
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                 Text("مستهدف النجاح: ${money(pattern.targetSuccess)}",color=Green,fontSize=10.sp,fontWeight=FontWeight.Bold)
-                Text("مستهدف الفشل: ${money(pattern.targetFailure)}",color=Red,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                Text("مستوى إلغاء النموذج: ${money(pattern.targetFailure)}",color=Red,fontSize=10.sp,fontWeight=FontWeight.Bold)
             }
         }
     }
