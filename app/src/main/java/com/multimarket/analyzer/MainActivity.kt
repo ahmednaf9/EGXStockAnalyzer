@@ -277,6 +277,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var classicFilter by remember { mutableStateOf("الكل") }
     var historicalClassicPatterns by remember { mutableStateOf(emptyList<HistoricalClassicPattern>()) }
     var historicalPatternsLoading by remember { mutableStateOf(false) }
+    var historicalVisibleCount by remember { mutableStateOf(30) }
     val context = androidx.compose.ui.platform.LocalContext.current
     val scope = rememberCoroutineScope()
     var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
@@ -1072,6 +1073,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 val detectedClassicPatterns = remember(reportCandles) { ClassicPatternScanner.scan(reportCandles) }
                 LaunchedEffect(reportCandles) {
                     historicalPatternsLoading = true
+                    historicalVisibleCount = 30
                     historicalClassicPatterns = withContext(Dispatchers.Default) {
                         HistoricalClassicPatternScanner.scan(reportCandles)
                     }
@@ -1196,7 +1198,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             Spacer(Modifier.height(8.dp))
                             HistoricalPatternTimelineChart(reportCandles, historicalClassicPatterns)
                             Spacer(Modifier.height(8.dp))
-                            historicalClassicPatterns.asReversed().forEachIndexed { index, pattern ->
+                            historicalClassicPatterns.asReversed().take(historicalVisibleCount).forEachIndexed { index, pattern ->
                                 if (index > 0) {
                                     Spacer(Modifier.height(8.dp))
                                     Divider(color = Page)
@@ -1216,6 +1218,17 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                     Text("الحالة: " + pattern.status, color = statusColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                                     pattern.outcomeDate?.let { Text("  •  تاريخ النتيجة: " + it, color = Muted, fontSize = 10.sp) }
                                 }
+                            }
+                            if (historicalVisibleCount < historicalClassicPatterns.size) {
+                                Spacer(Modifier.height(10.dp))
+                                Button(
+                                    onClick = { historicalVisibleCount = (historicalVisibleCount + 30).coerceAtMost(historicalClassicPatterns.size) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = ButtonDefaults.buttonColors(containerColor = Navy)
+                                ) {
+                                    Text("عرض ${minOf(30, historicalClassicPatterns.size - historicalVisibleCount)} إشارة إضافية")
+                                }
+                                Text("المعروض ${minOf(historicalVisibleCount, historicalClassicPatterns.size)} من إجمالي ${historicalClassicPatterns.size} إشارة", color = Muted, fontSize = 10.sp)
                             }
                         }
                         Spacer(Modifier.height(6.dp))
