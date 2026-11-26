@@ -191,7 +191,7 @@ object ClassicPatternScanner {
             val handleNotRisingSharply = handle.last().close <= handle.first().close * 1.04
             if (rimsBalanced && cupDepthValid && bottomIsCentral && roundedShape &&
                 handleInUpperHalf && handleCompact && handleNotRisingSharply) {
-                out += candidate("الكوب والعروة", "صاعد", rim, rim + depth, handleLow, last,
+                out += candidate("الكوب والعروة", "صاعد", rim, rim + depth, rim - depth, last,
                     "يتخذ السعر شكل كوب ذي قاع مستدير وحافتين متقاربتين، ثم يتراجع قليلًا مكوّنًا عروة صغيرة. يتأكد النموذج باختراق حافة الكوب لأعلى.")
             }
         }
@@ -223,12 +223,12 @@ object ClassicPatternScanner {
                 if (converging && enoughSwingSpacing && risingWedge) {
                     val trigger = lowEnd
                     val height = initialWidth.coerceAtLeast(last * 0.03)
-                    out += candidate("الوتد الصاعد", "هابط", trigger, trigger - height, highEnd, last,
+                    out += candidate("الوتد الصاعد", "هابط", trigger, trigger - height, highEnd + height, last,
                         "يتحرك السعر صعودًا داخل نطاق يضيق تدريجيًا، ويكون الحد السفلي أكثر ميلًا من العلوي. كسر الحد السفلي يؤكد الإشارة الهابطة.")
                 } else if (converging && enoughSwingSpacing && fallingWedge) {
                     val trigger = highEnd
                     val height = initialWidth.coerceAtLeast(last * 0.03)
-                    out += candidate("الوتد الهابط", "صاعد", trigger, trigger + height, lowEnd, last,
+                    out += candidate("الوتد الهابط", "صاعد", trigger, trigger + height, lowEnd - height, last,
                         "يتحرك السعر هبوطًا داخل نطاق يضيق تدريجيًا حتى تتقارب حدوده. اختراق الحد العلوي يؤكد الإشارة الصاعدة.")
                 }
             }
@@ -392,10 +392,10 @@ object ClassicPatternScanner {
                     (upperSlope + lowerSlope) / 2.0 < 0.0
                 val channelValid = parallelBoundaries && stableWidth && enoughSpan
                 if (channelValid && risingChannel) {
-                    out += candidate("القناة الصاعدة","صاعد",upper2,upper2+averageWidth,lower2,last,
+                    out += candidate("القناة الصاعدة","صاعد",upper2,upper2+averageWidth,lower2-averageWidth,last,
                         "قمم وقيعان محورية تصعد بميول متقاربة وتحافظ على عرض القناة؛ تجاوز الحد العلوي هو مستوى التفعيل المرجعي.")
                 } else if (channelValid && fallingChannel) {
-                    out += candidate("القناة الهابطة","هابط",lower2,lower2-averageWidth,upper2,last,
+                    out += candidate("القناة الهابطة","هابط",lower2,lower2-averageWidth,upper2+averageWidth,last,
                         "قمم وقيعان محورية تهبط بميول متقاربة وتحافظ على عرض القناة؛ كسر الحد السفلي هو مستوى التفعيل المرجعي.")
                 }
             }
@@ -498,7 +498,7 @@ object ClassicPatternScanner {
             val recovery = sectionAvg[4] >= sectionAvg[0] * 0.88 &&
                 base.takeLast(8).last().close > base.takeLast(8).first().close
             if (rimsBalanced && bottomCentral && depthValid && bowlCurve && recovery) {
-                out += candidate("القاع المستدير (قاعدة صحن)", "صاعد", rim, rim + depth, bottom, last,
+                out += candidate("القاع المستدير (قاعدة صحن)", "صاعد", rim, rim + depth, rim - depth, last,
                     "يتكوّن قاع مستدير تدريجيًا، ثم يتعافى السعر حتى يقترب من مستوى بداية الهبوط. اختراق هذه الحافة يؤكد النموذج.")
             }
 
@@ -520,7 +520,7 @@ object ClassicPatternScanner {
             val weakening = sectionAvg[4] <= sectionAvg[0] * 1.12 &&
                 base.takeLast(8).last().close < base.takeLast(8).first().close
             if (ceilingsBalanced && topCentral && heightValid && domeCurve && weakening) {
-                out += candidate("القمة المستديرة", "هابط", ceiling, ceiling - topHeight, top, last,
+                out += candidate("القمة المستديرة", "هابط", ceiling, ceiling - topHeight, ceiling + topHeight, last,
                     "تتكوّن قمة مستديرة تدريجيًا، ثم يبدأ السعر في التراجع نحو مستوى الدعم. كسر هذا الدعم يؤكد النموذج.")
             }
         }
@@ -1021,7 +1021,7 @@ object ClassicPatternScanner {
             val handleNotFallingSharply = handle.last().close >= handle.first().close * 0.96
             if (supportsBalanced && cupDepthValid && topIsCentral && roundedShape &&
                 handleInLowerHalf && handleCompact && handleNotFallingSharply) {
-                out += candidate("الكوب والعروة المقلوب", "هابط", support, support - depth, handleHigh, last,
+                out += candidate("الكوب والعروة المقلوب", "هابط", support, support - depth, support + depth, last,
                     "قمة مقوسة عريضة بقاعين جانبيين متقاربين، تعقبها عروة ارتدادية ضحلة في النصف السفلي؛ التأكيد بكسر دعم حافتي النموذج.")
             }
         }
