@@ -1539,6 +1539,65 @@ private fun ClassicPatternChart(data: List<Candle>, pattern: ClassicPatternResul
 }
 
 @Composable
+private fun HistoricalPatternTimelineChart(
+    data: List<Candle>,
+    patterns: List<HistoricalClassicPattern>
+) {
+    if (data.size < 2) return
+    val low = data.minOf { it.low }
+    val high = data.maxOf { it.high }
+    val range = (high - low).coerceAtLeast(0.000001)
+    val step = kotlin.math.ceil(data.size / 260f).toInt().coerceAtLeast(1)
+    Card(colors = CardDefaults.cardColors(containerColor = Color(0xFFFBFDFC)), shape = RoundedCornerShape(12.dp)) {
+        Column(Modifier.fillMaxWidth().padding(8.dp)) {
+            Text("الشارت التاريخي الكامل ومواقع رصد النماذج", color = Navy, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            Canvas(Modifier.fillMaxWidth().height(220.dp)) {
+                val left = 5f
+                val right = size.width - 5f
+                val top = 8f
+                val bottom = size.height - 8f
+                val plotHeight = bottom - top
+                val dx = (right - left) / data.size
+                val bodyWidth = (dx * step * 0.55f).coerceIn(1f, 5f)
+                fun x(index: Int) = left + (index + 0.5f) * dx
+                fun y(price: Double) = bottom - ((price - low) / range).toFloat() * plotHeight
+
+                var i = 0
+                while (i < data.size) {
+                    val candle = data[i]
+                    val xx = x(i)
+                    val color = if (candle.close >= candle.open) Green else Red
+                    drawLine(color, Offset(xx, y(candle.high)), Offset(xx, y(candle.low)), strokeWidth = 1f)
+                    drawRect(
+                        color,
+                        Offset(xx - bodyWidth / 2f, minOf(y(candle.open), y(candle.close))),
+                        androidx.compose.ui.geometry.Size(bodyWidth, (abs(y(candle.open) - y(candle.close))).coerceAtLeast(1.5f))
+                    )
+                    i += step
+                }
+                patterns.forEach { pattern ->
+                    val index = pattern.detectionIndex.coerceIn(0, data.lastIndex)
+                    val candle = data[index]
+                    val xx = x(index)
+                    val markerColor = if (pattern.bias == "صاعد") Green else Red
+                    drawLine(markerColor.copy(alpha = 0.55f), Offset(xx, top), Offset(xx, bottom), strokeWidth = 1f)
+                    drawCircle(markerColor, radius = 3.2f, center = Offset(xx, y(candle.close)))
+                }
+            }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(data.first().date, color = Muted, fontSize = 9.sp)
+                Text(data.size.toString() + " جلسة", color = Muted, fontSize = 9.sp)
+                Text(data.last().date, color = Muted, fontSize = 9.sp)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("● رصد نموذج صاعد", color = Green, fontSize = 9.sp)
+                Text("● رصد نموذج هابط", color = Red, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+@Composable
 private fun PatternPriceChart(data: List<Candle>, pattern: CandlestickPattern) {
     if (data.isEmpty()) return
     val levels = buildList {
