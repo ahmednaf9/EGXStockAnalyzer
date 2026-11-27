@@ -79,10 +79,17 @@ object MetaStockImporter {
             ?: error("رمز السهم ${requestedSymbol.trim()} غير موجود في فهرس MetaStock لهذا المجلد. اختر سهمًا من القائمة.")
         // XMASTER stores the MWD file number as a 16-bit value. Accommodate both
         // byte orders, but only accept a candidate whose actual file exists in this folder.
-        val selectedRecord = entries.first { it.symbol.equals(requestedSymbol.trim(), true) }
-        val rawIndex = bytes.copyOfRange(recordSize, recordSize + recordSize)
-        val bigEndianNumber = ((rawIndex[65].toInt() and 0xFF) shl 8) or (rawIndex[66].toInt() and 0xFF)
-        val littleEndianNumber = ((rawIndex[66].toInt() and 0xFF) shl 8) or (rawIndex[65].toInt() and 0xFF)
+        val selectedRecordBytes = if (indexName == "XMASTER") {
+            (recordSize until bytes.size step recordSize)
+                .map { bytes.copyOfRange(it, it + recordSize) }
+                .firstOrNull { ascii(it, 1, 15).equals(selected.symbol, true) }
+        } else null
+        val bigEndianNumber = selectedRecordBytes?.let {
+            ((it[65].toInt() and 0xFF) shl 8) or (it[66].toInt() and 0xFF)
+        } ?: selected.fileNum
+        val littleEndianNumber = selectedRecordBytes?.let {
+            ((it[66].toInt() and 0xFF) shl 8) or (it[65].toInt() and 0xFF)
+        } ?: selected.fileNum
         val candidateNumbers = listOf(selected.fileNum, bigEndianNumber, littleEndianNumber).distinct()
         val matchedFile = candidateNumbers.firstNotNullOfOrNull { number ->
             val fileName = "F$number.${selected.dataExtension}"
