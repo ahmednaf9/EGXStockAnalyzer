@@ -271,7 +271,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var result by remember { mutableStateOf<Analysis?>(null) }
     var isLoading by remember { mutableStateOf(false) }
     var period by remember { mutableStateOf("يومي") }
-    var indexedSymbols by remember { mutableStateOf(emptyList<String>()) }
+    var indexedStocks by remember { mutableStateOf(emptyList<MetaStockImporter.StockEntry>()) }
+    var stockName by remember { mutableStateOf("") }
     var indexSearch by remember { mutableStateOf("") }
     var indexExpanded by remember { mutableStateOf(false) }
     var classicFilter by remember { mutableStateOf("الكل") }
@@ -280,18 +281,18 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
     var metastockTree by remember { mutableStateOf(context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).getString("treeUri", null)) }
     LaunchedEffect(metastockTree) {
         val savedTree = metastockTree
-        if (savedTree != null && indexedSymbols.isEmpty()) {
+        if (savedTree != null && indexedStocks.isEmpty()) {
             scope.launch {
                 try {
                     val loaded = withContext(Dispatchers.IO) {
                         MetaStockImporter.importFolder(context.contentResolver, Uri.parse(savedTree), "")
                     }
-                    indexedSymbols = loaded.indexedSymbols
+                    indexedStocks = loaded.indexedStocks
                     message = loaded.note
                 } catch (e: SecurityException) {
                     context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().remove("treeUri").apply()
                     metastockTree = null
-                    indexedSymbols = emptyList()
+                    indexedStocks = emptyList()
                     message = "انتهت صلاحية الوصول إلى مجلد MetaStock. اختر المجلد مرة أخرى من زر تحميل مجلد الميتاستوك."
                 } catch (e: Exception) {
                     message = "تعذرت قراءة قائمة الأسهم المحفوظة. اختر مجلد MetaStock مرة أخرى وتأكد من احتوائه على ملفات الفهرس."
@@ -312,7 +313,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                         val loaded = withContext(Dispatchers.IO) {
                             MetaStockImporter.importFolder(context.contentResolver, tree, symbol)
                         }
-                        indexedSymbols = loaded.indexedSymbols
+                        indexedStocks = loaded.indexedStocks
                         message = loaded.note
                         if (loaded.candles.isNotEmpty()) {
                             val prepared = withContext(Dispatchers.Default) {
@@ -322,6 +323,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             }
                             candles = loaded.candles
                             symbol = loaded.symbol
+                            stockName = loaded.name
                             period = prepared.first
                             result = prepared.third
                             if (prepared.second.size < 35) message = "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط. يلزم 35 جلسة على الأقل لبدء التحليل؛ جرّب اختيار سهم أو فترة تتوفر لها بيانات تاريخية أكثر."
@@ -329,7 +331,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     } catch (e: SecurityException) {
                         context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().remove("treeUri").apply()
                         metastockTree = null
-                        indexedSymbols = emptyList()
+                        indexedStocks = emptyList()
                         message = "لا توجد صلاحية للوصول إلى هذا المجلد. اختر مجلد MetaStock مرة أخرى."
                         result = null
                         candles = emptyList()
@@ -474,13 +476,14 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                         }
                                         candles = loaded.candles
                                         symbol = loaded.symbol.ifBlank { code }
+                                        stockName = loaded.name
                                         period = prep.first
                                         result = prep.third
                                         message = if (prep.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط؛ يلزم 35 جلسة على الأقل لبدء التحليل. تحقق من نطاق البيانات التاريخية للسهم." else loaded.note
                                     } catch (e: SecurityException) {
                                         context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE).edit().remove("treeUri").apply()
                                         metastockTree = null
-                                        indexedSymbols = emptyList()
+                                        indexedStocks = emptyList()
                                         message = "انتهت صلاحية الوصول إلى مجلد MetaStock. اختر المجلد مرة أخرى."
                                         candles = emptyList()
                                         result = null
@@ -537,7 +540,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             context.getSharedPreferences("metastock", android.content.Context.MODE_PRIVATE)
                                 .edit().remove("treeUri").apply()
                             metastockTree = null
-                            indexedSymbols = emptyList()
+                            indexedStocks = emptyList()
                             indexSearch = ""
                             indexExpanded = false
                             symbol = ""
@@ -590,7 +593,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text("قائمة الأسهم المتاحة في MetaStock", color = Navy, fontSize = 16.sp, fontWeight = FontWeight.Bold)
-                            Text(if (indexedSymbols.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedSymbols.size} رمز سهم موجود في المجلد ويمكن البحث عنه وتحميل بياناته", color = Muted, fontSize = 12.sp)
+                            Text(if (indexedStocks.isEmpty()) "حمّل مجلد الميتاستوك من الزر أعلاه أولاً." else "${indexedStocks.size} سهم موجود في المجلد ويمكن البحث باسمه أو رمزه وتحميل بياناته", color = Muted, fontSize = 12.sp)
                         }
                         Button(
                             onClick = { indexExpanded = !indexExpanded },
@@ -611,28 +614,28 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                             )
                         }
                     }
-                    if (indexExpanded && indexedSymbols.isNotEmpty()) {
-                        BasicTextField(value = indexSearch, onValueChange = { indexSearch = it.uppercase(Locale.ROOT) },
+                    if (indexExpanded && indexedStocks.isNotEmpty()) {
+                        BasicTextField(value = indexSearch, onValueChange = { indexSearch = it },
                             modifier = Modifier.fillMaxWidth().background(Page, RoundedCornerShape(10.dp)).padding(12.dp), singleLine = true,
                             textStyle = androidx.compose.ui.text.TextStyle(color = Navy, fontSize = 14.sp),
                             decorationBox = { inner -> Box { if (indexSearch.isBlank()) Text("ابحث برمز السهم أو اسم الشركة", color = Muted); inner() } })
                         Spacer(Modifier.height(8.dp))
-                        val filteredSymbols = indexedSymbols.filter { ticker ->
-                            ticker.contains(indexSearch.trim(), ignoreCase = true)
+                        val filteredStocks = indexedStocks.filter { stock ->
+                            stock.symbol.contains(indexSearch.trim(), ignoreCase = true) || stock.name.contains(indexSearch.trim(), ignoreCase = true)
                         }
                         Column(Modifier.fillMaxWidth().heightIn(max = 320.dp).verticalScroll(rememberScrollState())) {
-                            filteredSymbols.forEach { ticker ->
+                            filteredStocks.forEach { stock ->
                                 TextButton(onClick = {
                                     val uriString = metastockTree
                                     if (uriString != null) {
-                                        indexSearch = ticker
-                                        message = "جارٍ تحميل بيانات $ticker..."
+                                        indexSearch = stock.symbol
+                                        message = "جارٍ تحميل بيانات ${stock.name.ifBlank { stock.symbol }}..."
                                         result = null
                                         scope.launch {
                                             try {
                                                 val treeUri = Uri.parse(uriString)
                                                 val loaded = withContext(Dispatchers.IO) {
-                                                    MetaStockImporter.importFolder(context.contentResolver, treeUri, ticker)
+                                                    MetaStockImporter.importFolder(context.contentResolver, treeUri, stock.symbol)
                                                 }
                                                 val analysisData = withContext(Dispatchers.Default) {
                                                     val detected = detectDataPeriod(loaded.candles)
@@ -642,23 +645,24 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                                 }
                                                 candles = loaded.candles
                                                 symbol = loaded.symbol
+                                                stockName = loaded.name
                                                 period = analysisData.first
                                                 result = analysisData.third
                                                 message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط؛ يلزم 35 جلسة على الأقل لبدء التحليل. تحقق من نطاق البيانات التاريخية للسهم." else loaded.note
                                             } catch (e: Exception) {
-                                                message = "تعذر تحميل $ticker: ${e.message ?: "خطأ"}"
+                                                message = "تعذر تحميل ${stock.name.ifBlank { stock.symbol }}: ${e.message ?: "خطأ"}"
                                             }
                                         }
                                     } else message = "اختر مجلد بيانات MetaStock أولاً."
                                 }, modifier = Modifier.fillMaxWidth()) {
                         Column(horizontalAlignment = Alignment.Start) {
-                                        Text(ticker, color = Green, fontWeight = FontWeight.Bold)
-                                        Text("رمز السهم", color = Muted, fontSize = 12.sp)
+                                        Text(stock.name.ifBlank { stock.symbol }, color = Green, fontWeight = FontWeight.Bold)
+                                        Text("رمز السهم: ${stock.symbol}", color = Muted, fontSize = 12.sp)
                                     }
                                 }
                                 Divider(color = Page)
                             }
-                            if (filteredSymbols.isEmpty()) Text("لا توجد رموز مطابقة.", color = Muted, fontSize = 12.sp)
+                            if (filteredStocks.isEmpty()) Text("لا توجد أسهم مطابقة.", color = Muted, fontSize = 12.sp)
                         }
                     }
                 }
@@ -688,7 +692,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                 Spacer(Modifier.height(4.dp))
                 Text("التحليل مبني على البيانات التاريخية المستوردة، وهو أداة مساعدة وليس توصية شراء أو بيع.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
             } else {
-                Text("تحليل ${symbol.ifBlank { "السهم المستورد" }}", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                Text("تحليل ${stockName.ifBlank { symbol.ifBlank { "السهم المستورد" } }}", color = Navy, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                 Text("آخر جلسة: ${a.last.date}", color = Muted, fontSize = 11.sp)
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                     listOf("يومي","أسبوعي","شهري").forEach { p ->
