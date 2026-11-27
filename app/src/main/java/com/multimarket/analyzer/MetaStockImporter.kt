@@ -26,11 +26,12 @@ object MetaStockImporter {
             }
         }
 
+        // XMASTER is the extended index and must take precedence when present.
         val indexName = when {
-            children.containsKey("EMASTER") -> "EMASTER"
             children.containsKey("XMASTER") -> "XMASTER"
+            children.containsKey("EMASTER") -> "EMASTER"
             children.containsKey("MASTER") -> "MASTER"
-            else -> error("لم يتم العثور على ملف فهرس الأسهم داخل المجلد. اختر المجلد الرئيسي الذي يحتوي على أحد الملفات: EMASTER أو XMASTER أو MASTER.")
+            else -> error("لم يتم العثور على ملف فهرس الأسهم داخل المجلد. اختر المجلد الرئيسي الذي يحتوي على أحد الملفات: XMASTER أو EMASTER أو MASTER.")
         }
         val bytes = resolver.openInputStream(children[indexName]!!)?.use { it.readBytes() }
             ?: error("تعذرت قراءة ملف قائمة الأسهم")
