@@ -40,8 +40,16 @@ object MetaStockImporter {
             error("ملف فهرس الأسهم موجود، لكن حجمه لا يتوافق مع صيغة $indexName المتوقعة. تحقق من اكتمال نسخ ملفات المجلد.")
         }
 
-        fun ascii(record: ByteArray, offset: Int, length: Int): String =
-            record.copyOfRange(offset, offset + length).toString(Charsets.US_ASCII).substringBefore('\u0000').trim()
+        fun ascii(record: ByteArray, offset: Int, length: Int): String {
+            val raw = record.copyOfRange(offset, offset + length).takeWhile { it.toInt() != 0 }.toByteArray()
+            if (raw.isEmpty()) return ""
+            // MetaStock indexes are usually ASCII; some regional datasets store display names
+            // using the Windows Arabic code page. Preserve normal ASCII names unchanged.
+            val charset = if (raw.any { (it.toInt() and 0xFF) >= 0x80 })
+                runCatching { java.nio.charset.Charset.forName("windows-1256") }.getOrDefault(Charsets.ISO_8859_1)
+            else Charsets.US_ASCII
+            return raw.toString(charset).trim()
+        }
 
         val entries = mutableListOf<StockEntry>()
         for (off in recordSize until bytes.size step recordSize) {
@@ -69,9 +77,19 @@ object MetaStockImporter {
 
         val selected = entries.firstOrNull { it.symbol.equals(requestedSymbol.trim(), true) }
             ?: error("رمز السهم ${requestedSymbol.trim()} غير موجود في فهرس MetaStock لهذا المجلد. اختر سهمًا من القائمة.")
-        val dataFileName = "F${selected.fileNum}.${selected.dataExtension}"
-        val dataUri = children[dataFileName.uppercase(Locale.ROOT)]
-            ?: error("لم يتم العثور على ملف الأسعار الخاص بالسهم ${selected.symbol} ($dataFileName). تأكد من وجود ملفات السهم في المجلد نفسه.")
+        // XMASTER stores the MWD file number as a 16-bit value. Accommodate both
+        // byte orders, but only accept a candidate whose actual file exists in this folder.
+        val selectedRecord = entries.first { it.symbol.equals(requestedSymbol.trim(), true) }
+        val rawIndex = bytes.copyOfRange(recordSize, recordSize + recordSize)
+        val bigEndianNumber = ((rawIndex[65].toInt() and 0xFF) shl 8) or (rawIndex[66].toInt() and 0xFF)
+        val littleEndianNumber = ((rawIndex[66].toInt() and 0xFF) shl 8) or (rawIndex[65].toInt() and 0xFF)
+        val candidateNumbers = listOf(selected.fileNum, bigEndianNumber, littleEndianNumber).distinct()
+        val matchedFile = candidateNumbers.firstNotNullOfOrNull { number ->
+            val fileName = "F$number.${selected.dataExtension}"
+            children[fileName.uppercase(Locale.ROOT)]?.let { uri -> fileName to uri }
+        } ?: error("لم يتم العثور على ملف الأسعار للسهم ${selected.symbol}. تم البحث عن الملفات: ${candidateNumbers.joinToString { "F$it.${selected.dataExtension}" }}. تأكد أن ملفات MWD موجودة بجوار XMASTER داخل المجلد المختار.")
+        val dataFileName = matchedFile.first
+        val dataUri = matchedFile.second
         val data = resolver.openInputStream(dataUri)?.use { it.readBytes() } ?: error("تعذر قراءة ملف الأسعار")
         val recordBytes = selected.fields * 4
         if (data.size < recordBytes || data.size % recordBytes != 0) {
