@@ -367,6 +367,7 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                     }
                     candles = loaded.candles
                     symbol = loaded.symbol
+                    stockName = ""
                     period = prepared.first
                     result = prepared.third
                     message = if (prepared.second.size < 35) {
