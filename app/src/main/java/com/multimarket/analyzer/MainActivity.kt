@@ -489,7 +489,8 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                         candles = emptyList()
                                         result = null
                                     } catch (e: Exception) {
-                                        message = "تعذر تحميل بيانات السهم من MetaStock. تحقق من ملفات السهم داخل المجلد ثم حاول مرة أخرى."
+                                        val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                                        message = "فشل تحميل السهم من MetaStock. التفاصيل: $detail"
                                         candles = emptyList()
                                         result = null
                                     }
