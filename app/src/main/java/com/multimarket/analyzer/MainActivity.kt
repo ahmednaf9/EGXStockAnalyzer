@@ -651,7 +651,10 @@ fun AnalyzerScreen(importFile: (Uri) -> ImportedStockFile) {
                                                 result = analysisData.third
                                                 message = if (analysisData.second < 35) "تم تحميل ${loaded.candles.size} جلسة تداول صالحة فقط؛ يلزم 35 جلسة على الأقل لبدء التحليل. تحقق من نطاق البيانات التاريخية للسهم." else loaded.note
                                             } catch (e: Exception) {
-                                                message = "تعذر تحميل ${stock.name.ifBlank { stock.symbol }}: ${e.message ?: "خطأ"}"
+                                                val detail = e.message?.takeIf { it.isNotBlank() } ?: e.javaClass.simpleName
+                                                message = "تعذر تحميل ${stock.name.ifBlank { stock.symbol }} (${stock.symbol}). سبب الخطأ: $detail"
+                                                candles = emptyList()
+                                                result = null
                                             }
                                         }
                                     } else message = "اختر مجلد بيانات MetaStock أولاً."
