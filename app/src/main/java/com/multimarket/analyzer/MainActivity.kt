@@ -1418,6 +1418,7 @@ private fun classicPatternBilingualName(name: String): String {
         "Bump-and-Run (انعكاس هابط)" to "Bump-and-Run Reversal",
         "الوتد المتسع الصاعد (Broadening Wedge)" to "Rising Broadening Wedge",
         "الوتد المتسع الهابط (Broadening Wedge)" to "Falling Broadening Wedge",
+        "موجات وولف (Wolfe Waves)" to "Wolfe Waves",
         "الابتلاع الشرائي (Bullish Engulfing)" to "Bullish Engulfing",
         "الابتلاع البيعي (Bearish Engulfing)" to "Bearish Engulfing",
         "خط الاختراق الشرائي (Piercing Line)" to "Piercing Line",
