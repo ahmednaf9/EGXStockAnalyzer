@@ -66,6 +66,83 @@ object ClassicPatternScanner {
         val highs = alternating.filter { it.second }.takeLast(7).map { data[it.first].high }
         val lows = alternating.filter { !it.second }.takeLast(7).map { data[it.first].low }
 
+        // Wolfe Waves: scan five consecutive alternating pivots using Bill Wolfe's
+        // point structure. The EPA target is the 1-4 line evaluated at the
+        // forward intersection (ETA) of the 1-3 and 2-4 boundary lines.
+        if (alternating.size >= 5) {
+            fun lineValue(x1: Int, y1: Double, x2: Int, y2: Double, x: Double): Double {
+                val dx = (x2 - x1).toDouble()
+                if (dx == 0.0) return Double.NaN
+                val slope = (y2 - y1) / dx
+                return y1 + slope * (x - x1)
+            }
+            fun wolfeCandidate(points: List<Pair<Int, Boolean>>, bullish: Boolean) {
+                val (i1, _) = points[0]
+                val (i2, _) = points[1]
+                val (i3, _) = points[2]
+                val (i4, _) = points[3]
+                val (i5, _) = points[4]
+                val p1 = if (bullish) data[i1].low else data[i1].high
+                val p2 = if (bullish) data[i2].high else data[i2].low
+                val p3 = if (bullish) data[i3].low else data[i3].high
+                val p4 = if (bullish) data[i4].high else data[i4].low
+                val p5 = if (bullish) data[i5].low else data[i5].high
+
+                val structureValid = if (bullish) {
+                    p2 > p1 && p3 < p1 && p4 > p3 && p4 < p2 && p4 > p1
+                } else {
+                    p2 < p1 && p3 > p1 && p4 < p3 && p4 > p2 && p4 < p1
+                }
+                if (!structureValid) return
+
+                val line13At5 = lineValue(i1, p1, i3, p3, i5.toDouble())
+                val line24At5 = lineValue(i2, p2, i4, p4, i5.toDouble())
+                if (!line13At5.isFinite() || !line24At5.isFinite() || line13At5 <= 0.0) return
+
+                // Point 5 must test/overshoot the 1-3 boundary without being
+                // an arbitrarily distant swing; this filters loose visual matches.
+                val overshootPct = if (bullish)
+                    (line13At5 - p5) / line13At5 * 100.0
+                else
+                    (p5 - line13At5) / line13At5 * 100.0
+                if (overshootPct !in -1.5..8.0) return
+
+                val slope13 = (p3 - p1) / (i3 - i1).toDouble()
+                val slope24 = (p4 - p2) / (i4 - i2).toDouble()
+                val denominator = slope13 - slope24
+                if (abs(denominator) < 0.0000001) return
+                val intercept13 = p1 - slope13 * i1
+                val intercept24 = p2 - slope24 * i2
+                val etaX = (intercept24 - intercept13) / denominator
+                if (!etaX.isFinite() || etaX <= i5.toDouble() || etaX > data.size + 500.0) return
+
+                val epa = lineValue(i1, p1, i4, p4, etaX)
+                if (!epa.isFinite() || epa <= 0.0) return
+                if ((bullish && epa <= last) || (!bullish && epa >= last)) return
+
+                val trigger = line13At5
+                val failure = if (bullish) p5 * 0.99 else p5 * 1.01
+                val direction = if (bullish) "صاعد" else "هابط"
+                val description = if (bullish) {
+                    "موجة وولف صاعدة من خمس نقاط: النقطة 3 أسفل 1، والنقطة 4 أعلى 1 وداخل بنية النموذج، ثم تختبر النقطة 5 خط 1–3. الهدف النظري هو خط EPA الواصل بين 1 و4 عند زمن تقاطع خطي 1–3 و2–4. يُلغى السيناريو بتجاوز قاع النقطة 5."
+                } else {
+                    "موجة وولف هابطة من خمس نقاط: النقطة 3 أعلى 1، والنقطة 4 أسفل 1 وداخل بنية النموذج، ثم تختبر النقطة 5 خط 1–3. الهدف النظري هو خط EPA الواصل بين 1 و4 عند زمن تقاطع خطي 1–3 و2–4. يُلغى السيناريو بتجاوز قمة النقطة 5."
+                }
+                out += candidate("موجات وولف (Wolfe Waves)", direction, trigger,
+                    epa, failure, last, description)
+            }
+
+            for (start in 0..(alternating.size - 5)) {
+                val points = alternating.subList(start, start + 5)
+                val types = points.map { it.second }
+                if (types == listOf(false, true, false, true, false)) {
+                    wolfeCandidate(points, true)
+                } else if (types == listOf(true, false, true, false, true)) {
+                    wolfeCandidate(points, false)
+                }
+            }
+        }
+
         // Reversal formations are evaluated from consecutive chronological pivots.
         // This prevents unrelated highs/lows from being paired across different swings.
         val recent3 = alternating.takeLast(3)
